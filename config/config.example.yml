@@ -1,0 +1,9 @@
+environment: "debug"
+db:
+  driver: "mysql"
+  connection: "user:mypass@(127.0.0.1:3306)/mydb"
+log:
+  level: "debug"
+http:
+  host: "0.0.0.0"
+  port: "8080"
