@@ -22,4 +22,8 @@ type AppConfig struct {
 		Host string `mapstructure:"host"`
 		Port string `mapstructure:"port"`
 	} `mapstructure:"http"`
+
+	DataDir struct {
+		InferenceTasks string `mapstructure:"inference_tasks"`
+	} `mapstructure:"data_dir"`
 }

@@ -1,6 +1,9 @@
 package models
 
-import "gorm.io/gorm"
+import (
+	"gorm.io/gorm"
+	"strconv"
+)
 
 type InferenceTask struct {
 	gorm.Model
@@ -8,4 +11,8 @@ type InferenceTask struct {
 	Creator       string `form:"creator" json:"creator" description:"Creator address"`
 	TaskParams    string `form:"task_params" json:"task_params" description:"The detailed task params"`
 	SelectedNodes string `form:"selected_nodes" json:"selected_nodes" description:"The selected nodes"`
+}
+
+func (it *InferenceTask) GetTaskIdAsString() string {
+	return strconv.FormatInt(it.TaskId, 10)
 }
