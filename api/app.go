@@ -6,12 +6,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/loopfz/gadgeto/tonic"
 	log "github.com/sirupsen/logrus"
+	"github.com/toorop/gin-logrus"
 	"github.com/wI2L/fizz"
 	"github.com/wI2L/fizz/openapi"
 	"h_relay/api/v1"
 	responseV1 "h_relay/api/v1/response"
 	"h_relay/config"
-	"os"
 	"reflect"
 	"regexp"
 	"strings"
@@ -23,8 +23,7 @@ func GetHttpApplication(appConfig *config.AppConfig) *gin.Engine {
 
 	engine := gin.New()
 	engine.Use(cors.Default())
-	engine.Use(gin.LoggerWithWriter(os.Stdout))
-	engine.Use(gin.RecoveryWithWriter(os.Stdout))
+	engine.Use(ginlogrus.Logger(log.StandardLogger()), gin.Recovery())
 	engine.Use(APIVersion())
 
 	// Serve static files under static folder

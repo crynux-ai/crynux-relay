@@ -1,108 +1,107 @@
 package inference_tasks
 
 import (
-	"encoding/json"
-	"errors"
-	"github.com/gin-gonic/gin"
-	"gorm.io/gorm"
-	"h_relay/api/v1/response"
-	"h_relay/config"
-	"h_relay/models"
-	"os"
-	"path/filepath"
-	"strconv"
+    "encoding/json"
+    "errors"
+    "github.com/gin-gonic/gin"
+    "gorm.io/gorm"
+    "h_relay/api/v1/response"
+    "h_relay/config"
+    "h_relay/models"
+    "os"
+    "path/filepath"
+    "strconv"
 )
 
 type ResultInput struct {
-	TaskId int64 `path:"task_id" json:"task_id" description:"Task id" validate:"required"`
+    TaskId int64 `path:"task_id" json:"task_id" description:"Task id" validate:"required"`
 }
 
 type ResultInputWithSignature struct {
-	ResultInput
-	Signer    string `form:"creator" json:"creator" description:"Creator address" validate:"required"`
-	Timestamp int64  `form:"timestamp" json:"timestamp" description:"Signature timestamp" validate:"required"`
-	Signature string `form:"signature" json:"signature" description:"Signature" validate:"required"`
+    ResultInput
+    Timestamp int64  `form:"timestamp" json:"timestamp" description:"Signature timestamp" validate:"required"`
+    Signature string `form:"signature" json:"signature" description:"Signature" validate:"required"`
 }
 
 func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Response, error) {
 
-	sigStr, err := json.Marshal(in.ResultInput)
+    sigStr, err := json.Marshal(in.ResultInput)
 
-	if err != nil {
-		return nil, response.NewExceptionResponse(err)
-	}
+    if err != nil {
+        return nil, response.NewExceptionResponse(err)
+    }
 
-	match, err := ValidateSignature(in.Signer, sigStr, in.Timestamp, in.Signature)
+    match, address, err := ValidateSignature(sigStr, in.Timestamp, in.Signature)
 
-	if err != nil {
-		return nil, response.NewExceptionResponse(err)
-	}
+    if err != nil {
+        return nil, response.NewExceptionResponse(err)
+    }
 
-	if !match {
-		validationErr := response.NewValidationErrorResponse()
-		validationErr.SetFieldName("signature")
-		validationErr.SetFieldMessage("Invalid signature")
-		return nil, validationErr
-	}
+    if !match {
+        validationErr := response.NewValidationErrorResponse()
+        validationErr.SetFieldName("signature")
+        validationErr.SetFieldMessage("Invalid signature")
+        return nil, validationErr
+    }
 
-	var task models.InferenceTask
+    var task models.InferenceTask
 
-	if result := config.GetDB().Where(&models.InferenceTask{TaskId: in.TaskId}).First(&task); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			validationErr := response.NewValidationErrorResponse()
-			validationErr.SetFieldName("task_id")
-			validationErr.SetFieldMessage("Task not found")
+    if result := config.GetDB().Where(&models.InferenceTask{TaskId: in.TaskId}).First(&task); result.Error != nil {
+        if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+            validationErr := response.NewValidationErrorResponse()
+            validationErr.SetFieldName("task_id")
+            validationErr.SetFieldMessage("Task not found")
 
-			return nil, validationErr
-		} else {
-			return nil, response.NewExceptionResponse(result.Error)
-		}
-	}
+            return nil, validationErr
+        } else {
+            return nil, response.NewExceptionResponse(result.Error)
+        }
+    }
 
-	var selectedNodes []string
+    var selectedNodes []string
 
-	if err = json.Unmarshal([]byte(task.SelectedNodes), &selectedNodes); err != nil {
-		return nil, response.NewExceptionResponse(err)
-	}
+    if err = json.Unmarshal([]byte(task.SelectedNodes), &selectedNodes); err != nil {
+        return nil, response.NewExceptionResponse(err)
+    }
 
-	var selectedNode string
+    var selectedNode string
 
-	for _, nodeAddr := range selectedNodes {
-		if nodeAddr == in.Signer {
-			selectedNode = nodeAddr
-			break
-		}
-	}
+    for _, nodeAddr := range selectedNodes {
+        if nodeAddr == address {
+            selectedNode = nodeAddr
+            break
+        }
+    }
 
-	if selectedNode == "" {
-		validationErr := response.NewValidationErrorResponse()
-		validationErr.SetFieldName("signer")
-		validationErr.SetFieldMessage("Signer not allowed")
+    if selectedNode == "" {
+        validationErr := response.NewValidationErrorResponse()
+        validationErr.SetFieldName("signer")
+        validationErr.SetFieldMessage("Signer not allowed")
 
-		return nil, validationErr
-	}
+        return nil, validationErr
+    }
 
-	form, _ := ctx.MultipartForm()
-	files := form.File["images"]
+    form, _ := ctx.MultipartForm()
+    files := form.File["images"]
 
-	appConfig := config.GetConfig()
+    appConfig := config.GetConfig()
 
-	taskDir := filepath.Join(appConfig.DataDir.InferenceTasks, task.GetTaskIdAsString())
-	if err = os.MkdirAll(taskDir, os.ModeDir); err != nil {
-		return nil, response.NewExceptionResponse(err)
-	}
+    taskDir := filepath.Join(appConfig.DataDir.InferenceTasks, task.GetTaskIdAsString())
+    if err = os.MkdirAll(taskDir, os.ModeDir); err != nil {
+        return nil, response.NewExceptionResponse(err)
+    }
 
-	fileNum := 1
+    fileNum := 1
 
-	for _, file := range files {
+    for _, file := range files {
 
-		filename := filepath.Join(taskDir, strconv.Itoa(fileNum)+".jpg")
-		if err := ctx.SaveUploadedFile(file, filename); err != nil {
-			return nil, response.NewExceptionResponse(err)
-		}
+        filename := filepath.Join(taskDir, strconv.Itoa(fileNum)+".jpg")
+        if err := ctx.SaveUploadedFile(file, filename); err != nil {
+            return nil, response.NewExceptionResponse(err)
+        }
 
-		fileNum += 1
-	}
+        fileNum += 1
+    }
 
-	return &response.Response{}, nil
+    return &response.Response{}, nil
 }

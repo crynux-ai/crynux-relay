@@ -5,6 +5,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"h_relay/api"
 	"h_relay/config"
+	"h_relay/migrate"
 	"os"
 )
 
@@ -19,11 +20,24 @@ func init() {
 	testAppConfig.Db.Driver = "sqlite"
 	testAppConfig.Db.ConnectionString = "/h_relay/data/test_db.sqlite"
 	testAppConfig.Log.Level = logrus.DebugLevel.String()
+	testAppConfig.Log.Output = "stdout"
 	testAppConfig.Http.Host = "127.0.0.1"
 	testAppConfig.Http.Port = "8080"
 
+	if err := config.InitLog(testAppConfig); err != nil {
+		print(err.Error())
+		os.Exit(1)
+	}
+
 	err := config.InitDB(testAppConfig)
 	if err != nil {
+		print(err.Error())
+		os.Exit(1)
+	}
+
+	migrate.InitMigration(config.GetDB())
+
+	if err := migrate.Migrate(); err != nil {
 		print(err.Error())
 		os.Exit(1)
 	}

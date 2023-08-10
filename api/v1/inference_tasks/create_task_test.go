@@ -3,6 +3,7 @@ package inference_tasks_test
 import (
 	"encoding/json"
 	"github.com/magiconair/properties/assert"
+	log "github.com/sirupsen/logrus"
 	"h_relay/api/v1/inference_tasks"
 	"h_relay/tests"
 	v1 "h_relay/tests/api/v1"
@@ -27,70 +28,57 @@ func TestCreateTaskResponse(t *testing.T) {
 	signBytes, err := json.Marshal(taskInput)
 	assert.Equal(t, err, nil, "task input json marshall error")
 
+	// Missing argument
+
 	timestamp, signature, err := v1.SignData(signBytes, privateKeys[0])
 	assert.Equal(t, err, nil, "sign data error")
 
-	r := callApi(
+	r := callCreateTaskApi(
 		task.TaskId,
 		"",
 		task.SelectedNodes,
-		task.Creator,
 		timestamp,
 		signature)
 
 	v1.AssertValidationErrorResponse(t, r, "task_params", "required")
 
+	// Late timestamp
+
 	timestamp = timestamp - 100
 
-	r = callApi(
+	r = callCreateTaskApi(
 		task.TaskId,
 		task.TaskParams,
 		task.SelectedNodes,
-		task.Creator,
 		timestamp,
 		signature)
 
 	v1.AssertValidationErrorResponse(t, r, "signature", "Invalid signature")
 
-	timestamp = timestamp + 100
+	// Successful creation
 
-	r = callApi(
+	log.Debugln("signing using address: " + addresses[0])
+	timestamp, signature, err = v1.SignData(signBytes, privateKeys[0])
+	assert.Equal(t, err, nil, "sign data error")
+
+	r = callCreateTaskApi(
 		task.TaskId,
 		task.TaskParams,
 		task.SelectedNodes,
-		task.Creator,
-		timestamp,
-		signature+"e")
-
-	v1.AssertValidationErrorResponse(t, r, "signature", "Invalid signature")
-
-	r = callApi(
-		task.TaskId,
-		task.TaskParams,
-		task.SelectedNodes,
-		task.Creator,
 		timestamp,
 		signature)
 
-	taskResponse := &inference_tasks.TaskResponse{}
+	v1.AssertTaskResponse(t, r, task)
 
-	err = json.Unmarshal(r.Body.Bytes(), taskResponse)
-	assert.Equal(t, err, nil)
-
-	assert.Equal(t, taskResponse.GetMessage(), "success")
-	assert.Equal(t, taskResponse.Data.TaskId, task.TaskId)
-	assert.Equal(t, taskResponse.Data.TaskParams, task.TaskParams)
-	assert.Equal(t, taskResponse.Data.CreatedAt.IsZero(), false)
-	assert.Equal(t, taskResponse.Data.UpdatedAt.IsZero(), false)
+	t.Cleanup(tests.ClearDB)
 }
 
-func callApi(taskId int64, taskParams string, selectedNodes string, signer string, timestamp int64, signature string) *httptest.ResponseRecorder {
+func callCreateTaskApi(taskId int64, taskParams string, selectedNodes string, timestamp int64, signature string) *httptest.ResponseRecorder {
 
 	data := url.Values{}
 	data.Set("task_id", strconv.FormatInt(taskId, 10))
 	data.Set("task_params", taskParams)
 	data.Set("selected_nodes", selectedNodes)
-	data.Set("signer", signer)
 	data.Set("timestamp", strconv.FormatInt(timestamp, 10))
 	data.Set("signature", signature)
 

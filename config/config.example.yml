@@ -4,6 +4,10 @@ db:
   connection: "user:mypass@(127.0.0.1:3306)/mydb"
 log:
   level: "debug"
+  output: "data/logs"
+  max_file_size: 100
+  max_days: 30
+  max_file_num: 5
 http:
   host: "0.0.0.0"
   port: "8080"

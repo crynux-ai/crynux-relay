@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"github.com/onrik/gorm-logrus"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
@@ -30,13 +31,16 @@ func InitDB(appConfig *AppConfig) error {
 		return errors.New("DB not supported")
 	}
 
-	db, err := gorm.Open(dial, &gorm.Config{})
+	instance, err := gorm.Open(dial, &gorm.Config{
+		Logger: gorm_logrus.New(),
+	})
+
 	if err != nil {
 		log.Error("InitDB Failed:" + err.Error())
 		return err
 	}
 
-	sqlDB, err := db.DB()
+	sqlDB, err := instance.DB()
 
 	if err != nil {
 		log.Error("InitDB Failed:" + err.Error())
@@ -46,6 +50,8 @@ func InitDB(appConfig *AppConfig) error {
 	sqlDB.SetMaxIdleConns(20)
 	sqlDB.SetMaxOpenConns(100)
 	sqlDB.SetConnMaxLifetime(5 * time.Second)
+
+	db = instance
 
 	return nil
 }

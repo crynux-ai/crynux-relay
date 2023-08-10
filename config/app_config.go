@@ -15,7 +15,11 @@ type AppConfig struct {
 	} `mapstructure:"db"`
 
 	Log struct {
-		Level string `mapstructure:"level"`
+		Level       string `mapstructure:"level"`
+		Output      string `mapstructure:"output"`
+		MaxFileSize int    `mapstructure:"max_file_size"`
+		MaxDays     int    `mapstructure:"max_days"`
+		MaxFileNum  int    `mapstructure:"max_file_num"`
 	} `mapstructure:"log"`
 
 	Http struct {

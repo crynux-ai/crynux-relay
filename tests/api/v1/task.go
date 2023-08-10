@@ -2,12 +2,13 @@ package v1
 
 import (
 	"encoding/json"
+	log "github.com/sirupsen/logrus"
 	"h_relay/models"
 )
 
 func PrepareAccounts() (addresses []string, privateKeys []string, err error) {
 
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 5; i++ {
 		address, pk, err := CreateAccount()
 		if err != nil {
 			return nil, nil, err
@@ -16,6 +17,9 @@ func PrepareAccounts() (addresses []string, privateKeys []string, err error) {
 		addresses = append(addresses, address)
 		privateKeys = append(privateKeys, pk)
 	}
+
+	log.Debugln(addresses)
+	log.Debugln(privateKeys)
 
 	return addresses, privateKeys, nil
 }

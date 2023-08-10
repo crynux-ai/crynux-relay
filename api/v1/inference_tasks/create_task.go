@@ -3,6 +3,7 @@ package inference_tasks
 import (
 	"encoding/json"
 	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 	"h_relay/api/v1/response"
 	"h_relay/config"
 	"h_relay/models"
@@ -16,7 +17,6 @@ type TaskInput struct {
 
 type TaskInputWithSignature struct {
 	TaskInput
-	Signer    string `form:"signer" json:"signer" description:"Creator address" validate:"required"`
 	Timestamp int64  `form:"timestamp" json:"timestamp" description:"Signature timestamp" validate:"required"`
 	Signature string `form:"signature" json:"signature" description:"Signature" validate:"required"`
 }
@@ -29,9 +29,14 @@ func CreateTask(ctx *gin.Context, in *TaskInputWithSignature) (*TaskResponse, er
 		return nil, response.NewExceptionResponse(err)
 	}
 
-	match, err := ValidateSignature(in.Signer, sigStr, in.Timestamp, in.Signature)
+	match, address, err := ValidateSignature(sigStr, in.Timestamp, in.Signature)
 
 	if err != nil || !match {
+
+		if err != nil {
+			log.Debugln("error in sig validate: " + err.Error())
+		}
+
 		validationErr := response.NewValidationErrorResponse()
 		validationErr.SetFieldName("signature")
 		validationErr.SetFieldMessage("Invalid signature")
@@ -40,13 +45,13 @@ func CreateTask(ctx *gin.Context, in *TaskInputWithSignature) (*TaskResponse, er
 
 	task := models.InferenceTask{
 		TaskId:        in.TaskId,
-		Creator:       in.Signer,
+		Creator:       address,
 		TaskParams:    in.TaskParams,
 		SelectedNodes: in.SelectedNodes,
 	}
 
-	if result := config.GetDB().Create(&task); result.Error != nil {
-		return nil, response.NewExceptionResponse(result.Error)
+	if err := config.GetDB().Create(&task).Error; err != nil {
+		return nil, response.NewExceptionResponse(err)
 	}
 
 	return &TaskResponse{Data: task}, nil

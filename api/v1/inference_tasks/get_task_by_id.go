@@ -16,7 +16,6 @@ type GetTaskInput struct {
 
 type GetTaskInputWithSignature struct {
 	GetTaskInput
-	Signer    string `query:"signer" json:"signer" description:"Signer address" validate:"required"`
 	Timestamp int64  `query:"timestamp" json:"timestamp" description:"Signature timestamp" validate:"required"`
 	Signature string `query:"signature" json:"signature" description:"Signature" validate:"required"`
 }
@@ -28,7 +27,7 @@ func GetTaskById(ctx *gin.Context, in *GetTaskInputWithSignature) (*TaskResponse
 		return nil, response.NewExceptionResponse(err)
 	}
 
-	match, err := ValidateSignature(in.Signer, sigStr, in.Timestamp, in.Signature)
+	match, address, err := ValidateSignature(sigStr, in.Timestamp, in.Signature)
 
 	if err != nil {
 		return nil, response.NewExceptionResponse(err)
@@ -55,7 +54,7 @@ func GetTaskById(ctx *gin.Context, in *GetTaskInputWithSignature) (*TaskResponse
 		}
 	}
 
-	if task.Creator == in.Signer {
+	if task.Creator == address {
 		return &TaskResponse{Data: task}, nil
 	}
 
@@ -66,13 +65,13 @@ func GetTaskById(ctx *gin.Context, in *GetTaskInputWithSignature) (*TaskResponse
 	}
 
 	for _, nodeAddr := range selectedNodes {
-		if nodeAddr == in.Signer {
+		if nodeAddr == address {
 			return &TaskResponse{Data: task}, nil
 		}
 	}
 
 	validationErr := response.NewValidationErrorResponse()
-	validationErr.SetFieldName("signer")
+	validationErr.SetFieldName("signature")
 	validationErr.SetFieldMessage("Signer not allowed")
 
 	return nil, validationErr

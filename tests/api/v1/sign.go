@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	log "github.com/sirupsen/logrus"
 	"strconv"
 	"time"
 )
@@ -18,12 +19,15 @@ func SignData(data []byte, privateKeyStr string) (timestamp int64, signature str
 
 	timestamp = time.Now().Unix()
 	timestampStr := strconv.FormatInt(timestamp, 10)
+	timestampBytes := []byte(timestampStr)
 
-	dataHash := crypto.Keccak256Hash(data, []byte(timestampStr))
+	signBytes := append(data, timestampBytes...)
 
-	signBytes := append(dataHash.Bytes())
+	log.Debugln("test sign string: " + string(signBytes))
 
-	signatureBytes, err := crypto.Sign(signBytes, privateKey)
+	dataHash := crypto.Keccak256Hash(signBytes)
+
+	signatureBytes, err := crypto.Sign(dataHash.Bytes(), privateKey)
 	if err != nil {
 		return 0, "", err
 	}
