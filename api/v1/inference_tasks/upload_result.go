@@ -38,9 +38,7 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 	}
 
 	if !match {
-		validationErr := response.NewValidationErrorResponse()
-		validationErr.SetFieldName("signature")
-		validationErr.SetFieldMessage("Invalid signature")
+		validationErr := response.NewValidationErrorResponse("signature", "Invalid signature")
 		return nil, validationErr
 	}
 
@@ -48,10 +46,7 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 
 	if result := config.GetDB().Where(&models.InferenceTask{TaskId: in.TaskId}).First(&task); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			validationErr := response.NewValidationErrorResponse()
-			validationErr.SetFieldName("task_id")
-			validationErr.SetFieldMessage("Task not found")
-
+			validationErr := response.NewValidationErrorResponse("task_id", "Task not found")
 			return nil, validationErr
 		} else {
 			return nil, response.NewExceptionResponse(result.Error)
@@ -74,10 +69,7 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 	}
 
 	if selectedNode == "" {
-		validationErr := response.NewValidationErrorResponse()
-		validationErr.SetFieldName("signer")
-		validationErr.SetFieldMessage("Signer not allowed")
-
+		validationErr := response.NewValidationErrorResponse("signer", "Signer not allowed")
 		return nil, validationErr
 	}
 

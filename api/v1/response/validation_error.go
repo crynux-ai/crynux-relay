@@ -25,8 +25,10 @@ func (ver *ValidationErrorResponse) GetFieldMessage() string {
 	return ver.Data.Message
 }
 
-func NewValidationErrorResponse() *ValidationErrorResponse {
+func NewValidationErrorResponse(fieldName, fieldMessage string) *ValidationErrorResponse {
 	r := &ValidationErrorResponse{}
 	r.SetErrorType("validation_error")
+	r.SetFieldName(fieldName)
+	r.SetFieldMessage(fieldMessage)
 	return r
 }

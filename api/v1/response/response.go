@@ -69,7 +69,7 @@ func NewExceptionResponse(err error) *ExceptionResponse {
 func TonicErrorResponse(ctx *gin.Context, err error) (int, interface{}) {
 	var e tonic.BindError
 	if errors.As(err, &e) {
-		validationErrorResponse := NewValidationErrorResponse()
+		validationErrorResponse := NewValidationErrorResponse("", "")
 		validationErr := e.ValidationErrors()
 		// We return only the first error
 		for _, err := range validationErr {

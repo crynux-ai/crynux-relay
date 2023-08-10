@@ -37,9 +37,7 @@ func CreateTask(ctx *gin.Context, in *TaskInputWithSignature) (*TaskResponse, er
 			log.Debugln("error in sig validate: " + err.Error())
 		}
 
-		validationErr := response.NewValidationErrorResponse()
-		validationErr.SetFieldName("signature")
-		validationErr.SetFieldMessage("Invalid signature")
+		validationErr := response.NewValidationErrorResponse("signature", "Invalid signature")
 		return nil, validationErr
 	}
 

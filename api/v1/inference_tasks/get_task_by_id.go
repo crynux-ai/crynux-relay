@@ -34,9 +34,7 @@ func GetTaskById(ctx *gin.Context, in *GetTaskInputWithSignature) (*TaskResponse
 	}
 
 	if !match {
-		validationErr := response.NewValidationErrorResponse()
-		validationErr.SetFieldName("signature")
-		validationErr.SetFieldMessage("Invalid signature")
+		validationErr := response.NewValidationErrorResponse("signature", "Invalid signature")
 		return nil, validationErr
 	}
 
@@ -44,10 +42,7 @@ func GetTaskById(ctx *gin.Context, in *GetTaskInputWithSignature) (*TaskResponse
 
 	if result := config.GetDB().Where(&models.InferenceTask{TaskId: in.TaskId}).First(&task); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			validationErr := response.NewValidationErrorResponse()
-			validationErr.SetFieldName("task_id")
-			validationErr.SetFieldMessage("Task not found")
-
+			validationErr := response.NewValidationErrorResponse("task_id", "Task not found")
 			return nil, validationErr
 		} else {
 			return nil, response.NewExceptionResponse(result.Error)
@@ -70,9 +65,6 @@ func GetTaskById(ctx *gin.Context, in *GetTaskInputWithSignature) (*TaskResponse
 		}
 	}
 
-	validationErr := response.NewValidationErrorResponse()
-	validationErr.SetFieldName("signature")
-	validationErr.SetFieldMessage("Signer not allowed")
-
+	validationErr := response.NewValidationErrorResponse("signature", "Signer not allowed")
 	return nil, validationErr
 }
