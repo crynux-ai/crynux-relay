@@ -11,7 +11,7 @@ import (
 )
 
 type GetTaskInput struct {
-	TaskId int64 `query:"task_id" json:"task_id" validate:"required" description:"The task id"`
+	TaskId int64 `path:"task_id" json:"task_id" validate:"required" description:"The task id"`
 }
 
 type GetTaskInputWithSignature struct {

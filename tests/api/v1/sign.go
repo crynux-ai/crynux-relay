@@ -19,9 +19,9 @@ func SignData(data []byte, privateKeyStr string) (timestamp int64, signature str
 	timestamp = time.Now().Unix()
 	timestampStr := strconv.FormatInt(timestamp, 10)
 
-	dataHash := crypto.Keccak256Hash(data)
+	dataHash := crypto.Keccak256Hash(data, []byte(timestampStr))
 
-	signBytes := append(dataHash.Bytes(), []byte(timestampStr)...)
+	signBytes := append(dataHash.Bytes())
 
 	signatureBytes, err := crypto.Sign(signBytes, privateKey)
 	if err != nil {
@@ -41,6 +41,7 @@ func CreateAccount() (address string, privateKeyStr string, err error) {
 
 	privateKeyBytes := crypto.FromECDSA(privateKey)
 	privateKeyStr = hexutil.Encode(privateKeyBytes)
+	privateKeyStr = privateKeyStr[2:] // remove the heading 0x
 
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)

@@ -17,7 +17,7 @@ func init() {
 
 	testAppConfig.Environment = config.EnvTest
 	testAppConfig.Db.Driver = "sqlite"
-	testAppConfig.Db.ConnectionString = "data/test_db.sqlite"
+	testAppConfig.Db.ConnectionString = "/h_relay/data/test_db.sqlite"
 	testAppConfig.Log.Level = logrus.DebugLevel.String()
 	testAppConfig.Http.Host = "127.0.0.1"
 	testAppConfig.Http.Port = "8080"

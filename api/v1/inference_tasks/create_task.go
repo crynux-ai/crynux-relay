@@ -16,7 +16,7 @@ type TaskInput struct {
 
 type TaskInputWithSignature struct {
 	TaskInput
-	Signer    string `form:"creator" json:"creator" description:"Creator address" validate:"required"`
+	Signer    string `form:"signer" json:"signer" description:"Creator address" validate:"required"`
 	Timestamp int64  `form:"timestamp" json:"timestamp" description:"Signature timestamp" validate:"required"`
 	Signature string `form:"signature" json:"signature" description:"Signature" validate:"required"`
 }
@@ -31,11 +31,7 @@ func CreateTask(ctx *gin.Context, in *TaskInputWithSignature) (*TaskResponse, er
 
 	match, err := ValidateSignature(in.Signer, sigStr, in.Timestamp, in.Signature)
 
-	if err != nil {
-		return nil, response.NewExceptionResponse(err)
-	}
-
-	if !match {
+	if err != nil || !match {
 		validationErr := response.NewValidationErrorResponse()
 		validationErr.SetFieldName("signature")
 		validationErr.SetFieldMessage("Invalid signature")

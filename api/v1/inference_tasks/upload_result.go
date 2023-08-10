@@ -14,7 +14,7 @@ import (
 )
 
 type ResultInput struct {
-	TaskId int64 `form:"task_id" json:"task_id" description:"Task id" validate:"required"`
+	TaskId int64 `path:"task_id" json:"task_id" description:"Task id" validate:"required"`
 }
 
 type ResultInputWithSignature struct {
