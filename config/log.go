@@ -3,6 +3,7 @@ package config
 import (
 	"github.com/sirupsen/logrus"
 	"gopkg.in/natefinch/lumberjack.v2"
+	"io"
 	"os"
 )
 
@@ -41,7 +42,8 @@ func InitLog(appConfig *AppConfig) error {
 			logWriter.MaxBackups = appConfig.Log.MaxFileNum
 		}
 
-		logrus.SetOutput(logWriter)
+		mw := io.MultiWriter(os.Stdout, logWriter)
+		logrus.SetOutput(mw)
 	}
 
 	level, err := logrus.ParseLevel(appConfig.Log.Level)

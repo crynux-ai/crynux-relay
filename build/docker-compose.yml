@@ -1,0 +1,26 @@
+version: "3.2"
+
+services:
+  mysql:
+    image: mysql:8.1.0
+    container_name: mysql
+    command: --default-authentication-plugin=mysql_native_password
+    restart: unless-stopped
+    environment:
+      MYSQL_RANDOM_ROOT_PASSWORD: yes
+      MYSQL_DATABASE: h_relay
+      MYSQL_USER: h_relay
+      MYSQL_PASSWORD: hrelaypass
+      TZ: Asia/Tokyo
+    volumes:
+      - "./data/mysql:/var/lib/mysql"
+
+  h_relay:
+    image: h_relay:dev
+    container_name: h_relay
+    restart: unless-stopped
+    volumes:
+      - "./data/h_relay:/app/data"
+      - "./config:/app/config"
+    ports:
+      - "8080:8080"

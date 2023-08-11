@@ -1,7 +1,6 @@
 package config
 
 import (
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
@@ -22,14 +21,12 @@ func InitConfig(configPath string) error {
 	}
 
 	if err := v.ReadInConfig(); err != nil {
-		log.Error("Read config file failed:" + err.Error())
 		return err
 	}
 
 	appConfig = &AppConfig{}
 
 	if err := v.Unmarshal(appConfig); err != nil {
-		log.Error("Parse config file failed:" + err.Error())
 		return err
 	}
 
