@@ -1,3 +1,4 @@
+---
 environment: "debug"
 db:
   driver: "mysql"

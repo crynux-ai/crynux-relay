@@ -2,7 +2,7 @@ package v1
 
 import (
 	"encoding/json"
-	"github.com/magiconair/properties/assert"
+	"github.com/stretchr/testify/assert"
 	"h_relay/api/v1/inference_tasks"
 	"h_relay/api/v1/response"
 	"h_relay/models"
@@ -12,29 +12,27 @@ import (
 
 func AssertValidationErrorResponse(t *testing.T, r *httptest.ResponseRecorder, fieldName, fieldMessage string) {
 
-	assert.Equal(t, r.Code, 400)
-
-	// Deserialize response message
+	assert.Equal(t, 400, r.Code, "wrong http status code")
 
 	validationResponse := &response.ValidationErrorResponse{}
 
 	err := json.Unmarshal(r.Body.Bytes(), validationResponse)
-	assert.Equal(t, err, nil)
+	assert.Equal(t, nil, err, "json unmarshal error")
 
-	assert.Equal(t, validationResponse.GetErrorType(), "validation_error")
-	assert.Equal(t, validationResponse.GetFieldName(), fieldName)
-	assert.Equal(t, validationResponse.GetFieldMessage(), fieldMessage)
+	assert.Equal(t, "validation_error", validationResponse.GetErrorType(), "wrong validation message type")
+	assert.Equal(t, fieldName, validationResponse.GetFieldName(), "wrong field name")
+	assert.Equal(t, fieldMessage, validationResponse.GetFieldMessage(), "wrong field message")
 }
 
 func AssertExceptionResponse(t *testing.T, r *httptest.ResponseRecorder, message string) {
-	assert.Equal(t, r.Code, 500)
+	assert.Equal(t, 500, r.Code, "wrong http status code")
 
 	exceptionResponse := &response.ExceptionResponse{}
 
 	err := json.Unmarshal(r.Body.Bytes(), exceptionResponse)
-	assert.Equal(t, err, nil)
+	assert.Equal(t, nil, err, "json unmarshal error")
 
-	assert.Equal(t, exceptionResponse.GetMessage(), message)
+	assert.Equal(t, message, exceptionResponse.GetMessage(), "wrong response message")
 }
 
 func AssertTaskResponse(t *testing.T, r *httptest.ResponseRecorder, task *models.InferenceTask) {
@@ -45,11 +43,24 @@ func AssertTaskResponse(t *testing.T, r *httptest.ResponseRecorder, task *models
 	responseBytes := r.Body.Bytes()
 
 	err := json.Unmarshal(responseBytes, taskResponse)
+	assert.Equal(t, nil, err, "json unmarshal error")
+
+	assert.Equal(t, "success", taskResponse.GetMessage(), "wrong message: "+string(responseBytes))
+	assert.Equal(t, task.TaskId, taskResponse.Data.TaskId, "wrong task id")
+	assert.Equal(t, task.TaskParams, taskResponse.Data.TaskParams, "wrong task params")
+	assert.Equal(t, false, taskResponse.Data.CreatedAt.IsZero(), "wrong task created at")
+	assert.Equal(t, false, taskResponse.Data.UpdatedAt.IsZero(), "wrong task updated at")
+}
+
+func AssertEmptySuccessResponse(t *testing.T, r *httptest.ResponseRecorder) {
+	assert.Equal(t, 200, r.Code, "wrong http status code")
+
+	emptyResponse := &response.Response{}
+
+	responseBytes := r.Body.Bytes()
+
+	err := json.Unmarshal(responseBytes, emptyResponse)
 	assert.Equal(t, err, nil, "json unmarshal error")
 
-	assert.Equal(t, taskResponse.GetMessage(), "success", "wrong message: "+string(responseBytes))
-	assert.Equal(t, taskResponse.Data.TaskId, task.TaskId, "wrong task id")
-	assert.Equal(t, taskResponse.Data.TaskParams, task.TaskParams, "wrong task params")
-	assert.Equal(t, taskResponse.Data.CreatedAt.IsZero(), false, "wrong task created at")
-	assert.Equal(t, taskResponse.Data.UpdatedAt.IsZero(), false, "wrong task updated at")
+	assert.Equal(t, "success", emptyResponse.GetMessage(), "wrong message: "+string(responseBytes))
 }

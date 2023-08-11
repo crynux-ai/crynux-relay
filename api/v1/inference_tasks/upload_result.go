@@ -69,7 +69,7 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 	}
 
 	if selectedNode == "" {
-		validationErr := response.NewValidationErrorResponse("signer", "Signer not allowed")
+		validationErr := response.NewValidationErrorResponse("signature", "Signer not allowed")
 		return nil, validationErr
 	}
 
@@ -78,16 +78,19 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 
 	appConfig := config.GetConfig()
 
-	taskDir := filepath.Join(appConfig.DataDir.InferenceTasks, task.GetTaskIdAsString())
+	taskWorkspace := appConfig.DataDir.InferenceTasks
+	taskIdStr := task.GetTaskIdAsString()
+
+	taskDir := filepath.Join(taskWorkspace, taskIdStr, selectedNode)
 	if err = os.MkdirAll(taskDir, os.ModeDir); err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 
-	fileNum := 1
+	fileNum := 0
 
 	for _, file := range files {
 
-		filename := filepath.Join(taskDir, strconv.Itoa(fileNum)+".jpg")
+		filename := filepath.Join(taskDir, strconv.Itoa(fileNum)+".png")
 		if err := ctx.SaveUploadedFile(file, filename); err != nil {
 			return nil, response.NewExceptionResponse(err)
 		}

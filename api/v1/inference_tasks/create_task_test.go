@@ -2,8 +2,8 @@ package inference_tasks_test
 
 import (
 	"encoding/json"
-	"github.com/magiconair/properties/assert"
 	log "github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 	"h_relay/api/v1/inference_tasks"
 	"h_relay/tests"
 	v1 "h_relay/tests/api/v1"
@@ -18,20 +18,20 @@ import (
 func TestCreateTaskResponse(t *testing.T) {
 
 	addresses, privateKeys, err := v1.PrepareAccounts()
-	assert.Equal(t, err, nil, "prepare accounts error")
+	assert.Equal(t, nil, err, "prepare accounts error")
 
 	task, err := v1.PrepareTask(addresses)
-	assert.Equal(t, err, nil, "prepare task error")
+	assert.Equal(t, nil, err, "prepare task error")
 
 	taskInput := inference_tasks.TaskInput{TaskId: task.TaskId, SelectedNodes: task.SelectedNodes, TaskParams: task.TaskParams}
 
 	signBytes, err := json.Marshal(taskInput)
-	assert.Equal(t, err, nil, "task input json marshall error")
+	assert.Equal(t, nil, err, "task input json marshall error")
 
 	// Missing argument
 
 	timestamp, signature, err := v1.SignData(signBytes, privateKeys[0])
-	assert.Equal(t, err, nil, "sign data error")
+	assert.Equal(t, nil, err, "sign data error")
 
 	r := callCreateTaskApi(
 		task.TaskId,
@@ -59,7 +59,7 @@ func TestCreateTaskResponse(t *testing.T) {
 
 	log.Debugln("signing using address: " + addresses[0])
 	timestamp, signature, err = v1.SignData(signBytes, privateKeys[0])
-	assert.Equal(t, err, nil, "sign data error")
+	assert.Equal(t, nil, err, "sign data error")
 
 	r = callCreateTaskApi(
 		task.TaskId,
