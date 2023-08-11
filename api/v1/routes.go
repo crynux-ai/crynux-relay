@@ -33,5 +33,5 @@ func InitRoutes(r *fizz.Fizz) {
 	tasksGroup.GET("/:task_id/results/:node/:image_num", []fizz.OperationOption{
 		fizz.Summary("Get the result of the inference task by node address"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
-	}, tonic.Handler(inference_tasks.GetResult, 200))
+	}, inference_tasks.GetResult)
 }
