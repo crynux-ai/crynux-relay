@@ -15,6 +15,13 @@ services:
     volumes:
       - "./data/mysql:/var/lib/mysql"
 
+  wait_db:
+    image: jwilder/dockerize:0.6.1
+    container_name: wait_db
+    depends_on:
+      - mysql
+    command: 'dockerize -wait=tcp://mysql:3306'
+
   h_relay:
     image: h_relay:dev
     container_name: h_relay
@@ -24,3 +31,6 @@ services:
       - "./config:/app/config"
     ports:
       - "8080:8080"
+    depends_on:
+      wait_db:
+        condition: service_completed_successfully
