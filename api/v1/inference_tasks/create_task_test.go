@@ -70,6 +70,17 @@ func TestCreateTaskResponse(t *testing.T) {
 
 	v1.AssertTaskResponse(t, r, task)
 
+	// Duplicated task id
+
+	r = callCreateTaskApi(
+		task.TaskId,
+		task.TaskParams,
+		task.SelectedNodes,
+		timestamp,
+		signature)
+
+	v1.AssertValidationErrorResponse(t, r, "task_id", "Duplicated task")
+
 	t.Cleanup(tests.ClearDB)
 }
 

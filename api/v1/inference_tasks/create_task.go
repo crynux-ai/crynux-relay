@@ -2,8 +2,10 @@ package inference_tasks
 
 import (
 	"encoding/json"
+	"errors"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 	"h_relay/api/v1/response"
 	"h_relay/config"
 	"h_relay/models"
@@ -49,6 +51,11 @@ func CreateTask(ctx *gin.Context, in *TaskInputWithSignature) (*TaskResponse, er
 	}
 
 	if err := config.GetDB().Create(&task).Error; err != nil {
+
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			return nil, response.NewValidationErrorResponse("task_id", "Duplicated task")
+		}
+
 		return nil, response.NewExceptionResponse(err)
 	}
 

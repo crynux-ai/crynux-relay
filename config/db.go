@@ -32,7 +32,8 @@ func InitDB(appConfig *AppConfig) error {
 	}
 
 	instance, err := gorm.Open(dial, &gorm.Config{
-		Logger: gorm_logrus.New(),
+		Logger:         gorm_logrus.New(),
+		TranslateError: true,
 	})
 
 	if err != nil {
