@@ -30,8 +30,8 @@ func InitRoutes(r *fizz.Fizz) {
 		fizz.Response("500", "exception", response.ExceptionResponse{}, nil, nil),
 	}, tonic.Handler(inference_tasks.UploadResult, 200))
 
-	tasksGroup.GET("/:task_id/results/:image_num", []fizz.OperationOption{
+	tasksGroup.GET("/:task_id/results/:node/:image_num", []fizz.OperationOption{
 		fizz.Summary("Get the result of the inference task by node address"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
-	}, inference_tasks.GetResult)
+	}, tonic.Handler(inference_tasks.GetResult, 200))
 }

@@ -21,13 +21,13 @@ import (
 
 func TestWrongTaskId(t *testing.T) {
 	addresses, privateKeys, err := v1.PrepareAccounts()
-	assert.Equal(t, err, nil, "prepare accounts error")
+	assert.Equal(t, nil, err, "prepare accounts error")
 
 	task, err := v1.PrepareTask(addresses)
-	assert.Equal(t, err, nil, "prepare task error")
+	assert.Equal(t, nil, err, "prepare task error")
 
 	err = config.GetDB().Create(task).Error
-	assert.Equal(t, err, nil, "save task to db error")
+	assert.Equal(t, nil, err, "save task to db error")
 
 	uploadResultInput := &inference_tasks.ResultInput{
 		TaskId: 999,
@@ -101,13 +101,13 @@ func testUsingAddressNum(
 		addresses []string)) {
 
 	addresses, privateKeys, err := v1.PrepareAccounts()
-	assert.Equal(t, err, nil, "prepare accounts error")
+	assert.Equal(t, nil, err, "prepare accounts error")
 
 	task, err := v1.PrepareTask(addresses)
-	assert.Equal(t, err, nil, "prepare task error")
+	assert.Equal(t, nil, err, "prepare task error")
 
 	err = config.GetDB().Create(task).Error
-	assert.Equal(t, err, nil, "save task to db error")
+	assert.Equal(t, nil, err, "save task to db error")
 
 	uploadResultInput := &inference_tasks.ResultInput{
 		TaskId: task.TaskId,
