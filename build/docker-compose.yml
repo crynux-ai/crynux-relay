@@ -20,7 +20,7 @@ services:
     container_name: wait_db
     depends_on:
       - mysql
-    command: 'dockerize -wait=tcp://mysql:3306'
+    command: 'dockerize -wait=tcp://mysql:3306 -timeout 60s'
 
   h_relay:
     image: h_relay:dev

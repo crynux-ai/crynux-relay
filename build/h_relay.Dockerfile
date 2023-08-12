@@ -18,5 +18,6 @@ ENV TZ=Asia/Tokyo
 WORKDIR /app
 
 COPY --from=builder /h_relay/h_relay .
+COPY static ./static
 
 CMD ["/app/h_relay"]

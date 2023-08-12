@@ -15,9 +15,9 @@ import (
 )
 
 type GetResultInput struct {
-	TaskId   int64  `form:"task_id" json:"task_id" description:"Task id" validate:"required"`
-	Node     string `form:"selected_nodes" json:"selected_nodes" description:"Selected nodes" validate:"required"`
 	ImageNum int    `form:"image_num" json:"image_num" description:"Image number" validate:"required"`
+	Node     string `form:"selected_nodes" json:"selected_nodes" description:"Selected nodes" validate:"required"`
+	TaskId   int64  `form:"task_id" json:"task_id" description:"Task id" validate:"required"`
 }
 
 func GetResult(ctx *gin.Context) {

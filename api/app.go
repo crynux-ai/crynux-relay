@@ -46,6 +46,9 @@ func GetHttpApplication(appConfig *config.AppConfig) *gin.Engine {
 		return name
 	})
 
+	// Hello page
+	fizzEngine.GET("", []fizz.OperationOption{}, Hello)
+
 	// v1 api
 	v1.InitRoutes(fizzEngine)
 

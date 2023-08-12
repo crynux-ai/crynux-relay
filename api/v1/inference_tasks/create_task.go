@@ -12,9 +12,9 @@ import (
 )
 
 type TaskInput struct {
+	SelectedNodes string `form:"selected_nodes" json:"selected_nodes" description:"Selected nodes" validate:"required"`
 	TaskId        int64  `form:"task_id" json:"task_id" description:"Task id" validate:"required"`
 	TaskParams    string `form:"task_params" json:"task_params" description:"The detailed task params" validate:"required"`
-	SelectedNodes string `form:"selected_nodes" json:"selected_nodes" description:"Selected nodes" validate:"required"`
 }
 
 type TaskInputWithSignature struct {
