@@ -6,6 +6,7 @@ import (
 	"h_relay/api"
 	"h_relay/config"
 	"h_relay/migrate"
+	"h_relay/tasks"
 	"os"
 )
 
@@ -30,6 +31,9 @@ func main() {
 	}
 
 	startDBMigration()
+
+	go tasks.StartSyncBlock()
+
 	startServer()
 }
 

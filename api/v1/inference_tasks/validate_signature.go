@@ -2,6 +2,7 @@ package inference_tasks
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"github.com/ethereum/go-ethereum/crypto"
 	log "github.com/sirupsen/logrus"
 	"math"
@@ -9,7 +10,12 @@ import (
 	"time"
 )
 
-func ValidateSignature(data []byte, timestamp int64, signature string) (bool, string, error) {
+func ValidateSignature(data interface{}, timestamp int64, signature string) (bool, string, error) {
+
+	dataBytes, err := json.Marshal(data)
+	if err != nil {
+		return false, "", err
+	}
 
 	log.Debugln("signature to verify: " + signature)
 
@@ -29,7 +35,7 @@ func ValidateSignature(data []byte, timestamp int64, signature string) (bool, st
 
 	timeByte := []byte(timeStr)
 
-	signBytes := append(data, timeByte...)
+	signBytes := append(dataBytes, timeByte...)
 
 	log.Debugln("sign string: " + string(signBytes))
 

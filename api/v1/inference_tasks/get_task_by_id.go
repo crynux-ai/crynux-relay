@@ -21,13 +21,8 @@ type GetTaskInputWithSignature struct {
 }
 
 func GetTaskById(ctx *gin.Context, in *GetTaskInputWithSignature) (*TaskResponse, error) {
-	sigStr, err := json.Marshal(in.GetTaskInput)
 
-	if err != nil {
-		return nil, response.NewExceptionResponse(err)
-	}
-
-	match, address, err := ValidateSignature(sigStr, in.Timestamp, in.Signature)
+	match, address, err := ValidateSignature(in.GetTaskInput, in.Timestamp, in.Signature)
 
 	if err != nil {
 		return nil, response.NewExceptionResponse(err)
@@ -40,7 +35,7 @@ func GetTaskById(ctx *gin.Context, in *GetTaskInputWithSignature) (*TaskResponse
 
 	var task models.InferenceTask
 
-	if result := config.GetDB().Where(&models.InferenceTask{TaskId: in.TaskId}).First(&task); result.Error != nil {
+	if result := config.GetDB().Where(&models.InferenceTask{TaskId: uint64(in.TaskId)}).First(&task); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			validationErr := response.NewValidationErrorResponse("task_id", "Task not found")
 			return nil, validationErr

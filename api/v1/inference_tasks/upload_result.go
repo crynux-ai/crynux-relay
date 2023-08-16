@@ -25,13 +25,7 @@ type ResultInputWithSignature struct {
 
 func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Response, error) {
 
-	sigStr, err := json.Marshal(in.ResultInput)
-
-	if err != nil {
-		return nil, response.NewExceptionResponse(err)
-	}
-
-	match, address, err := ValidateSignature(sigStr, in.Timestamp, in.Signature)
+	match, address, err := ValidateSignature(in.ResultInput, in.Timestamp, in.Signature)
 
 	if err != nil {
 		return nil, response.NewExceptionResponse(err)
@@ -44,7 +38,7 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 
 	var task models.InferenceTask
 
-	if result := config.GetDB().Where(&models.InferenceTask{TaskId: in.TaskId}).First(&task); result.Error != nil {
+	if result := config.GetDB().Where(&models.InferenceTask{TaskIdOnChain: uint64(in.TaskId)}).First(&task); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			validationErr := response.NewValidationErrorResponse("task_id", "Task not found")
 			return nil, validationErr

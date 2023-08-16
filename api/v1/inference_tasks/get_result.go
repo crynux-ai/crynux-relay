@@ -1,7 +1,6 @@
 package inference_tasks
 
 import (
-	"encoding/json"
 	"errors"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -92,20 +91,13 @@ func GetResult(ctx *gin.Context) {
 		return
 	}
 
-	sigStr, err := json.Marshal(&GetResultInput{
+	sigData := &GetResultInput{
 		TaskId:   taskId,
 		Node:     selectedNode,
 		ImageNum: imageNum,
-	})
-
-	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"message": "Internal server error",
-		})
-		return
 	}
 
-	match, address, err := ValidateSignature(sigStr, timestamp, signature)
+	match, address, err := ValidateSignature(sigData, timestamp, signature)
 
 	if err != nil || !match {
 
@@ -121,7 +113,7 @@ func GetResult(ctx *gin.Context) {
 
 	var task models.InferenceTask
 
-	if result := config.GetDB().Where(&models.InferenceTask{TaskId: taskId}).First(&task); result.Error != nil {
+	if result := config.GetDB().Where(&models.InferenceTask{TaskIdOnChain: uint64(taskId)}).First(&task); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			ctx.JSON(http.StatusBadRequest, gin.H{
 				"field_name": "task_id",

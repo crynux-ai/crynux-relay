@@ -30,4 +30,12 @@ type AppConfig struct {
 	DataDir struct {
 		InferenceTasks string `mapstructure:"inference_tasks"`
 	} `mapstructure:"data_dir"`
+
+	Blockchain struct {
+		WebSocketEndpoint string `mapstructure:"web_socket_endpoint"`
+		StartBlockNum     uint64 `mapstructure:"start_block_num"`
+		Contracts         struct {
+			Task string `mapstructure:"task"`
+		} `mapstructure:"contracts"`
+	} `mapstructure:"blockchain"`
 }
