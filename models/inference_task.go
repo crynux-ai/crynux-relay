@@ -42,6 +42,8 @@ type InferenceTask struct {
 	PosePreprocess bool       `json:"pose_preprocess"`
 
 	Status TaskStatus `json:"status"`
+
+	SelectedNodes []SelectedNode
 }
 
 func (t *InferenceTask) GetTaskIdAsString() string {

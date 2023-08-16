@@ -24,6 +24,11 @@ func InitRoutes(r *fizz.Fizz) {
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(inference_tasks.GetTaskById, 200))
 
+	tasksGroup.GET("/:task_id/pose", []fizz.OperationOption{
+		fizz.Summary("Get the pose image of the task"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(inference_tasks.GetPoseImage, 200))
+
 	tasksGroup.POST("/:task_id/results", []fizz.OperationOption{
 		fizz.Summary("Upload inference task result"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),

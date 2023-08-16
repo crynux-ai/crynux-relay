@@ -1,7 +1,6 @@
 package inference_tasks
 
 import (
-	"encoding/json"
 	"errors"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -20,7 +19,7 @@ type GetTaskInputWithSignature struct {
 	Signature string `query:"signature" json:"signature" description:"Signature" validate:"required"`
 }
 
-func GetTaskById(ctx *gin.Context, in *GetTaskInputWithSignature) (*TaskResponse, error) {
+func GetTaskById(_ *gin.Context, in *GetTaskInputWithSignature) (*TaskResponse, error) {
 
 	match, address, err := ValidateSignature(in.GetTaskInput, in.Timestamp, in.Signature)
 
@@ -35,7 +34,7 @@ func GetTaskById(ctx *gin.Context, in *GetTaskInputWithSignature) (*TaskResponse
 
 	var task models.InferenceTask
 
-	if result := config.GetDB().Where(&models.InferenceTask{TaskId: uint64(in.TaskId)}).First(&task); result.Error != nil {
+	if result := config.GetDB().Where(&models.InferenceTask{TaskId: uint64(in.TaskId)}).Preload("SelectedNodes").First(&task); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			validationErr := response.NewValidationErrorResponse("task_id", "Task not found")
 			return nil, validationErr
@@ -48,14 +47,8 @@ func GetTaskById(ctx *gin.Context, in *GetTaskInputWithSignature) (*TaskResponse
 		return &TaskResponse{Data: task}, nil
 	}
 
-	var selectedNodes []string
-
-	if err = json.Unmarshal([]byte(task.SelectedNodes), &selectedNodes); err != nil {
-		return nil, response.NewExceptionResponse(err)
-	}
-
-	for _, nodeAddr := range selectedNodes {
-		if nodeAddr == address {
+	for _, selectedNode := range task.SelectedNodes {
+		if selectedNode.NodeAddress == address {
 			return &TaskResponse{Data: task}, nil
 		}
 	}

@@ -1,7 +1,6 @@
 package inference_tasks
 
 import (
-	"encoding/json"
 	"errors"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -38,7 +37,7 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 
 	var task models.InferenceTask
 
-	if result := config.GetDB().Where(&models.InferenceTask{TaskIdOnChain: uint64(in.TaskId)}).First(&task); result.Error != nil {
+	if result := config.GetDB().Where(&models.InferenceTask{TaskId: uint64(in.TaskId)}).Preload("SelectedNodes").First(&task); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			validationErr := response.NewValidationErrorResponse("task_id", "Task not found")
 			return nil, validationErr
@@ -47,22 +46,16 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 		}
 	}
 
-	var selectedNodes []string
+	var selectedNodeAddress string
 
-	if err = json.Unmarshal([]byte(task.SelectedNodes), &selectedNodes); err != nil {
-		return nil, response.NewExceptionResponse(err)
-	}
-
-	var selectedNode string
-
-	for _, nodeAddr := range selectedNodes {
-		if nodeAddr == address {
-			selectedNode = nodeAddr
+	for _, selectedNode := range task.SelectedNodes {
+		if selectedNode.NodeAddress == address {
+			selectedNodeAddress = address
 			break
 		}
 	}
 
-	if selectedNode == "" {
+	if selectedNodeAddress == "" {
 		validationErr := response.NewValidationErrorResponse("signature", "Signer not allowed")
 		return nil, validationErr
 	}
@@ -75,7 +68,7 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 	taskWorkspace := appConfig.DataDir.InferenceTasks
 	taskIdStr := task.GetTaskIdAsString()
 
-	taskDir := filepath.Join(taskWorkspace, taskIdStr, selectedNode)
+	taskDir := filepath.Join(taskWorkspace, taskIdStr, selectedNodeAddress)
 	if err = os.MkdirAll(taskDir, os.ModeDir); err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}

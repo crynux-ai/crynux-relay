@@ -48,7 +48,7 @@ func StartSyncBlock() {
 
 			currentBlockNum := header.Number
 
-			if err := processTaskCreated(syncedBlock.BlockNumber, currentBlockNum.Uint64()); err != nil {
+			if err := processTaskCreated(syncedBlock.BlockNumber+1, currentBlockNum.Uint64()); err != nil {
 				log.Errorln(err)
 				time.Sleep(time.Duration(interval) * time.Second)
 				continue
@@ -108,6 +108,12 @@ func processTaskCreated(startBlockNum, endBlockNum uint64) error {
 			if !errors.Is(err, gorm.ErrDuplicatedKey) {
 				return err
 			}
+		}
+
+		association := config.GetDB().Model(&task).Association("SelectedNodes")
+
+		if err := association.Append(&models.SelectedNode{NodeAddress: taskCreated.SelectedNode.Hex()}); err != nil {
+			return err
 		}
 	}
 
