@@ -1,10 +1,8 @@
 package inference_tasks_test
 
 import (
-	"encoding/json"
 	"github.com/stretchr/testify/assert"
 	"h_relay/api/v1/inference_tasks"
-	"h_relay/api/v1/response"
 	"h_relay/config"
 	"h_relay/tests"
 	v1 "h_relay/tests/api/v1"
@@ -22,35 +20,29 @@ func TestUnauthorizedGetImage(t *testing.T) {
 	addresses, privateKeys, err := v1.PrepareAccounts()
 	assert.Equal(t, nil, err, "prepare accounts error")
 
-	task, err := v1.PrepareTask(addresses)
+	_, task, err := v1.PrepareParamsUploadedTask(addresses, config.GetDB())
 	assert.Equal(t, nil, err, "prepare task error")
-
-	err = config.GetDB().Create(task).Error
-	assert.Equal(t, nil, err, "save task to db error")
 
 	err = prepareImagesForNode(task.GetTaskIdAsString(), addresses[1])
 	assert.Equal(t, nil, err, "create image error")
 
 	getResultInput := &inference_tasks.GetResultInput{
-		TaskId:   task.TaskId,
-		Node:     addresses[1],
-		ImageNum: 0,
+		TaskId:       task.TaskId,
+		SelectedNode: addresses[1],
+		ImageNum:     "0",
 	}
 
-	sigStr, err := json.Marshal(getResultInput)
-	assert.Equal(t, nil, err, "json marshall error")
-
-	timestamp, signature, err := v1.SignData(sigStr, privateKeys[1])
+	timestamp, signature, err := v1.SignData(getResultInput, privateKeys[1])
 	assert.Equal(t, nil, err, "sign data error")
 
 	r := callGetImageApi(
 		task.GetTaskIdAsString(),
 		addresses[1],
-		0,
+		"0",
 		timestamp,
 		signature)
 
-	assertBadRequestJson(t, r, "Signer not allowed")
+	v1.AssertValidationErrorResponse(t, r, "signature", "Signer not allowed")
 
 	t.Cleanup(func() {
 		tests.ClearDB()
@@ -65,31 +57,25 @@ func TestGetImage(t *testing.T) {
 	addresses, privateKeys, err := v1.PrepareAccounts()
 	assert.Equal(t, nil, err, "prepare accounts error")
 
-	task, err := v1.PrepareTask(addresses)
+	_, task, err := v1.PrepareParamsUploadedTask(addresses, config.GetDB())
 	assert.Equal(t, nil, err, "prepare task error")
-
-	err = config.GetDB().Create(task).Error
-	assert.Equal(t, nil, err, "save task to db error")
 
 	err = prepareImagesForNode(task.GetTaskIdAsString(), addresses[1])
 	assert.Equal(t, nil, err, "create image error")
 
 	getResultInput := &inference_tasks.GetResultInput{
-		TaskId:   task.TaskId,
-		Node:     addresses[1],
-		ImageNum: 2,
+		TaskId:       task.TaskId,
+		SelectedNode: addresses[1],
+		ImageNum:     "2",
 	}
 
-	sigStr, err := json.Marshal(getResultInput)
-	assert.Equal(t, nil, err, "json marshall error")
-
-	timestamp, signature, err := v1.SignData(sigStr, privateKeys[0])
+	timestamp, signature, err := v1.SignData(getResultInput, privateKeys[0])
 	assert.Equal(t, nil, err, "sign data error")
 
 	r := callGetImageApi(
 		task.GetTaskIdAsString(),
 		addresses[1],
-		2,
+		"2",
 		timestamp,
 		signature)
 
@@ -130,11 +116,11 @@ func TestGetImage(t *testing.T) {
 func callGetImageApi(
 	taskIdStr string,
 	nodeAddress string,
-	imageNum int,
+	imageNum string,
 	timestamp int64,
 	signature string) *httptest.ResponseRecorder {
 
-	endpoint := "/v1/inference_tasks/" + taskIdStr + "/results/" + nodeAddress + "/" + strconv.Itoa(imageNum)
+	endpoint := "/v1/inference_tasks/" + taskIdStr + "/results/" + nodeAddress + "/" + imageNum
 	query := "?timestamp=" + strconv.FormatInt(timestamp, 10) + "&signature=" + signature
 
 	req, _ := http.NewRequest("GET", endpoint+query, nil)
@@ -174,14 +160,4 @@ func prepareImagesForNode(taskIdStr, nodeAddress string) error {
 		}
 	}
 	return nil
-}
-
-func assertBadRequestJson(t *testing.T, r *httptest.ResponseRecorder, message string) {
-	assert.Equal(t, 400, r.Code, "wrong http status code")
-
-	res := &response.Response{}
-	err := json.Unmarshal(r.Body.Bytes(), res)
-	assert.Equal(t, nil, err, "json unmarshal error")
-
-	assert.Equal(t, message, res.Message, "wrong message")
 }

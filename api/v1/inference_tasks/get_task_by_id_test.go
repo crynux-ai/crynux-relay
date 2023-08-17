@@ -1,7 +1,6 @@
 package inference_tasks_test
 
 import (
-	"encoding/json"
 	"github.com/stretchr/testify/assert"
 	"h_relay/api/v1/inference_tasks"
 	"h_relay/config"
@@ -14,79 +13,60 @@ import (
 	"testing"
 )
 
-func TestGetTaskById(t *testing.T) {
-
+func TestGetBlockchainConfirmedTask(t *testing.T) {
 	addresses, privateKeys, err := v1.PrepareAccounts()
-	assert.Equal(t, nil, err, "prepare accounts error")
+	assert.Equal(t, nil, err, "error preparing accounts")
 
-	task, err := v1.PrepareTask(addresses)
-	assert.Equal(t, nil, err, "prepare task error")
+	taskInput, _, err := v1.PrepareBlockchainConfirmedTask(addresses, config.GetDB())
+	assert.Equal(t, nil, err, "error preparing task")
 
-	err = config.GetDB().Create(task).Error
-	assert.Equal(t, nil, err, "save task to db error")
+	getResultInput := inference_tasks.GetTaskInput{TaskId: taskInput.TaskId}
 
-	taskInput := inference_tasks.GetTaskInput{TaskId: 567}
+	timestamp, signature, err := v1.SignData(getResultInput, privateKeys[1])
 
-	signBytes, err := json.Marshal(taskInput)
-	assert.Equal(t, nil, err, "task input json marshall error")
+	r := callGetTaskByIdApi(taskInput.TaskId, timestamp, signature)
+	v1.AssertValidationErrorResponse(t, r, "task_id", "Task not ready")
 
-	// Get a non-exist task
+	t.Cleanup(tests.ClearDB)
+}
 
-	timestamp, signature, err := v1.SignData(signBytes, privateKeys[0])
-	assert.Equal(t, nil, err, "sign data error")
+func TestGetParamsUploadedTask(t *testing.T) {
+	addresses, privateKeys, err := v1.PrepareAccounts()
+	assert.Equal(t, nil, err, "error preparing accounts")
 
-	r := callGetTaskByIdApi(
-		567,
-		timestamp,
-		signature)
+	taskInput, task, err := v1.PrepareParamsUploadedTask(addresses, config.GetDB())
+	assert.Equal(t, nil, err, "error preparing task")
 
-	v1.AssertValidationErrorResponse(t, r, "task_id", "Task not found")
+	getResultInput := inference_tasks.GetTaskInput{TaskId: taskInput.TaskId}
 
-	// Get the task using an unauthorized account
+	timestamp, signature, err := v1.SignData(getResultInput, privateKeys[1])
 
-	taskInput.TaskId = task.TaskId
-	signBytes, err = json.Marshal(taskInput)
-	assert.Equal(t, nil, err, "task input json marshall error")
-
-	timestamp, signature, err = v1.SignData(signBytes, privateKeys[4])
-	assert.Equal(t, nil, err, "sign data error")
-
-	r = callGetTaskByIdApi(
-		task.TaskId,
-		timestamp,
-		signature)
-
-	v1.AssertValidationErrorResponse(t, r, "signature", "Signer not allowed")
-
-	// Get the task using the creator's account
-
-	timestamp, signature, err = v1.SignData(signBytes, privateKeys[0])
-	assert.Equal(t, nil, err, "sign data error")
-
-	r = callGetTaskByIdApi(
-		task.TaskId,
-		timestamp,
-		signature)
-
-	v1.AssertTaskResponse(t, r, task)
-
-	// Get the task using the selected node's account
-	timestamp, signature, err = v1.SignData(signBytes, privateKeys[2])
-	assert.Equal(t, nil, err, "sign data error")
-
-	r = callGetTaskByIdApi(
-		task.TaskId,
-		timestamp,
-		signature)
-
+	r := callGetTaskByIdApi(taskInput.TaskId, timestamp, signature)
 	v1.AssertTaskResponse(t, r, task)
 
 	t.Cleanup(tests.ClearDB)
 }
 
-func callGetTaskByIdApi(taskId int64, timestamp int64, signature string) *httptest.ResponseRecorder {
+func TestGetUnauthorizedTask(t *testing.T) {
+	addresses, privateKeys, err := v1.PrepareAccounts()
+	assert.Equal(t, nil, err, "error preparing accounts")
 
-	taskIdStr := strconv.FormatInt(taskId, 10)
+	taskInput, _, err := v1.PrepareParamsUploadedTask(addresses, config.GetDB())
+	assert.Equal(t, nil, err, "error preparing task")
+
+	getResultInput := inference_tasks.GetTaskInput{TaskId: taskInput.TaskId}
+
+	timestamp, signature, err := v1.SignData(getResultInput, privateKeys[4])
+
+	r := callGetTaskByIdApi(taskInput.TaskId, timestamp, signature)
+	v1.AssertValidationErrorResponse(t, r, "signature", "Signer not allowed")
+
+	t.Cleanup(tests.ClearDB)
+}
+
+func callGetTaskByIdApi(taskId uint64, timestamp int64, signature string) *httptest.ResponseRecorder {
+
+	taskIdStr := strconv.FormatUint(taskId, 10)
 
 	data := url.Values{}
 

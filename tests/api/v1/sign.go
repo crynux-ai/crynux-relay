@@ -2,6 +2,7 @@ package v1
 
 import (
 	"crypto/ecdsa"
+	"encoding/json"
 	"errors"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -10,7 +11,12 @@ import (
 	"time"
 )
 
-func SignData(data []byte, privateKeyStr string) (timestamp int64, signature string, err error) {
+func SignData(data interface{}, privateKeyStr string) (timestamp int64, signature string, err error) {
+
+	dataBytes, err := json.Marshal(data)
+	if err != nil {
+		return 0, "", err
+	}
 
 	privateKey, err := crypto.HexToECDSA(privateKeyStr)
 	if err != nil {
@@ -21,9 +27,9 @@ func SignData(data []byte, privateKeyStr string) (timestamp int64, signature str
 	timestampStr := strconv.FormatInt(timestamp, 10)
 	timestampBytes := []byte(timestampStr)
 
-	signBytes := append(data, timestampBytes...)
+	signBytes := append(dataBytes, timestampBytes...)
 
-	log.Debugln("test sign string: " + string(signBytes))
+	log.Debugln("test sign data: " + string(signBytes))
 
 	dataHash := crypto.Keccak256Hash(signBytes)
 

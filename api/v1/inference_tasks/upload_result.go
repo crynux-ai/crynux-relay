@@ -13,7 +13,7 @@ import (
 )
 
 type ResultInput struct {
-	TaskId int64 `path:"task_id" json:"task_id" description:"Task id" validate:"required"`
+	TaskId uint64 `path:"task_id" json:"task_id" description:"Task id" validate:"required"`
 }
 
 type ResultInputWithSignature struct {
@@ -37,7 +37,7 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 
 	var task models.InferenceTask
 
-	if result := config.GetDB().Where(&models.InferenceTask{TaskId: uint64(in.TaskId)}).Preload("SelectedNodes").First(&task); result.Error != nil {
+	if result := config.GetDB().Where(&models.InferenceTask{TaskId: in.TaskId}).Preload("SelectedNodes").First(&task); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			validationErr := response.NewValidationErrorResponse("task_id", "Task not found")
 			return nil, validationErr

@@ -1,101 +1,142 @@
 package inference_tasks_test
 
 import (
+	"bytes"
 	"encoding/json"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"h_relay/api/v1/inference_tasks"
+	"h_relay/config"
 	"h_relay/tests"
 	v1 "h_relay/tests/api/v1"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
-	"strconv"
-	"strings"
 	"testing"
 )
 
-func TestCreateTaskResponse(t *testing.T) {
+func TestCreateTaskBeforeBlockchainConfirmation(t *testing.T) {
 
-	addresses, privateKeys, err := v1.PrepareAccounts()
-	assert.Equal(t, nil, err, "prepare accounts error")
+	task := v1.PrepareRandomTask()
 
-	task, err := v1.PrepareTask(addresses)
-	assert.Equal(t, nil, err, "prepare task error")
+	_, privateKeys, err := v1.PrepareAccounts()
+	assert.Equal(t, nil, err, "prepare account error")
 
-	taskInput := inference_tasks.TaskInput{TaskId: task.TaskId, SelectedNodes: task.SelectedNodes, TaskParams: task.TaskParams}
+	timestamp, signature, err := v1.SignData(task, privateKeys[0])
 
-	signBytes, err := json.Marshal(taskInput)
-	assert.Equal(t, nil, err, "task input json marshall error")
-
-	// Missing argument
-
-	timestamp, signature, err := v1.SignData(signBytes, privateKeys[0])
-	assert.Equal(t, nil, err, "sign data error")
-
-	r := callCreateTaskApi(
-		task.TaskId,
-		"",
-		task.SelectedNodes,
-		timestamp,
-		signature)
-
-	v1.AssertValidationErrorResponse(t, r, "task_params", "required")
-
-	// Late timestamp
-
-	timestamp = timestamp - 100
-
-	r = callCreateTaskApi(
-		task.TaskId,
-		task.TaskParams,
-		task.SelectedNodes,
-		timestamp,
-		signature)
-
-	v1.AssertValidationErrorResponse(t, r, "signature", "Invalid signature")
-
-	// Successful creation
-
-	log.Debugln("signing using address: " + addresses[0])
-	timestamp, signature, err = v1.SignData(signBytes, privateKeys[0])
-	assert.Equal(t, nil, err, "sign data error")
-
-	r = callCreateTaskApi(
-		task.TaskId,
-		task.TaskParams,
-		task.SelectedNodes,
-		timestamp,
-		signature)
-
-	v1.AssertTaskResponse(t, r, task)
-
-	// Duplicated task id
-
-	r = callCreateTaskApi(
-		task.TaskId,
-		task.TaskParams,
-		task.SelectedNodes,
-		timestamp,
-		signature)
-
-	v1.AssertValidationErrorResponse(t, r, "task_id", "Duplicated task")
+	r := callCreateTaskApi(t, task, timestamp, signature)
+	v1.AssertValidationErrorResponse(t, r, "task_id", "Task not found on the Blockchain")
 
 	t.Cleanup(tests.ClearDB)
 }
 
-func callCreateTaskApi(taskId int64, taskParams string, selectedNodes string, timestamp int64, signature string) *httptest.ResponseRecorder {
+func TestCreateTaskAfterBlockchainConfirmation(t *testing.T) {
 
-	data := url.Values{}
-	data.Set("task_id", strconv.FormatInt(taskId, 10))
-	data.Set("task_params", taskParams)
-	data.Set("selected_nodes", selectedNodes)
-	data.Set("timestamp", strconv.FormatInt(timestamp, 10))
-	data.Set("signature", signature)
+	addresses, privateKeys, err := v1.PrepareAccounts()
+	assert.Equal(t, nil, err, "prepare account error")
 
-	req, _ := http.NewRequest("POST", "/v1/inference_tasks", strings.NewReader(data.Encode()))
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Add("Content-Length", strconv.Itoa(len(data.Encode())))
+	taskInput, task, err := v1.PrepareBlockchainConfirmedTask(addresses, config.GetDB())
+	assert.Equal(t, nil, err, "prepare task error")
+
+	timestamp, signature, err := v1.SignData(taskInput, privateKeys[0])
+	r := callCreateTaskApi(t, taskInput, timestamp, signature)
+
+	task.BaseModel = taskInput.BaseModel
+	task.LoraModel = taskInput.LoraModel
+	task.Prompt = taskInput.Prompt
+	task.TaskConfig = &taskInput.TaskConfig
+	task.Pose = &taskInput.Pose
+
+	v1.AssertTaskResponse(t, r, task)
+
+	t.Cleanup(tests.ClearDB)
+}
+
+func TestCreateTaskUsingUnauthorizedAccount(t *testing.T) {
+	addresses, privateKeys, err := v1.PrepareAccounts()
+	assert.Equal(t, nil, err, "prepare account error")
+
+	taskInput, _, err := v1.PrepareBlockchainConfirmedTask(addresses, config.GetDB())
+	assert.Equal(t, nil, err, "prepare task error")
+
+	timestamp, signature, err := v1.SignData(taskInput, privateKeys[1])
+	r := callCreateTaskApi(t, taskInput, timestamp, signature)
+
+	v1.AssertValidationErrorResponse(t, r, "signature", "Signer not allowed")
+
+	t.Cleanup(tests.ClearDB)
+}
+
+func TestCreateDuplicateTask(t *testing.T) {
+
+	addresses, privateKeys, err := v1.PrepareAccounts()
+	assert.Equal(t, nil, err, "prepare account error")
+
+	taskInput, task, err := v1.PrepareBlockchainConfirmedTask(addresses, config.GetDB())
+	assert.Equal(t, nil, err, "prepare task error")
+
+	timestamp, signature, err := v1.SignData(taskInput, privateKeys[0])
+	r := callCreateTaskApi(t, taskInput, timestamp, signature)
+
+	task.BaseModel = taskInput.BaseModel
+	task.LoraModel = taskInput.LoraModel
+	task.Prompt = taskInput.Prompt
+	task.TaskConfig = &taskInput.TaskConfig
+	task.Pose = &taskInput.Pose
+
+	v1.AssertTaskResponse(t, r, task)
+
+	timestamp, signature, err = v1.SignData(taskInput, privateKeys[0])
+	r = callCreateTaskApi(t, taskInput, timestamp, signature)
+
+	v1.AssertValidationErrorResponse(t, r, "task_id", "Task already uploaded")
+
+	t.Cleanup(tests.ClearDB)
+}
+
+func TestCreateTaskWithMismatchedParamHash(t *testing.T) {
+	addresses, privateKeys, err := v1.PrepareAccounts()
+	assert.Equal(t, nil, err, "prepare account error")
+
+	taskInput, _, err := v1.PrepareBlockchainConfirmedTask(addresses, config.GetDB())
+	assert.Equal(t, nil, err, "prepare task error")
+
+	oldPrompt := taskInput.Prompt
+	taskInput.Prompt += ", in anime style"
+
+	timestamp, signature, err := v1.SignData(taskInput, privateKeys[0])
+	assert.Equal(t, nil, err, "sign data error")
+
+	r := callCreateTaskApi(t, taskInput, timestamp, signature)
+
+	v1.AssertValidationErrorResponse(t, r, "data_hash", "Data hash mismatch")
+
+	taskInput.Prompt = oldPrompt
+	taskInput.TaskConfig.Steps = 60
+
+	timestamp, signature, err = v1.SignData(taskInput, privateKeys[0])
+	assert.Equal(t, nil, err, "sign data error")
+
+	r = callCreateTaskApi(t, taskInput, timestamp, signature)
+	v1.AssertValidationErrorResponse(t, r, "task_hash", "Task hash mismatch")
+
+	t.Cleanup(tests.ClearDB)
+}
+
+func callCreateTaskApi(t *testing.T, task *inference_tasks.TaskInput, timestamp int64, signature string) *httptest.ResponseRecorder {
+
+	inputWithSignature := &inference_tasks.TaskInputWithSignature{
+		TaskInput: *task,
+		Timestamp: timestamp,
+		Signature: signature,
+	}
+
+	jsonBytes, err := json.Marshal(inputWithSignature)
+	assert.Equal(t, nil, err, "json marshall error")
+
+	log.Debugln("post data: " + string(jsonBytes))
+
+	req, _ := http.NewRequest("POST", "/v1/inference_tasks", bytes.NewReader(jsonBytes))
+	req.Header.Add("Content-Type", "application/json")
 
 	w := httptest.NewRecorder()
 	tests.Application.ServeHTTP(w, req)

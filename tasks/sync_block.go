@@ -96,6 +96,12 @@ func processTaskCreated(startBlockNum, endBlockNum uint64) error {
 
 		taskCreated := taskCreatedEventIterator.Event
 
+		log.Debugln("Task created on chain: " +
+			taskCreated.TaskId.String() +
+			"|" + taskCreated.Creator.Hex() +
+			"|" + string(taskCreated.TaskHash[:]) +
+			"|" + string(taskCreated.DataHash[:]))
+
 		task := &models.InferenceTask{
 			TaskId:   taskCreated.TaskId.Uint64(),
 			Creator:  taskCreated.Creator.Hex(),

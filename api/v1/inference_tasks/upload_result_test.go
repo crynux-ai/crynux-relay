@@ -1,7 +1,6 @@
 package inference_tasks_test
 
 import (
-	"encoding/json"
 	"github.com/stretchr/testify/assert"
 	"h_relay/api/v1/inference_tasks"
 	"h_relay/config"
@@ -23,28 +22,22 @@ func TestWrongTaskId(t *testing.T) {
 	addresses, privateKeys, err := v1.PrepareAccounts()
 	assert.Equal(t, nil, err, "prepare accounts error")
 
-	task, err := v1.PrepareTask(addresses)
+	_, _, err = v1.PrepareParamsUploadedTask(addresses, config.GetDB())
 	assert.Equal(t, nil, err, "prepare task error")
 
-	err = config.GetDB().Create(task).Error
-	assert.Equal(t, nil, err, "save task to db error")
-
 	uploadResultInput := &inference_tasks.ResultInput{
-		TaskId: 999,
+		TaskId: 666,
 	}
 
 	pr, pw := io.Pipe()
 	writer := multipart.NewWriter(pw)
 
-	signBytes, err := json.Marshal(uploadResultInput)
-	assert.Equal(t, nil, err, "result input json marshall error")
-
-	timestamp, signature, err := v1.SignData(signBytes, privateKeys[1])
+	timestamp, signature, err := v1.SignData(uploadResultInput, privateKeys[1])
 	assert.Equal(t, nil, err, "sign data error")
 
 	prepareFileForm(t, writer, timestamp, signature)
 
-	r := callUploadResultApi(999, writer, pr)
+	r := callUploadResultApi(666, writer, pr)
 
 	v1.AssertValidationErrorResponse(t, r, "task_id", "Task not found")
 
@@ -103,11 +96,8 @@ func testUsingAddressNum(
 	addresses, privateKeys, err := v1.PrepareAccounts()
 	assert.Equal(t, nil, err, "prepare accounts error")
 
-	task, err := v1.PrepareTask(addresses)
+	_, task, err := v1.PrepareParamsUploadedTask(addresses, config.GetDB())
 	assert.Equal(t, nil, err, "prepare task error")
-
-	err = config.GetDB().Create(task).Error
-	assert.Equal(t, nil, err, "save task to db error")
 
 	uploadResultInput := &inference_tasks.ResultInput{
 		TaskId: task.TaskId,
@@ -116,10 +106,7 @@ func testUsingAddressNum(
 	pr, pw := io.Pipe()
 	writer := multipart.NewWriter(pw)
 
-	signBytes, err := json.Marshal(uploadResultInput)
-	assert.Equal(t, nil, err, "result input json marshall error")
-
-	timestamp, signature, err := v1.SignData(signBytes, privateKeys[num])
+	timestamp, signature, err := v1.SignData(uploadResultInput, privateKeys[num])
 	assert.Equal(t, nil, err, "sign data error")
 
 	prepareFileForm(t, writer, timestamp, signature)
@@ -173,8 +160,8 @@ func prepareFileForm(t *testing.T, writer *multipart.Writer, timestamp int64, si
 	}()
 }
 
-func assertFileExists(t *testing.T, taskId int64, selectedNode string, imageNum int) {
-	taskIdStr := strconv.FormatInt(taskId, 10)
+func assertFileExists(t *testing.T, taskId uint64, selectedNode string, imageNum int) {
+	taskIdStr := strconv.FormatUint(taskId, 10)
 	imageFilename := strconv.Itoa(imageNum) + ".png"
 
 	appConfig := config.GetConfig()
@@ -185,9 +172,8 @@ func assertFileExists(t *testing.T, taskId int64, selectedNode string, imageNum 
 	assert.Equal(t, nil, err, "image not exist")
 }
 
-func callUploadResultApi(taskId int64, writer *multipart.Writer, pr *io.PipeReader) *httptest.ResponseRecorder {
-
-	taskIdStr := strconv.FormatInt(taskId, 10)
+func callUploadResultApi(taskId uint64, writer *multipart.Writer, pr *io.PipeReader) *httptest.ResponseRecorder {
+	taskIdStr := strconv.FormatUint(taskId, 10)
 
 	req, _ := http.NewRequest("POST", "/v1/inference_tasks/"+taskIdStr+"/results", pr)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
