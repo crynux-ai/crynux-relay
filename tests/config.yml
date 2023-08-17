@@ -2,7 +2,7 @@
 environment: "test"
 db:
   driver: "sqlite"
-  connection: "/h_relay/data/test_db.sqlite"
+  connection: "/app/data/test_db.sqlite"
 log:
   level: "debug"
   output: "stdout"
@@ -13,4 +13,4 @@ http:
   host: "127.0.0.1"
   port: "8080"
 data_dir:
-    inference_tasks: "/h_relay/data/inference_tasks"
+    inference_tasks: "/app/data/inference_tasks"

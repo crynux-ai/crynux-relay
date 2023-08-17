@@ -12,7 +12,7 @@ var Application *gin.Engine = nil
 
 func init() {
 
-	if err := config.InitConfig("/h_relay/tests"); err != nil {
+	if err := config.InitConfig(""); err != nil {
 		print(err.Error())
 		os.Exit(1)
 	}

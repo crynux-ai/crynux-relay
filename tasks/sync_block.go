@@ -20,15 +20,17 @@ func StartSyncBlock() {
 	syncedBlock := &models.SyncedBlock{}
 
 	if err := config.GetDB().First(&syncedBlock).Error; err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			syncedBlock.BlockNumber = appConfig.Blockchain.StartBlockNum
 		} else {
+			log.Errorln("error getting the block sync checkpoint from db")
 			log.Fatal(err)
 		}
 	}
 
 	client, err := blockchain.GetWebSocketClient()
 	if err != nil {
+		log.Errorln("error start websocket client from blockchain")
 		log.Fatal(err)
 	}
 
@@ -36,6 +38,7 @@ func StartSyncBlock() {
 
 	sub, err := client.SubscribeNewHead(context.Background(), headers)
 	if err != nil {
+		log.Errorln("error subscribing for new blocks")
 		log.Fatal(err)
 	}
 
@@ -45,6 +48,8 @@ func StartSyncBlock() {
 			log.Errorln(err)
 			time.Sleep(time.Duration(interval) * time.Second)
 		case header := <-headers:
+
+			log.Debugln("new block received: " + header.Number.String())
 
 			currentBlockNum := header.Number
 
@@ -69,7 +74,7 @@ func processTaskCreated(startBlockNum, endBlockNum uint64) error {
 
 	taskContractInstance, err := blockchain.GetTaskContractInstance()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	ctx, cancelFn := context.WithTimeout(context.Background(), time.Duration(3)*time.Second)

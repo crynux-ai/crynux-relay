@@ -2,7 +2,7 @@
 environment: "release"
 db:
   driver: "mysql"
-  connection: "h_relay:hrelaypass@(mysql:3306)/h_relay"
+  connection: "h_relay:hrelaypass@(mysql:3306)/h_relay?parseTime=true"
 log:
   level: "info"
   output: "/app/data/logs/h_relay.log"
@@ -14,3 +14,8 @@ http:
   port: "8080"
 data_dir:
     inference_tasks: "/app/data/inference_tasks"
+blockchain:
+  web_socket_endpoint: "wss://block-node.crynux.ai/ws"
+  start_block_num: 1431
+  contracts:
+    task: "0x57BC09453283C22b3aB8C4AC359a4b92Cd6E2c02"
