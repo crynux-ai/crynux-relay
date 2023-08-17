@@ -63,7 +63,13 @@ func M20230810(db *gorm.DB) *gormigrate.Gormigrate {
 				return tx.Migrator().CreateTable(&InferenceTask{})
 			},
 			Rollback: func(tx *gorm.DB) error {
-				return tx.Migrator().DropTable("inference_tasks")
+				if err := tx.Migrator().DropTable("inference_tasks"); err != nil {
+					return err
+				}
+				if err := tx.Migrator().DropTable("selected_nodes"); err != nil {
+					return err
+				}
+				return tx.Migrator().DropTable("synced_blocks")
 			},
 		},
 	})
