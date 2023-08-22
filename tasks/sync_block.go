@@ -3,6 +3,7 @@ package tasks
 import (
 	"context"
 	"errors"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -14,8 +15,7 @@ import (
 	"time"
 )
 
-func StartSyncBlock() {
-	interval := 1
+func StartSyncBlockWithTerminateChannel(ch <-chan int) {
 	appConfig := config.GetConfig()
 	syncedBlock := &models.SyncedBlock{}
 
@@ -23,14 +23,12 @@ func StartSyncBlock() {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			syncedBlock.BlockNumber = appConfig.Blockchain.StartBlockNum
 		} else {
-			log.Errorln("error getting the block sync checkpoint from db")
 			log.Fatal(err)
 		}
 	}
 
 	client, err := blockchain.GetWebSocketClient()
 	if err != nil {
-		log.Errorln("error start websocket client from blockchain")
 		log.Fatal(err)
 	}
 
@@ -38,36 +36,82 @@ func StartSyncBlock() {
 
 	sub, err := client.SubscribeNewHead(context.Background(), headers)
 	if err != nil {
-		log.Errorln("error subscribing for new blocks")
 		log.Fatal(err)
 	}
 
 	for {
 		select {
-		case err := <-sub.Err():
-			log.Errorln(err)
-			time.Sleep(time.Duration(interval) * time.Second)
-		case header := <-headers:
-
-			log.Debugln("new block received: " + header.Number.String())
-
-			currentBlockNum := header.Number
-
-			if err := processTaskCreated(syncedBlock.BlockNumber+1, currentBlockNum.Uint64()); err != nil {
-				log.Errorln(err)
-				time.Sleep(time.Duration(interval) * time.Second)
-				continue
+		case stop := <-ch:
+			if stop == 1 {
+				return
+			} else {
+				processChannel(sub, headers, syncedBlock)
 			}
-
-			oldNum := syncedBlock.BlockNumber
-			syncedBlock.BlockNumber = header.Number.Uint64()
-			if err := config.GetDB().Save(&syncedBlock).Error; err != nil {
-				syncedBlock.BlockNumber = oldNum
-				log.Errorln(err)
-				time.Sleep(time.Duration(interval) * time.Second)
-			}
+		default:
+			processChannel(sub, headers, syncedBlock)
 		}
 	}
+}
+
+func StartSyncBlock() {
+	appConfig := config.GetConfig()
+	syncedBlock := &models.SyncedBlock{}
+
+	if err := config.GetDB().First(&syncedBlock).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			syncedBlock.BlockNumber = appConfig.Blockchain.StartBlockNum
+		} else {
+			log.Fatal(err)
+		}
+	}
+
+	client, err := blockchain.GetWebSocketClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	headers := make(chan *types.Header)
+
+	sub, err := client.SubscribeNewHead(context.Background(), headers)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for {
+		processChannel(sub, headers, syncedBlock)
+	}
+}
+
+func processChannel(sub ethereum.Subscription, headers chan *types.Header, syncedBlock *models.SyncedBlock) {
+
+	interval := 1
+
+	select {
+	case err := <-sub.Err():
+		log.Errorln(err)
+		time.Sleep(time.Duration(interval) * time.Second)
+	case header := <-headers:
+
+		currentBlockNum := header.Number
+
+		log.Debugln("new block received: " + header.Number.String())
+
+		if err := processTaskCreated(syncedBlock.BlockNumber+1, currentBlockNum.Uint64()); err != nil {
+			log.Errorln(err)
+			time.Sleep(time.Duration(interval) * time.Second)
+			return
+		}
+
+		oldNum := syncedBlock.BlockNumber
+		syncedBlock.BlockNumber = currentBlockNum.Uint64()
+		if err := config.GetDB().Save(syncedBlock).Error; err != nil {
+			syncedBlock.BlockNumber = oldNum
+			log.Errorln(err)
+			time.Sleep(time.Duration(interval) * time.Second)
+		}
+	}
+
+	time.Sleep(time.Duration(interval) * time.Second)
 }
 
 func processTaskCreated(startBlockNum, endBlockNum uint64) error {
@@ -77,14 +121,11 @@ func processTaskCreated(startBlockNum, endBlockNum uint64) error {
 		return err
 	}
 
-	ctx, cancelFn := context.WithTimeout(context.Background(), time.Duration(3)*time.Second)
-	defer cancelFn()
-
 	taskCreatedEventIterator, err := taskContractInstance.FilterTaskCreated(
 		&bind.FilterOpts{
 			Start:   startBlockNum,
 			End:     &endBlockNum,
-			Context: ctx,
+			Context: context.Background(),
 		},
 		nil,
 		nil,
@@ -115,13 +156,23 @@ func processTaskCreated(startBlockNum, endBlockNum uint64) error {
 			Status:   models.InferenceTaskCreatedOnChain,
 		}
 
-		if err := config.GetDB().Create(&task).Error; err != nil {
+		if err := config.GetDB().Create(task).Error; err != nil {
 			if !errors.Is(err, gorm.ErrDuplicatedKey) {
 				return err
+			} else {
+				log.Debugln("duplicated task id, the task created events of the same task")
+
+				condition := &models.InferenceTask{
+					TaskId: task.TaskId,
+				}
+
+				if err := config.GetDB().Where(condition).First(task).Error; err != nil {
+					return err
+				}
 			}
 		}
 
-		association := config.GetDB().Model(&task).Association("SelectedNodes")
+		association := config.GetDB().Model(task).Association("SelectedNodes")
 
 		if err := association.Append(&models.SelectedNode{NodeAddress: taskCreated.SelectedNode.Hex()}); err != nil {
 			return err

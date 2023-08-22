@@ -5,6 +5,7 @@ import (
 	"h_relay/blockchain"
 	"h_relay/config"
 	"h_relay/models"
+	"h_relay/tasks"
 	"h_relay/tests"
 	v1 "h_relay/tests/api/v1"
 	"testing"
@@ -12,6 +13,13 @@ import (
 )
 
 func TestTaskCreatedOnChain(t *testing.T) {
+
+	err := tests.SyncToLatestBlock()
+	assert.Nil(t, err, "error syncing to the latest block")
+
+	syncBlockChan := make(chan int)
+	go tasks.StartSyncBlockWithTerminateChannel(syncBlockChan)
+
 	addresses, privateKeys, err := tests.PrepareAccountsWithTokens()
 	assert.Nil(t, err, "error preparing accounts")
 
@@ -38,6 +46,30 @@ func TestTaskCreatedOnChain(t *testing.T) {
 	_, err = blockchain.CreateTaskOnChain(task)
 	assert.Nil(t, err, "error creating task on chain")
 
-	time.Sleep(20 * time.Second)
+	time.Sleep(30 * time.Second)
 
+	taskInDb := &models.InferenceTask{}
+
+	err = config.GetDB().Model(taskInDb).First(taskInDb).Error
+	assert.Nil(t, err, "task not created")
+
+	// Task in DB has no params for now
+	// The params will be uploaded by the task creator later
+
+	taskHash, err := task.GetTaskHash()
+	assert.Nil(t, err, "error getting task hash")
+
+	assert.Equal(t, taskHash.Hex(), taskInDb.TaskHash, "task hash mismatch")
+
+	taskDataHash, err := task.GetDataHash()
+	assert.Nil(t, err, "error getting task data hash")
+
+	assert.Equal(t, taskDataHash.Hex(), taskInDb.DataHash, "task hash mismatch")
+
+	t.Cleanup(func() {
+		tests.ClearDB()
+		err := tests.ClearNetwork(addresses, privateKeys)
+		assert.Nil(t, err, "clear network error")
+		syncBlockChan <- 1
+	})
 }

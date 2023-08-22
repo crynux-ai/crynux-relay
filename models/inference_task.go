@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 	"strconv"
 )
@@ -63,6 +64,8 @@ func (t *InferenceTask) GetTaskHash() (*common.Hash, error) {
 		return nil, err
 	}
 
+	log.Debugln("task hash string: " + string(taskHashBytes))
+
 	hash := crypto.Keccak256Hash(taskHashBytes)
 	return &hash, nil
 }
@@ -80,6 +83,8 @@ func (t *InferenceTask) GetDataHash() (*common.Hash, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	log.Debugln("data hash string: " + string(dataHashBytes))
 
 	hash := crypto.Keccak256Hash(dataHashBytes)
 	return &hash, nil
