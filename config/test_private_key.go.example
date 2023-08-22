@@ -1,0 +1,5 @@
+package config
+
+func GetTestPrivateKey() string {
+	return ""
+}
