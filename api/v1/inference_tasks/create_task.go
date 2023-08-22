@@ -79,7 +79,7 @@ func CreateTask(_ *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 	if err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
-	if taskHash != task.TaskHash {
+	if taskHash.Hex() != task.TaskHash {
 		return nil,
 			response.NewValidationErrorResponse(
 				"task_hash",
@@ -90,7 +90,7 @@ func CreateTask(_ *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 	if err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
-	if dataHash != task.DataHash {
+	if dataHash.Hex() != task.DataHash {
 		return nil,
 			response.NewValidationErrorResponse(
 				"data_hash",

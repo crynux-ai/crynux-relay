@@ -17,5 +17,8 @@ data_dir:
 blockchain:
   web_socket_endpoint: "wss://block-node.crynux.ai/ws"
   start_block_num: 1431
+  gas_limit: 4294967
   contracts:
-    task: "0x57BC09453283C22b3aB8C4AC359a4b92Cd6E2c02"
+    task: "0x81968268d3aCdCba99a677C960C2B5dFb8B38768"
+    node: "0xcc0576ceEc40A9309f231d59B36A5c6e5625d6e5"
+    crynux_token: "0x2045334b59E72B91ee072b6971F1eAbFa496A5D7"

@@ -1,3 +1,5 @@
 .idea/
 config/config.yml
+config/private_key.go
+config/test_private_key.go
 *.exe

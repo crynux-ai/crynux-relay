@@ -34,8 +34,20 @@ type AppConfig struct {
 	Blockchain struct {
 		WebSocketEndpoint string `mapstructure:"web_socket_endpoint"`
 		StartBlockNum     uint64 `mapstructure:"start_block_num"`
-		Contracts         struct {
-			Task string `mapstructure:"task"`
+		GasLimit          uint64 `mapstructure:"gas_limit"`
+		Account           struct {
+			Address    string `mapstructure:"address"`
+			PrivateKey string `mapstructure:"private_key"`
+		} `mapstructure:"account"`
+		Contracts struct {
+			Task        string `mapstructure:"task"`
+			Node        string `mapstructure:"node"`
+			CrynuxToken string `mapstructure:"crynux_token"`
 		} `mapstructure:"contracts"`
 	} `mapstructure:"blockchain"`
+
+	Test struct {
+		RootAddress    string `mapstructure:"root_address"`
+		RootPrivateKey string `mapstructure:"root_private_key"`
+	} `mapstructure:"test"`
 }

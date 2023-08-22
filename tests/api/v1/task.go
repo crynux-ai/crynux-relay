@@ -47,7 +47,7 @@ func PrepareTaskConfig() models.TaskConfig {
 func PrepareRandomTask() *inference_tasks.TaskInput {
 	return &inference_tasks.TaskInput{
 		TaskId:     999,
-		BaseModel:  "sd-v1-5",
+		BaseModel:  "stable-diffusion-v1-5-pruned",
 		LoraModel:  "",
 		Prompt:     "a silly man sitting on a brown chair",
 		Pose:       PreparePoseConfig(),
@@ -74,13 +74,13 @@ func PrepareBlockchainConfirmedTask(addresses []string, db *gorm.DB) (*inference
 	if err != nil {
 		return nil, nil, err
 	}
-	task.TaskHash = taskHash
+	task.TaskHash = taskHash.Hex()
 
 	dataHash, err := task.GetDataHash()
 	if err != nil {
 		return nil, nil, err
 	}
-	task.DataHash = dataHash
+	task.DataHash = dataHash.Hex()
 
 	task.Prompt = ""
 	task.BaseModel = ""

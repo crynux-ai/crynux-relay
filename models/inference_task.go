@@ -2,6 +2,7 @@ package models
 
 import (
 	"encoding/json"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"gorm.io/gorm"
 	"strconv"
@@ -55,18 +56,18 @@ type DataHashInput struct {
 	Prompt    string     `json:"prompt"`
 }
 
-func (t *InferenceTask) GetTaskHash() (string, error) {
+func (t *InferenceTask) GetTaskHash() (*common.Hash, error) {
 
 	taskHashBytes, err := json.Marshal(t.TaskConfig)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	hash := crypto.Keccak256Hash(taskHashBytes)
-	return hash.Hex(), nil
+	return &hash, nil
 }
 
-func (t *InferenceTask) GetDataHash() (string, error) {
+func (t *InferenceTask) GetDataHash() (*common.Hash, error) {
 
 	dataHash := &DataHashInput{
 		BaseModel: t.BaseModel,
@@ -77,9 +78,9 @@ func (t *InferenceTask) GetDataHash() (string, error) {
 
 	dataHashBytes, err := json.Marshal(dataHash)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	hash := crypto.Keccak256Hash(dataHashBytes)
-	return hash.Hex(), nil
+	return &hash, nil
 }
