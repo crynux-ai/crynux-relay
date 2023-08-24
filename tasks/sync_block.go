@@ -12,6 +12,7 @@ import (
 	"h_relay/blockchain"
 	"h_relay/config"
 	"h_relay/models"
+	"strconv"
 	"time"
 )
 
@@ -102,6 +103,12 @@ func processChannel(sub ethereum.Subscription, headers chan *types.Header, synce
 			return
 		}
 
+		if err := processTaskSuccess(syncedBlock.BlockNumber+1, currentBlockNum.Uint64()); err != nil {
+			log.Errorln(err)
+			time.Sleep(time.Duration(interval) * time.Second)
+			return
+		}
+
 		oldNum := syncedBlock.BlockNumber
 		syncedBlock.BlockNumber = currentBlockNum.Uint64()
 		if err := config.GetDB().Save(syncedBlock).Error; err != nil {
@@ -180,6 +187,85 @@ func processTaskCreated(startBlockNum, endBlockNum uint64) error {
 	}
 
 	if err := taskCreatedEventIterator.Close(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func processTaskSuccess(startBlockNum, endBlockNum uint64) error {
+	taskContractInstance, err := blockchain.GetTaskContractInstance()
+	if err != nil {
+		return err
+	}
+
+	taskSuccessEventIterator, err := taskContractInstance.FilterTaskSuccess(
+		&bind.FilterOpts{
+			Start:   startBlockNum,
+			End:     &endBlockNum,
+			Context: context.Background(),
+		},
+		nil,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	for {
+		if !taskSuccessEventIterator.Next() {
+			break
+		}
+
+		taskSuccess := taskSuccessEventIterator.Event
+
+		log.Debugln("Task success on chain: " +
+			taskSuccess.TaskId.String() +
+			"|" + string(taskSuccess.Result) +
+			"|" + taskSuccess.ResultNode.Hex())
+
+		task := &models.InferenceTask{
+			TaskId: taskSuccess.TaskId.Uint64(),
+		}
+
+		if err := config.GetDB().Where(task).Preload("SelectedNodes").First(task).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				log.Debugln("Task not found in the db: " + strconv.FormatUint(task.TaskId, 10))
+				log.Debugln("Might be tasks created by other servers. Just skip it.")
+				continue
+
+			} else {
+				return err
+			}
+		}
+
+		taskInfo, err := blockchain.GetTaskById(task.TaskId)
+		if err != nil {
+			return err
+		}
+
+		for i := 0; i < len(taskInfo.ResultDisclosedRounds); i++ {
+			round := taskInfo.ResultDisclosedRounds[i].Int64()
+			selectedNodeAddress := taskInfo.SelectedNodes[round].Hex()
+			result := hexutil.Encode(taskInfo.Results[round])
+
+			for j := 0; j < len(task.SelectedNodes); j++ {
+
+				selectedNodeModel := task.SelectedNodes[j]
+
+				if selectedNodeAddress == selectedNodeModel.NodeAddress {
+					selectedNodeModel.Result = result
+
+					if err := config.GetDB().Save(selectedNodeModel).Error; err != nil {
+						return err
+					}
+				}
+			}
+		}
+
+	}
+
+	if err := taskSuccessEventIterator.Close(); err != nil {
 		return err
 	}
 

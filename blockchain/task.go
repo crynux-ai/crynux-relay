@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	log "github.com/sirupsen/logrus"
@@ -128,4 +129,28 @@ func GetTaskResultCommitment(result []byte) (commitment [32]byte, nonce [32]byte
 	copy(commitment[:], commitmentHash.Bytes())
 	copy(nonce[:], nonceHash.Bytes())
 	return commitment, nonce
+}
+
+func GetTaskById(taskId uint64) (*bindings.TaskTaskInfo, error) {
+
+	taskInstance, err := GetTaskContractInstance()
+	if err != nil {
+		return nil, err
+	}
+
+	opts := &bind.CallOpts{
+		Pending: false,
+		Context: context.Background(),
+	}
+
+	taskInfo, err := taskInstance.GetTask(opts, big.NewInt(int64(taskId)))
+	if err != nil {
+		return nil, err
+	}
+
+	return &taskInfo, nil
+}
+
+func GetPHashForImage() string {
+	return ""
 }

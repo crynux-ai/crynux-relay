@@ -9,10 +9,6 @@ RUN CGO_ENABLED=1 go mod download
 
 COPY . .
 
-# Private key is only used in automated testing
-COPY ./config/private_key.go.example ./config/private_key.go
-COPY ./config/test_private_key.go.example ./config/test_private_key.go
-
 RUN CGO_ENABLED=1 go build
 
 FROM alpine:3.18

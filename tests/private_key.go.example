@@ -1,4 +1,4 @@
-package config
+package tests
 
 func GetTestPrivateKey() string {
 	return ""
