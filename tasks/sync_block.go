@@ -12,7 +12,6 @@ import (
 	"h_relay/blockchain"
 	"h_relay/config"
 	"h_relay/models"
-	"strconv"
 	"time"
 )
 
@@ -229,14 +228,7 @@ func processTaskSuccess(startBlockNum, endBlockNum uint64) error {
 		}
 
 		if err := config.GetDB().Where(task).Preload("SelectedNodes").First(task).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				log.Debugln("Task not found in the db: " + strconv.FormatUint(task.TaskId, 10))
-				log.Debugln("Might be tasks created by other servers. Just skip it.")
-				continue
-
-			} else {
-				return err
-			}
+			return err
 		}
 
 		taskInfo, err := blockchain.GetTaskById(task.TaskId)
@@ -244,6 +236,7 @@ func processTaskSuccess(startBlockNum, endBlockNum uint64) error {
 			return err
 		}
 
+		// The number of nodes which has already submitted result is 2 or 3 by this moment.
 		for i := 0; i < len(taskInfo.ResultDisclosedRounds); i++ {
 			round := taskInfo.ResultDisclosedRounds[i].Int64()
 			selectedNodeAddress := taskInfo.SelectedNodes[round].Hex()
