@@ -227,35 +227,25 @@ func processTaskSuccess(startBlockNum, endBlockNum uint64) error {
 			TaskId: taskSuccess.TaskId.Uint64(),
 		}
 
-		if err := config.GetDB().Where(task).Preload("SelectedNodes").First(task).Error; err != nil {
+		if err := config.GetDB().Where(task).First(task).Error; err != nil {
 			return err
 		}
 
-		taskInfo, err := blockchain.GetTaskById(task.TaskId)
-		if err != nil {
+		selectedNode := &models.SelectedNode{
+			InferenceTaskID: task.ID,
+			NodeAddress:     taskSuccess.ResultNode.Hex(),
+		}
+
+		if err := config.GetDB().Where(selectedNode).First(selectedNode).Error; err != nil {
 			return err
 		}
 
-		// The number of nodes which has already submitted result is 2 or 3 by this moment.
-		for i := 0; i < len(taskInfo.ResultDisclosedRounds); i++ {
-			round := taskInfo.ResultDisclosedRounds[i].Int64()
-			selectedNodeAddress := taskInfo.SelectedNodes[round].Hex()
-			result := hexutil.Encode(taskInfo.Results[round])
+		selectedNode.Result = hexutil.Encode(taskSuccess.Result)
+		selectedNode.IsResultSelected = true
 
-			for j := 0; j < len(task.SelectedNodes); j++ {
-
-				selectedNodeModel := task.SelectedNodes[j]
-
-				if selectedNodeAddress == selectedNodeModel.NodeAddress {
-					selectedNodeModel.Result = result
-
-					if err := config.GetDB().Save(selectedNodeModel).Error; err != nil {
-						return err
-					}
-				}
-			}
+		if err := config.GetDB().Model(selectedNode).Select("Result", "IsResultSelected").Updates(selectedNode).Error; err != nil {
+			return err
 		}
-
 	}
 
 	if err := taskSuccessEventIterator.Close(); err != nil {

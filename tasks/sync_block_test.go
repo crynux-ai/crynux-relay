@@ -86,17 +86,14 @@ func TestTaskCreatedAndSuccessOnChain(t *testing.T) {
 
 	targetHash := hexutil.Encode([]byte("123456789"))
 
-	numResults := 0
-	for i := 0; i < 3; i++ {
-		result := taskInDbWithSelectedNodes.SelectedNodes[i].Result
-		if result == targetHash {
-			numResults++
-		}
+	check := &models.SelectedNode{
+		InferenceTaskID:  taskInDbWithSelectedNodes.ID,
+		IsResultSelected: true,
+		Result:           targetHash,
 	}
 
-	// Since we're submitting results one after another in the automated testing
-	// We have only 2 results at this moment for sure
-	assert.Equal(t, 2, numResults, "wrong number of results")
+	err = config.GetDB().Where(check).First(check).Error
+	assert.Nil(t, err, "error find result success node")
 
 	t.Cleanup(func() {
 		tests.ClearDB()
