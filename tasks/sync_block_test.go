@@ -8,7 +8,6 @@ import (
 	"h_relay/models"
 	"h_relay/tasks"
 	"h_relay/tests"
-	v1 "h_relay/tests/api/v1"
 	"math/big"
 	"testing"
 	"time"
@@ -35,7 +34,7 @@ func TestTaskCreatedAndSuccessOnChain(t *testing.T) {
 	appConfig.Blockchain.Account.Address = addresses[0]
 	appConfig.Blockchain.Account.PrivateKey = privateKeys[0]
 
-	taskInput := v1.PrepareRandomTask()
+	taskInput := tests.PrepareRandomTask()
 
 	task := &models.InferenceTask{
 		Prompt:     taskInput.Prompt,

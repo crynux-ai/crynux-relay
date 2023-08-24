@@ -14,10 +14,10 @@ import (
 )
 
 func TestGetBlockchainConfirmedTask(t *testing.T) {
-	addresses, privateKeys, err := v1.PrepareAccounts()
+	addresses, privateKeys, err := tests.PrepareAccounts()
 	assert.Equal(t, nil, err, "error preparing accounts")
 
-	taskInput, _, err := v1.PrepareBlockchainConfirmedTask(addresses, config.GetDB())
+	taskInput, _, err := tests.PrepareBlockchainConfirmedTask(addresses, config.GetDB())
 	assert.Equal(t, nil, err, "error preparing task")
 
 	getResultInput := inference_tasks.GetTaskInput{TaskId: taskInput.TaskId}
@@ -31,10 +31,10 @@ func TestGetBlockchainConfirmedTask(t *testing.T) {
 }
 
 func TestGetParamsUploadedTask(t *testing.T) {
-	addresses, privateKeys, err := v1.PrepareAccounts()
+	addresses, privateKeys, err := tests.PrepareAccounts()
 	assert.Equal(t, nil, err, "error preparing accounts")
 
-	taskInput, task, err := v1.PrepareParamsUploadedTask(addresses, config.GetDB())
+	taskInput, task, err := tests.PrepareParamsUploadedTask(addresses, config.GetDB())
 	assert.Equal(t, nil, err, "error preparing task")
 
 	getResultInput := inference_tasks.GetTaskInput{TaskId: taskInput.TaskId}
@@ -48,10 +48,10 @@ func TestGetParamsUploadedTask(t *testing.T) {
 }
 
 func TestGetUnauthorizedTask(t *testing.T) {
-	addresses, privateKeys, err := v1.PrepareAccounts()
+	addresses, privateKeys, err := tests.PrepareAccounts()
 	assert.Equal(t, nil, err, "error preparing accounts")
 
-	taskInput, _, err := v1.PrepareParamsUploadedTask(addresses, config.GetDB())
+	taskInput, _, err := tests.PrepareParamsUploadedTask(addresses, config.GetDB())
 	assert.Equal(t, nil, err, "error preparing task")
 
 	getResultInput := inference_tasks.GetTaskInput{TaskId: taskInput.TaskId}

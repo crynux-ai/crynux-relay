@@ -2,9 +2,12 @@ package inference_tasks
 
 import (
 	"errors"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 	"h_relay/api/v1/response"
+	"h_relay/blockchain"
 	"h_relay/config"
 	"h_relay/models"
 	"os"
@@ -37,7 +40,7 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 
 	var task models.InferenceTask
 
-	if result := config.GetDB().Where(&models.InferenceTask{TaskId: in.TaskId}).Preload("SelectedNodes").First(&task); result.Error != nil {
+	if result := config.GetDB().Where(&models.InferenceTask{TaskId: in.TaskId}).First(&task); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			validationErr := response.NewValidationErrorResponse("task_id", "Task not found")
 			return nil, validationErr
@@ -46,16 +49,21 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 		}
 	}
 
-	var selectedNodeAddress string
+	resultNode := &models.SelectedNode{
+		InferenceTaskID:  task.ID,
+		IsResultSelected: true,
+	}
 
-	for _, selectedNode := range task.SelectedNodes {
-		if selectedNode.NodeAddress == address {
-			selectedNodeAddress = address
-			break
+	if err := config.GetDB().Where(resultNode).First(resultNode).Error; err != nil {
+
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, response.NewValidationErrorResponse("task_id", "Task not ready")
+		} else {
+			return nil, response.NewExceptionResponse(err)
 		}
 	}
 
-	if selectedNodeAddress == "" {
+	if resultNode.NodeAddress != address {
 		validationErr := response.NewValidationErrorResponse("signature", "Signer not allowed")
 		return nil, validationErr
 	}
@@ -63,12 +71,47 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 	form, _ := ctx.MultipartForm()
 	files := form.File["images"]
 
+	// Check whether the images are correct
+	var pHashBytes []byte
+
+	for _, file := range files {
+
+		imageFile, err := file.Open()
+
+		if err != nil {
+			return nil, response.NewExceptionResponse(err)
+		}
+
+		pHash, err := blockchain.GetPHashForImage(imageFile)
+
+		if err != nil {
+			return nil, response.NewExceptionResponse(err)
+		}
+
+		pHashBytes = append(pHashBytes, pHash...)
+
+		err = imageFile.Close()
+		if err != nil {
+			return nil, response.NewExceptionResponse(err)
+		}
+	}
+
+	uploadedResult := hexutil.Encode(pHashBytes)
+
+	log.Debugln("image compare: result from the blockchain: " + resultNode.Result)
+	log.Debugln("image compare: result from the uploaded file: " + uploadedResult)
+
+	if resultNode.Result != uploadedResult {
+		validationErr := response.NewValidationErrorResponse("images", "Wrong images uploaded")
+		return nil, validationErr
+	}
+
 	appConfig := config.GetConfig()
 
 	taskWorkspace := appConfig.DataDir.InferenceTasks
 	taskIdStr := task.GetTaskIdAsString()
 
-	taskDir := filepath.Join(taskWorkspace, taskIdStr, selectedNodeAddress)
+	taskDir := filepath.Join(taskWorkspace, taskIdStr, "results")
 	if err = os.MkdirAll(taskDir, os.ModeDir); err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
@@ -76,7 +119,6 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 	fileNum := 0
 
 	for _, file := range files {
-
 		filename := filepath.Join(taskDir, strconv.Itoa(fileNum)+".png")
 		if err := ctx.SaveUploadedFile(file, filename); err != nil {
 			return nil, response.NewExceptionResponse(err)

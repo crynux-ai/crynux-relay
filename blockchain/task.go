@@ -1,8 +1,11 @@
 package blockchain
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"errors"
+	"github.com/corona10/goimagehash"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -11,6 +14,8 @@ import (
 	"h_relay/blockchain/bindings"
 	"h_relay/config"
 	"h_relay/models"
+	"image/png"
+	"io"
 	"math/big"
 	"math/rand"
 	"strconv"
@@ -151,6 +156,28 @@ func GetTaskById(taskId uint64) (*bindings.TaskTaskInfo, error) {
 	return &taskInfo, nil
 }
 
-func GetPHashForImage() string {
-	return ""
+func GetPHashForImage(reader io.Reader) ([]byte, error) {
+	image, err := png.Decode(reader)
+	if err != nil {
+		return nil, err
+	}
+	pHash, err := goimagehash.PerceptionHash(image)
+	if err != nil {
+		return nil, err
+	}
+
+	var b bytes.Buffer
+	foo := bufio.NewWriter(&b)
+
+	err = pHash.Dump(foo)
+	if err != nil {
+		return nil, err
+	}
+
+	err = foo.Flush()
+	if err != nil {
+		return nil, err
+	}
+
+	return b.Bytes(), nil
 }

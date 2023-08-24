@@ -19,10 +19,10 @@ import (
 )
 
 func TestWrongTaskId(t *testing.T) {
-	addresses, privateKeys, err := v1.PrepareAccounts()
+	addresses, privateKeys, err := tests.PrepareAccounts()
 	assert.Equal(t, nil, err, "prepare accounts error")
 
-	_, _, err = v1.PrepareParamsUploadedTask(addresses, config.GetDB())
+	taskInput, _, err := tests.PrepareParamsUploadedTask(addresses, config.GetDB())
 	assert.Equal(t, nil, err, "prepare task error")
 
 	uploadResultInput := &inference_tasks.ResultInput{
@@ -35,7 +35,7 @@ func TestWrongTaskId(t *testing.T) {
 	timestamp, signature, err := v1.SignData(uploadResultInput, privateKeys[1])
 	assert.Equal(t, nil, err, "sign data error")
 
-	prepareFileForm(t, writer, timestamp, signature)
+	prepareFileForm(t, taskInput, writer, timestamp, signature)
 
 	r := callUploadResultApi(666, writer, pr)
 
@@ -79,7 +79,7 @@ func TestSuccessfulUpload(t *testing.T) {
 		v1.AssertEmptySuccessResponse(t, r)
 
 		for i := 0; i < 5; i++ {
-			assertFileExists(t, task.TaskId, addresses[2], i)
+			assertFileExists(t, task.TaskId, i)
 		}
 	})
 }
@@ -93,10 +93,10 @@ func testUsingAddressNum(
 		task *models.InferenceTask,
 		addresses []string)) {
 
-	addresses, privateKeys, err := v1.PrepareAccounts()
+	addresses, privateKeys, err := tests.PrepareAccounts()
 	assert.Equal(t, nil, err, "prepare accounts error")
 
-	_, task, err := v1.PrepareParamsUploadedTask(addresses, config.GetDB())
+	taskInput, task, err := tests.PrepareResultUploadedTask(addresses, config.GetDB())
 	assert.Equal(t, nil, err, "prepare task error")
 
 	uploadResultInput := &inference_tasks.ResultInput{
@@ -109,7 +109,7 @@ func testUsingAddressNum(
 	timestamp, signature, err := v1.SignData(uploadResultInput, privateKeys[num])
 	assert.Equal(t, nil, err, "sign data error")
 
-	prepareFileForm(t, writer, timestamp, signature)
+	prepareFileForm(t, taskInput, writer, timestamp, signature)
 
 	r := callUploadResultApi(task.TaskId, writer, pr)
 
@@ -123,7 +123,7 @@ func testUsingAddressNum(
 	})
 }
 
-func prepareFileForm(t *testing.T, writer *multipart.Writer, timestamp int64, signature string) {
+func prepareFileForm(t *testing.T, taskInput *inference_tasks.TaskInput, writer *multipart.Writer, timestamp int64, signature string) {
 	go func() {
 		defer func(writer *multipart.Writer) {
 			err := writer.Close()
@@ -140,7 +140,7 @@ func prepareFileForm(t *testing.T, writer *multipart.Writer, timestamp int64, si
 		err = writer.WriteField("signature", signature)
 		assert.Equal(t, nil, err, "write signature failed")
 
-		for i := 0; i < 5; i++ {
+		for i := 0; i < taskInput.TaskConfig.NumImages; i++ {
 			part, err := writer.CreateFormFile("images", "test_image_"+strconv.Itoa(i)+".png")
 			if err != nil {
 				t.Error(err)
@@ -160,12 +160,12 @@ func prepareFileForm(t *testing.T, writer *multipart.Writer, timestamp int64, si
 	}()
 }
 
-func assertFileExists(t *testing.T, taskId uint64, selectedNode string, imageNum int) {
+func assertFileExists(t *testing.T, taskId uint64, imageNum int) {
 	taskIdStr := strconv.FormatUint(taskId, 10)
 	imageFilename := strconv.Itoa(imageNum) + ".png"
 
 	appConfig := config.GetConfig()
-	imageFilePath := filepath.Join(appConfig.DataDir.InferenceTasks, taskIdStr, selectedNode, imageFilename)
+	imageFilePath := filepath.Join(appConfig.DataDir.InferenceTasks, taskIdStr, "results", imageFilename)
 
 	_, err := os.Stat(imageFilePath)
 

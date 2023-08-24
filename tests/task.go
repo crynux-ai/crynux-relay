@@ -1,16 +1,23 @@
-package v1
+package tests
 
 import (
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 	"h_relay/api/v1/inference_tasks"
+	"h_relay/blockchain"
+	"h_relay/config"
 	"h_relay/models"
+	"h_relay/tests/api/v1"
+	"os"
+	"path"
+	"strconv"
 )
 
 func PrepareAccounts() (addresses []string, privateKeys []string, err error) {
 
 	for i := 0; i < 5; i++ {
-		address, pk, err := CreateAccount()
+		address, pk, err := v1.CreateAccount()
 		if err != nil {
 			return nil, nil, err
 		}
@@ -116,6 +123,54 @@ func PrepareParamsUploadedTask(addresses []string, db *gorm.DB) (*inference_task
 	task.Status = models.InferenceTaskUploaded
 
 	if err := db.Save(task).Error; err != nil {
+		return nil, nil, err
+	}
+
+	return taskInput, task, nil
+}
+
+func PrepareResultUploadedTask(addresses []string, db *gorm.DB) (*inference_tasks.TaskInput, *models.InferenceTask, error) {
+	taskInput, task, err := PrepareParamsUploadedTask(addresses, db)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Prepare result images
+	err = prepareResultImagesForTask(task.GetTaskIdAsString(), taskInput.TaskConfig.NumImages)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Calculate the pHash for the images
+	var result []byte
+
+	appConfig := config.GetConfig()
+	for i := 0; i < taskInput.TaskConfig.NumImages; i++ {
+		imageFilename := path.Join(
+			appConfig.DataDir.InferenceTasks,
+			task.GetTaskIdAsString(),
+			"results",
+			strconv.Itoa(i)+".png",
+		)
+
+		imageFile, err := os.Open(imageFilename)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		pHash, err := blockchain.GetPHashForImage(imageFile)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		result = append(result, pHash...)
+	}
+
+	resultNode := task.SelectedNodes[1]
+	resultNode.IsResultSelected = true
+	resultNode.Result = hexutil.Encode(result)
+
+	if err := db.Model(resultNode).Select("IsResultSelected", "Result").Updates(resultNode).Error; err != nil {
 		return nil, nil, err
 	}
 

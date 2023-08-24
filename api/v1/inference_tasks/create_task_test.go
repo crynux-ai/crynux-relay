@@ -16,9 +16,9 @@ import (
 
 func TestCreateTaskBeforeBlockchainConfirmation(t *testing.T) {
 
-	task := v1.PrepareRandomTask()
+	task := tests.PrepareRandomTask()
 
-	_, privateKeys, err := v1.PrepareAccounts()
+	_, privateKeys, err := tests.PrepareAccounts()
 	assert.Equal(t, nil, err, "prepare account error")
 
 	timestamp, signature, err := v1.SignData(task, privateKeys[0])
@@ -31,10 +31,10 @@ func TestCreateTaskBeforeBlockchainConfirmation(t *testing.T) {
 
 func TestCreateTaskAfterBlockchainConfirmation(t *testing.T) {
 
-	addresses, privateKeys, err := v1.PrepareAccounts()
+	addresses, privateKeys, err := tests.PrepareAccounts()
 	assert.Equal(t, nil, err, "prepare account error")
 
-	taskInput, task, err := v1.PrepareBlockchainConfirmedTask(addresses, config.GetDB())
+	taskInput, task, err := tests.PrepareBlockchainConfirmedTask(addresses, config.GetDB())
 	assert.Equal(t, nil, err, "prepare task error")
 
 	timestamp, signature, err := v1.SignData(taskInput, privateKeys[0])
@@ -52,10 +52,10 @@ func TestCreateTaskAfterBlockchainConfirmation(t *testing.T) {
 }
 
 func TestCreateTaskUsingUnauthorizedAccount(t *testing.T) {
-	addresses, privateKeys, err := v1.PrepareAccounts()
+	addresses, privateKeys, err := tests.PrepareAccounts()
 	assert.Equal(t, nil, err, "prepare account error")
 
-	taskInput, _, err := v1.PrepareBlockchainConfirmedTask(addresses, config.GetDB())
+	taskInput, _, err := tests.PrepareBlockchainConfirmedTask(addresses, config.GetDB())
 	assert.Equal(t, nil, err, "prepare task error")
 
 	timestamp, signature, err := v1.SignData(taskInput, privateKeys[1])
@@ -68,10 +68,10 @@ func TestCreateTaskUsingUnauthorizedAccount(t *testing.T) {
 
 func TestCreateDuplicateTask(t *testing.T) {
 
-	addresses, privateKeys, err := v1.PrepareAccounts()
+	addresses, privateKeys, err := tests.PrepareAccounts()
 	assert.Equal(t, nil, err, "prepare account error")
 
-	taskInput, task, err := v1.PrepareBlockchainConfirmedTask(addresses, config.GetDB())
+	taskInput, task, err := tests.PrepareBlockchainConfirmedTask(addresses, config.GetDB())
 	assert.Equal(t, nil, err, "prepare task error")
 
 	timestamp, signature, err := v1.SignData(taskInput, privateKeys[0])
@@ -94,10 +94,10 @@ func TestCreateDuplicateTask(t *testing.T) {
 }
 
 func TestCreateTaskWithMismatchedParamHash(t *testing.T) {
-	addresses, privateKeys, err := v1.PrepareAccounts()
+	addresses, privateKeys, err := tests.PrepareAccounts()
 	assert.Equal(t, nil, err, "prepare account error")
 
-	taskInput, _, err := v1.PrepareBlockchainConfirmedTask(addresses, config.GetDB())
+	taskInput, _, err := tests.PrepareBlockchainConfirmedTask(addresses, config.GetDB())
 	assert.Equal(t, nil, err, "prepare task error")
 
 	oldPrompt := taskInput.Prompt

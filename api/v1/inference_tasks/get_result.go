@@ -13,9 +13,8 @@ import (
 )
 
 type GetResultInput struct {
-	ImageNum     string `path:"image_num" json:"image_num" description:"Image number" validate:"required"`
-	SelectedNode string `path:"selected_node" json:"selected_node" description:"Selected nodes" validate:"required"`
-	TaskId       uint64 `path:"task_id" json:"task_id" description:"Task id" validate:"required"`
+	ImageNum string `path:"image_num" json:"image_num" description:"Image number" validate:"required"`
+	TaskId   uint64 `path:"task_id" json:"task_id" description:"Task id" validate:"required"`
 }
 
 type GetResultInputWithSignature struct {
@@ -55,7 +54,7 @@ func GetResult(ctx *gin.Context, in *GetResultInputWithSignature) error {
 	imageFile := filepath.Join(
 		appConfig.DataDir.InferenceTasks,
 		task.GetTaskIdAsString(),
-		in.SelectedNode,
+		"results",
 		in.ImageNum+".png",
 	)
 
