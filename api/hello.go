@@ -7,8 +7,12 @@ import (
 
 func Hello(ctx *gin.Context) {
 	helloHtml := `
+<!DOCTYPE html>
 <html>
 	<head>
+		<meta charset="utf-8">
+		<title>Crynux Hydrogen(H) Network Relay</title>
+		<link rel="shortcut icon" type="image/x-icon" href="/static/favicon.ico">
 		<style>
 			* {
 				font-family: "Segoe UI",SegoeUI,"Helvetica Neue",Helvetica,Arial,sans-serif
