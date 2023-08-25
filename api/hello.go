@@ -17,7 +17,7 @@ func Hello(ctx *gin.Context) {
 			* {
 				font-family: "Segoe UI",SegoeUI,"Helvetica Neue",Helvetica,Arial,sans-serif
 			}
-			body {
+			html, body {
 				position: relative;
 				margin: 0;
 				padding: 0;
