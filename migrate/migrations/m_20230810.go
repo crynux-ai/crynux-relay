@@ -7,18 +7,18 @@ import (
 
 func M20230810(db *gorm.DB) *gormigrate.Gormigrate {
 	type TaskConfig struct {
-		ImageWidth  int     `description:"Image width"`
-		ImageHeight int     `description:"Image height"`
-		LoraWeight  float32 `description:"Weight of the LoRA model"`
-		NumImages   int     `description:"Number of images to generate"`
-		Seed        int     `description:"The random seed used to generate images"`
-		Steps       int     `description:"Steps"`
+		ImageHeight int `description:"Image height"`
+		ImageWidth  int `description:"Image width"`
+		LoraWeight  int `description:"Weight of the LoRA model"`
+		NumImages   int `description:"Number of images to generate"`
+		Seed        int `description:"The random seed used to generate images"`
+		Steps       int `description:"Steps"`
 	}
 
 	type PoseConfig struct {
-		DataURL    string  `description:"The pose image DataURL"`
-		PoseWeight float32 `description:"Weight of the pose model"`
-		Preprocess bool    `description:"Preprocess the image"`
+		DataURL    string `description:"The pose image DataURL"`
+		PoseWeight int    `description:"Weight of the pose model"`
+		Preprocess bool   `description:"Preprocess the image"`
 	}
 
 	type SelectedNode struct {

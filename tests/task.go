@@ -36,7 +36,7 @@ func PreparePoseConfig() models.PoseConfig {
 	return models.PoseConfig{
 		Preprocess: false,
 		DataURL:    "",
-		PoseWeight: 1,
+		PoseWeight: 100,
 	}
 }
 
@@ -44,7 +44,7 @@ func PrepareTaskConfig() models.TaskConfig {
 	return models.TaskConfig{
 		ImageWidth:  512,
 		ImageHeight: 512,
-		LoraWeight:  1,
+		LoraWeight:  100,
 		NumImages:   9,
 		Seed:        51233333,
 		Steps:       40,

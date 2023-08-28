@@ -16,7 +16,7 @@ data_dir:
     inference_tasks: "/app/data/inference_tasks"
 blockchain:
   web_socket_endpoint: "wss://block-node.crynux.ai/ws"
-  start_block_num: 1431
+  start_block_num: 162233
   gas_limit: 4294967
   account:
     address: "0xd075aB490857256e6fc85d75d8315e7c9914e008"
