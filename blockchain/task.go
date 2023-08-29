@@ -1,16 +1,9 @@
 package blockchain
 
 import (
-	"bufio"
-	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
-	"github.com/corona10/goimagehash"
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	log "github.com/sirupsen/logrus"
 	"h_relay/blockchain/bindings"
 	"h_relay/config"
 	"h_relay/models"
@@ -20,6 +13,13 @@ import (
 	"math/rand"
 	"strconv"
 	"time"
+
+	"github.com/corona10/goimagehash"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+	log "github.com/sirupsen/logrus"
 )
 
 func CreateTaskOnChain(task *models.InferenceTask) (string, error) {
@@ -166,18 +166,7 @@ func GetPHashForImage(reader io.Reader) ([]byte, error) {
 		return nil, err
 	}
 
-	var b bytes.Buffer
-	foo := bufio.NewWriter(&b)
-
-	err = pHash.Dump(foo)
-	if err != nil {
-		return nil, err
-	}
-
-	err = foo.Flush()
-	if err != nil {
-		return nil, err
-	}
-
-	return b.Bytes(), nil
+	bs := make([]byte, pHash.Bits()/8)
+	binary.BigEndian.PutUint64(bs, pHash.GetHash())
+	return bs, nil
 }
