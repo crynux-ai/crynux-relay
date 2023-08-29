@@ -12,6 +12,7 @@ import (
 	"h_relay/blockchain"
 	"h_relay/config"
 	"h_relay/models"
+	"strconv"
 	"time"
 )
 
@@ -85,6 +86,7 @@ func StartSyncBlock() {
 func processChannel(sub ethereum.Subscription, headers chan *types.Header, syncedBlock *models.SyncedBlock) {
 
 	interval := 1
+	batchSize := uint64(500)
 
 	select {
 	case err := <-sub.Err():
@@ -92,28 +94,48 @@ func processChannel(sub ethereum.Subscription, headers chan *types.Header, synce
 		time.Sleep(time.Duration(interval) * time.Second)
 	case header := <-headers:
 
-		currentBlockNum := header.Number
+		currentBlockNum := header.Number.Uint64()
 
 		log.Debugln("new block received: " + header.Number.String())
 
-		if err := processTaskCreated(syncedBlock.BlockNumber+1, currentBlockNum.Uint64()); err != nil {
-			log.Errorln(err)
-			time.Sleep(time.Duration(interval) * time.Second)
-			return
-		}
+		for start := syncedBlock.BlockNumber + 1; start <= currentBlockNum; start += batchSize {
 
-		if err := processTaskSuccess(syncedBlock.BlockNumber+1, currentBlockNum.Uint64()); err != nil {
-			log.Errorln(err)
-			time.Sleep(time.Duration(interval) * time.Second)
-			return
-		}
+			end := start + batchSize - 1
 
-		oldNum := syncedBlock.BlockNumber
-		syncedBlock.BlockNumber = currentBlockNum.Uint64()
-		if err := config.GetDB().Save(syncedBlock).Error; err != nil {
-			syncedBlock.BlockNumber = oldNum
-			log.Errorln(err)
-			time.Sleep(time.Duration(interval) * time.Second)
+			if end > currentBlockNum {
+				end = currentBlockNum
+			}
+
+			log.Debugln("processing blocks from " +
+				strconv.FormatUint(start, 10) +
+				" to " +
+				strconv.FormatUint(end, 10) +
+				" / " +
+				strconv.FormatUint(currentBlockNum, 10))
+
+			if err := processTaskCreated(start, end); err != nil {
+				log.Errorln(err)
+				time.Sleep(time.Duration(interval) * time.Second)
+				return
+			}
+
+			if err := processTaskSuccess(start, end); err != nil {
+				log.Errorln(err)
+				time.Sleep(time.Duration(interval) * time.Second)
+				return
+			}
+
+			oldNum := syncedBlock.BlockNumber
+			syncedBlock.BlockNumber = end
+			if err := config.GetDB().Save(syncedBlock).Error; err != nil {
+				syncedBlock.BlockNumber = oldNum
+				log.Errorln(err)
+				time.Sleep(time.Duration(interval) * time.Second)
+			}
+
+			if end != currentBlockNum {
+				time.Sleep(time.Duration(interval) * time.Second)
+			}
 		}
 	}
 
