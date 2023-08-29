@@ -154,28 +154,21 @@ func processTaskCreated(startBlockNum, endBlockNum uint64) error {
 			"|" + string(taskCreated.TaskHash[:]) +
 			"|" + string(taskCreated.DataHash[:]))
 
-		task := &models.InferenceTask{
-			TaskId:   taskCreated.TaskId.Uint64(),
+		task := &models.InferenceTask{}
+
+		query := &models.InferenceTask{
+			TaskId: taskCreated.TaskId.Uint64(),
+		}
+
+		attributes := &models.InferenceTask{
 			Creator:  taskCreated.Creator.Hex(),
 			TaskHash: hexutil.Encode(taskCreated.TaskHash[:]),
 			DataHash: hexutil.Encode(taskCreated.DataHash[:]),
 			Status:   models.InferenceTaskCreatedOnChain,
 		}
 
-		if err := config.GetDB().Create(task).Error; err != nil {
-			if !errors.Is(err, gorm.ErrDuplicatedKey) {
-				return err
-			} else {
-				log.Debugln("duplicated task id, the task created events of the same task")
-
-				condition := &models.InferenceTask{
-					TaskId: task.TaskId,
-				}
-
-				if err := config.GetDB().Where(condition).First(task).Error; err != nil {
-					return err
-				}
-			}
+		if err := config.GetDB().Where(query).Attrs(attributes).FirstOrCreate(task).Error; err != nil {
+			return err
 		}
 
 		association := config.GetDB().Model(task).Association("SelectedNodes")
