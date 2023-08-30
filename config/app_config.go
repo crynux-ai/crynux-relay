@@ -32,10 +32,10 @@ type AppConfig struct {
 	} `mapstructure:"data_dir"`
 
 	Blockchain struct {
-		WebSocketEndpoint string `mapstructure:"web_socket_endpoint"`
-		StartBlockNum     uint64 `mapstructure:"start_block_num"`
-		GasLimit          uint64 `mapstructure:"gas_limit"`
-		Account           struct {
+		RpcEndpoint   string `mapstructure:"rpc_endpoint"`
+		StartBlockNum uint64 `mapstructure:"start_block_num"`
+		GasLimit      uint64 `mapstructure:"gas_limit"`
+		Account       struct {
 			Address    string `mapstructure:"address"`
 			PrivateKey string `mapstructure:"private_key"`
 		} `mapstructure:"account"`

@@ -40,7 +40,7 @@ func CreateTaskOnChain(task *models.InferenceTask) (string, error) {
 	accountAddress := common.HexToAddress(appConfig.Blockchain.Account.Address)
 	accountPrivateKey := appConfig.Blockchain.Account.PrivateKey
 
-	client, err := GetWebSocketClient()
+	client, err := GetRpcClient()
 	if err != nil {
 		return "", err
 	}
@@ -68,7 +68,7 @@ func CreateTaskOnChain(task *models.InferenceTask) (string, error) {
 
 func GetTaskCreationResult(txHash string) (*big.Int, error) {
 
-	client, err := GetWebSocketClient()
+	client, err := GetRpcClient()
 	if err != nil {
 		return nil, err
 	}

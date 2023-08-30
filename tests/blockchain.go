@@ -29,7 +29,7 @@ func PrepareAccountsWithTokens() (addresses []string, privateKeys []string, err 
 		return nil, nil, err
 	}
 
-	client, err := blockchain.GetWebSocketClient()
+	client, err := blockchain.GetRpcClient()
 	if err != nil {
 		log.Errorln("error connect to the websocket endpoint")
 		log.Errorln(err)
@@ -114,7 +114,7 @@ func PrepareNetwork(addresses []string, privateKeys []string) error {
 		return err
 	}
 
-	client, err := blockchain.GetWebSocketClient()
+	client, err := blockchain.GetRpcClient()
 	if err != nil {
 		log.Errorln("error connect to the websocket endpoint")
 		log.Errorln(err)
@@ -163,7 +163,7 @@ func PrepareNetwork(addresses []string, privateKeys []string) error {
 }
 
 func PrepareTaskCreatorAccount(address string, privateKey string) error {
-	client, err := blockchain.GetWebSocketClient()
+	client, err := blockchain.GetRpcClient()
 	if err != nil {
 		log.Errorln("error connect to the websocket endpoint")
 		log.Errorln(err)
@@ -225,7 +225,7 @@ func ClearNetwork(addresses []string, privateKeys []string) error {
 		return err
 	}
 
-	client, err := blockchain.GetWebSocketClient()
+	client, err := blockchain.GetRpcClient()
 	if err != nil {
 		log.Errorln("error connect to the websocket endpoint")
 		log.Errorln(err)
@@ -278,7 +278,7 @@ func submitAndDiscloseResults(taskId *big.Int, addresses []string, privateKeys [
 		return err
 	}
 
-	client, err := blockchain.GetWebSocketClient()
+	client, err := blockchain.GetRpcClient()
 	if err != nil {
 		return err
 	}
@@ -350,7 +350,7 @@ func submitAndDiscloseResults(taskId *big.Int, addresses []string, privateKeys [
 }
 
 func SyncToLatestBlock() error {
-	client, err := blockchain.GetWebSocketClient()
+	client, err := blockchain.GetRpcClient()
 	if err != nil {
 		return err
 	}
