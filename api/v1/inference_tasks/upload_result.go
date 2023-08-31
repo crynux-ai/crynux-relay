@@ -112,7 +112,7 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 	taskIdStr := task.GetTaskIdAsString()
 
 	taskDir := filepath.Join(taskWorkspace, taskIdStr, "results")
-	if err = os.MkdirAll(taskDir, os.ModeDir); err != nil {
+	if err = os.MkdirAll(taskDir, os.ModePerm); err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 
