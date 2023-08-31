@@ -3,39 +3,23 @@ package tasks
 import (
 	"context"
 	"errors"
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 	"h_relay/blockchain"
 	"h_relay/config"
 	"h_relay/models"
+	"strconv"
 	"time"
 )
 
 func StartSyncBlockWithTerminateChannel(ch <-chan int) {
-	appConfig := config.GetConfig()
-	syncedBlock := &models.SyncedBlock{}
 
-	if err := config.GetDB().First(&syncedBlock).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			syncedBlock.BlockNumber = appConfig.Blockchain.StartBlockNum
-		} else {
-			log.Fatal(err)
-		}
-	}
+	syncedBlock, err := getSyncedBlock()
 
-	client, err := blockchain.GetWebSocketClient()
 	if err != nil {
-		log.Fatal(err)
-	}
-
-	headers := make(chan *types.Header)
-
-	sub, err := client.SubscribeNewHead(context.Background(), headers)
-	if err != nil {
+		log.Errorln("error getting synced block from the database")
 		log.Fatal(err)
 	}
 
@@ -45,15 +29,29 @@ func StartSyncBlockWithTerminateChannel(ch <-chan int) {
 			if stop == 1 {
 				return
 			} else {
-				processChannel(sub, headers, syncedBlock)
+				processChannel(syncedBlock)
 			}
 		default:
-			processChannel(sub, headers, syncedBlock)
+			processChannel(syncedBlock)
 		}
 	}
 }
 
 func StartSyncBlock() {
+
+	syncedBlock, err := getSyncedBlock()
+
+	if err != nil {
+		log.Errorln("error getting synced block from the database")
+		log.Fatal(err)
+	}
+
+	for {
+		processChannel(syncedBlock)
+	}
+}
+
+func getSyncedBlock() (*models.SyncedBlock, error) {
 	appConfig := config.GetConfig()
 	syncedBlock := &models.SyncedBlock{}
 
@@ -61,63 +59,82 @@ func StartSyncBlock() {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			syncedBlock.BlockNumber = appConfig.Blockchain.StartBlockNum
 		} else {
-			log.Fatal(err)
+			return nil, err
 		}
 	}
 
-	client, err := blockchain.GetWebSocketClient()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	headers := make(chan *types.Header)
-
-	sub, err := client.SubscribeNewHead(context.Background(), headers)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	for {
-		processChannel(sub, headers, syncedBlock)
-	}
+	return syncedBlock, nil
 }
 
-func processChannel(sub ethereum.Subscription, headers chan *types.Header, syncedBlock *models.SyncedBlock) {
+func processChannel(syncedBlock *models.SyncedBlock) {
 
 	interval := 1
+	batchSize := uint64(500)
 
-	select {
-	case err := <-sub.Err():
+	client, err := blockchain.GetRpcClient()
+	if err != nil {
+		log.Errorln("error getting the eth rpc client")
 		log.Errorln(err)
 		time.Sleep(time.Duration(interval) * time.Second)
-	case header := <-headers:
+		return
+	}
 
-		currentBlockNum := header.Number
+	latestBlockNum, err := client.BlockNumber(context.Background())
+	if err != nil {
+		log.Errorln("error getting the latest block number")
+		log.Errorln(err)
+		time.Sleep(time.Duration(interval) * time.Second)
+		return
+	}
 
-		log.Debugln("new block received: " + header.Number.String())
+	if latestBlockNum <= syncedBlock.BlockNumber {
+		time.Sleep(time.Duration(interval) * time.Second)
+		return
+	}
 
-		if err := processTaskCreated(syncedBlock.BlockNumber+1, currentBlockNum.Uint64()); err != nil {
+	log.Debugln("new block received: " + strconv.FormatUint(latestBlockNum, 10))
+
+	for start := syncedBlock.BlockNumber + 1; start <= latestBlockNum; start += batchSize {
+
+		end := start + batchSize - 1
+
+		if end > latestBlockNum {
+			end = latestBlockNum
+		}
+
+		log.Debugln("processing blocks from " +
+			strconv.FormatUint(start, 10) +
+			" to " +
+			strconv.FormatUint(end, 10) +
+			" / " +
+			strconv.FormatUint(latestBlockNum, 10))
+
+		if err := processTaskCreated(start, end); err != nil {
 			log.Errorln(err)
 			time.Sleep(time.Duration(interval) * time.Second)
 			return
 		}
 
-		if err := processTaskSuccess(syncedBlock.BlockNumber+1, currentBlockNum.Uint64()); err != nil {
+		if err := processTaskSuccess(start, end); err != nil {
 			log.Errorln(err)
 			time.Sleep(time.Duration(interval) * time.Second)
 			return
 		}
 
 		oldNum := syncedBlock.BlockNumber
-		syncedBlock.BlockNumber = currentBlockNum.Uint64()
+		syncedBlock.BlockNumber = end
 		if err := config.GetDB().Save(syncedBlock).Error; err != nil {
 			syncedBlock.BlockNumber = oldNum
 			log.Errorln(err)
 			time.Sleep(time.Duration(interval) * time.Second)
 		}
+
+		if end != latestBlockNum {
+			time.Sleep(time.Duration(interval) * time.Second)
+		}
 	}
 
-	time.Sleep(time.Duration(interval) * time.Second)
+	time.Sleep(time.Duration(interval) * time.Second * 3)
 }
 
 func processTaskCreated(startBlockNum, endBlockNum uint64) error {

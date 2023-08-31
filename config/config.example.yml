@@ -15,7 +15,7 @@ http:
 data_dir:
   inference_tasks: "data/inference_tasks"
 blockchain:
-  web_socket_endpoint: "wss://block-node.crynux.ai/ws"
+  rpc_endpoint: "https://block-node.crynux.ai/rpc"
   start_block_num: 162233
   gas_limit: 4294967
   account:

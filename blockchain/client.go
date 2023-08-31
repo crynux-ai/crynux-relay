@@ -19,25 +19,25 @@ import (
 	"time"
 )
 
-var ethWSClient *ethclient.Client
+var ethRpcClient *ethclient.Client
+
 var taskContractInstance *bindings.Task
 var crynuxTokenContractInstance *bindings.CrynuxToken
 var nodeContractInstance *bindings.Node
 
-func GetWebSocketClient() (*ethclient.Client, error) {
-
-	if ethWSClient == nil {
+func GetRpcClient() (*ethclient.Client, error) {
+	if ethRpcClient == nil {
 		appConfig := config.GetConfig()
-		client, err := ethclient.Dial(appConfig.Blockchain.WebSocketEndpoint)
+		client, err := ethclient.Dial(appConfig.Blockchain.RpcEndpoint)
 
 		if err != nil {
 			return nil, err
 		}
 
-		ethWSClient = client
+		ethRpcClient = client
 	}
 
-	return ethWSClient, nil
+	return ethRpcClient, nil
 }
 
 func GetAuth(client *ethclient.Client, address common.Address, privateKeyStr string) (*bind.TransactOpts, error) {
@@ -87,7 +87,7 @@ func GetAuth(client *ethclient.Client, address common.Address, privateKeyStr str
 
 func SendETH(from common.Address, to common.Address, amount *big.Int, privateKeyStr string) (*types.Transaction, error) {
 
-	client, err := GetWebSocketClient()
+	client, err := GetRpcClient()
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func SendETH(from common.Address, to common.Address, amount *big.Int, privateKey
 
 func GetErrorMessageForTxHash(txHash common.Hash, blockNumber *big.Int) (string, error) {
 
-	client, err := GetWebSocketClient()
+	client, err := GetRpcClient()
 	if err != nil {
 		return "", err
 	}
@@ -184,7 +184,7 @@ func GetTaskContractInstance() (*bindings.Task, error) {
 		appConfig := config.GetConfig()
 		taskContractAddress := common.HexToAddress(appConfig.Blockchain.Contracts.Task)
 
-		client, err := GetWebSocketClient()
+		client, err := GetRpcClient()
 		if err != nil {
 			return nil, err
 		}
@@ -206,7 +206,7 @@ func GetCrynuxTokenContractInstance() (*bindings.CrynuxToken, error) {
 		appConfig := config.GetConfig()
 		tokenContractAddress := common.HexToAddress(appConfig.Blockchain.Contracts.CrynuxToken)
 
-		client, err := GetWebSocketClient()
+		client, err := GetRpcClient()
 		if err != nil {
 			return nil, err
 		}
@@ -228,7 +228,7 @@ func GetNodeContractInstance() (*bindings.Node, error) {
 		appConfig := config.GetConfig()
 		nodeContractAddress := common.HexToAddress(appConfig.Blockchain.Contracts.Node)
 
-		client, err := GetWebSocketClient()
+		client, err := GetRpcClient()
 		if err != nil {
 			return nil, err
 		}
