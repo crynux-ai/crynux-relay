@@ -31,7 +31,7 @@ var (
 
 // NodeMetaData contains all meta data concerning the Node contract.
 var NodeMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"contractIERC20\",\"name\":\"tokenInstance\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"join\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"quit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"pause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"resume\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"nodeAddress\",\"type\":\"address\"}],\"name\":\"slash\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalNodes\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"availableNodes\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"nodeAddress\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"nodeStatus\",\"type\":\"uint256\"}],\"name\":\"updateNodeAvailabilityByTask\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"i\",\"type\":\"uint256\"}],\"name\":\"getAvailableNodeStartsFrom\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"taskContract\",\"type\":\"address\"}],\"name\":\"updateTaskContractAddress\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"nodeAddress\",\"type\":\"address\"}],\"name\":\"getNodeStatus\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[{\"internalType\":\"contractIERC20\",\"name\":\"tokenInstance\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"join\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"quit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"pause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"resume\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"nodeAddress\",\"type\":\"address\"}],\"name\":\"slash\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalNodes\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"availableNodes\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"nodeAddress\",\"type\":\"address\"}],\"name\":\"startTask\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"nodeAddress\",\"type\":\"address\"}],\"name\":\"finishTask\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"i\",\"type\":\"uint256\"}],\"name\":\"getAvailableNodeStartsFrom\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"taskContract\",\"type\":\"address\"}],\"name\":\"updateTaskContractAddress\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"nodeAddress\",\"type\":\"address\"}],\"name\":\"getNodeStatus\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
 }
 
 // NodeABI is the input ABI used to generate the binding from.
@@ -335,6 +335,27 @@ func (_Node *NodeCallerSession) TotalNodes() (*big.Int, error) {
 	return _Node.Contract.TotalNodes(&_Node.CallOpts)
 }
 
+// FinishTask is a paid mutator transaction binding the contract method 0x3fc0f48b.
+//
+// Solidity: function finishTask(address nodeAddress) returns()
+func (_Node *NodeTransactor) FinishTask(opts *bind.TransactOpts, nodeAddress common.Address) (*types.Transaction, error) {
+	return _Node.contract.Transact(opts, "finishTask", nodeAddress)
+}
+
+// FinishTask is a paid mutator transaction binding the contract method 0x3fc0f48b.
+//
+// Solidity: function finishTask(address nodeAddress) returns()
+func (_Node *NodeSession) FinishTask(nodeAddress common.Address) (*types.Transaction, error) {
+	return _Node.Contract.FinishTask(&_Node.TransactOpts, nodeAddress)
+}
+
+// FinishTask is a paid mutator transaction binding the contract method 0x3fc0f48b.
+//
+// Solidity: function finishTask(address nodeAddress) returns()
+func (_Node *NodeTransactorSession) FinishTask(nodeAddress common.Address) (*types.Transaction, error) {
+	return _Node.Contract.FinishTask(&_Node.TransactOpts, nodeAddress)
+}
+
 // Join is a paid mutator transaction binding the contract method 0xb688a363.
 //
 // Solidity: function join() returns()
@@ -461,6 +482,27 @@ func (_Node *NodeTransactorSession) Slash(nodeAddress common.Address) (*types.Tr
 	return _Node.Contract.Slash(&_Node.TransactOpts, nodeAddress)
 }
 
+// StartTask is a paid mutator transaction binding the contract method 0x5f51c765.
+//
+// Solidity: function startTask(address nodeAddress) returns()
+func (_Node *NodeTransactor) StartTask(opts *bind.TransactOpts, nodeAddress common.Address) (*types.Transaction, error) {
+	return _Node.contract.Transact(opts, "startTask", nodeAddress)
+}
+
+// StartTask is a paid mutator transaction binding the contract method 0x5f51c765.
+//
+// Solidity: function startTask(address nodeAddress) returns()
+func (_Node *NodeSession) StartTask(nodeAddress common.Address) (*types.Transaction, error) {
+	return _Node.Contract.StartTask(&_Node.TransactOpts, nodeAddress)
+}
+
+// StartTask is a paid mutator transaction binding the contract method 0x5f51c765.
+//
+// Solidity: function startTask(address nodeAddress) returns()
+func (_Node *NodeTransactorSession) StartTask(nodeAddress common.Address) (*types.Transaction, error) {
+	return _Node.Contract.StartTask(&_Node.TransactOpts, nodeAddress)
+}
+
 // TransferOwnership is a paid mutator transaction binding the contract method 0xf2fde38b.
 //
 // Solidity: function transferOwnership(address newOwner) returns()
@@ -480,27 +522,6 @@ func (_Node *NodeSession) TransferOwnership(newOwner common.Address) (*types.Tra
 // Solidity: function transferOwnership(address newOwner) returns()
 func (_Node *NodeTransactorSession) TransferOwnership(newOwner common.Address) (*types.Transaction, error) {
 	return _Node.Contract.TransferOwnership(&_Node.TransactOpts, newOwner)
-}
-
-// UpdateNodeAvailabilityByTask is a paid mutator transaction binding the contract method 0xee5bbd83.
-//
-// Solidity: function updateNodeAvailabilityByTask(address nodeAddress, uint256 nodeStatus) returns()
-func (_Node *NodeTransactor) UpdateNodeAvailabilityByTask(opts *bind.TransactOpts, nodeAddress common.Address, nodeStatus *big.Int) (*types.Transaction, error) {
-	return _Node.contract.Transact(opts, "updateNodeAvailabilityByTask", nodeAddress, nodeStatus)
-}
-
-// UpdateNodeAvailabilityByTask is a paid mutator transaction binding the contract method 0xee5bbd83.
-//
-// Solidity: function updateNodeAvailabilityByTask(address nodeAddress, uint256 nodeStatus) returns()
-func (_Node *NodeSession) UpdateNodeAvailabilityByTask(nodeAddress common.Address, nodeStatus *big.Int) (*types.Transaction, error) {
-	return _Node.Contract.UpdateNodeAvailabilityByTask(&_Node.TransactOpts, nodeAddress, nodeStatus)
-}
-
-// UpdateNodeAvailabilityByTask is a paid mutator transaction binding the contract method 0xee5bbd83.
-//
-// Solidity: function updateNodeAvailabilityByTask(address nodeAddress, uint256 nodeStatus) returns()
-func (_Node *NodeTransactorSession) UpdateNodeAvailabilityByTask(nodeAddress common.Address, nodeStatus *big.Int) (*types.Transaction, error) {
-	return _Node.Contract.UpdateNodeAvailabilityByTask(&_Node.TransactOpts, nodeAddress, nodeStatus)
 }
 
 // UpdateTaskContractAddress is a paid mutator transaction binding the contract method 0x42145230.
