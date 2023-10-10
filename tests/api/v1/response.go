@@ -46,12 +46,17 @@ func AssertTaskResponse(t *testing.T, r *httptest.ResponseRecorder, task *models
 	assert.Equal(t, nil, err, "json unmarshal error")
 
 	assert.Equal(t, "success", taskResponse.GetMessage(), "wrong message: "+string(responseBytes))
+
 	assert.Equal(t, task.TaskId, taskResponse.Data.TaskId, "wrong task id")
-	assert.Equal(t, task.Prompt, taskResponse.Data.Prompt, "wrong prompt")
-	assert.Equal(t, task.BaseModel, taskResponse.Data.BaseModel, "wrong base model")
-	assert.Equal(t, task.LoraModel, taskResponse.Data.LoraModel, "wrong lora model")
 	assert.Equal(t, false, taskResponse.Data.CreatedAt.IsZero(), "wrong task created at")
 	assert.Equal(t, false, taskResponse.Data.UpdatedAt.IsZero(), "wrong task updated at")
+
+	expectedTaskArgs, err := json.Marshal(task.TaskArgs)
+	assert.Equal(t, nil, err, "json marshall error")
+
+	actualTaskArgs, err := json.Marshal(taskResponse.Data.TaskArgs)
+	assert.Equal(t, nil, err, "json marshall error")
+	assert.Equal(t, expectedTaskArgs, actualTaskArgs, "task args mismatch")
 }
 
 func AssertEmptySuccessResponse(t *testing.T, r *httptest.ResponseRecorder) {

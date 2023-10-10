@@ -65,7 +65,7 @@ func GetHttpApplication(appConfig *config.AppConfig) *gin.Engine {
 
 	if len(fizzEngine.Errors()) != 0 {
 
-		for err := range fizzEngine.Errors() {
+		for _, err := range fizzEngine.Errors() {
 			log.Error(err)
 		}
 

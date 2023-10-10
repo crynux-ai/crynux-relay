@@ -40,11 +40,7 @@ func TestCreateTaskAfterBlockchainConfirmation(t *testing.T) {
 	timestamp, signature, err := v1.SignData(taskInput, privateKeys[0])
 	r := callCreateTaskApi(t, taskInput, timestamp, signature)
 
-	task.BaseModel = taskInput.BaseModel
-	task.LoraModel = taskInput.LoraModel
-	task.Prompt = taskInput.Prompt
-	task.TaskConfig = &taskInput.TaskConfig
-	task.Pose = &taskInput.Pose
+	task.TaskArgs = taskInput.TaskArgs
 
 	v1.AssertTaskResponse(t, r, task)
 
@@ -77,11 +73,7 @@ func TestCreateDuplicateTask(t *testing.T) {
 	timestamp, signature, err := v1.SignData(taskInput, privateKeys[0])
 	r := callCreateTaskApi(t, taskInput, timestamp, signature)
 
-	task.BaseModel = taskInput.BaseModel
-	task.LoraModel = taskInput.LoraModel
-	task.Prompt = taskInput.Prompt
-	task.TaskConfig = &taskInput.TaskConfig
-	task.Pose = &taskInput.Pose
+	task.TaskArgs = taskInput.TaskArgs
 
 	v1.AssertTaskResponse(t, r, task)
 
@@ -100,8 +92,8 @@ func TestCreateTaskWithMismatchedParamHash(t *testing.T) {
 	taskInput, _, err := tests.PrepareBlockchainConfirmedTask(addresses, config.GetDB())
 	assert.Equal(t, nil, err, "prepare task error")
 
-	oldPrompt := taskInput.Prompt
-	taskInput.Prompt += ", in anime style"
+	oldPrompt := taskInput.TaskArgs.Prompt
+	taskInput.TaskArgs.Prompt += ", in anime style"
 
 	timestamp, signature, err := v1.SignData(taskInput, privateKeys[0])
 	assert.Equal(t, nil, err, "sign data error")
@@ -110,8 +102,8 @@ func TestCreateTaskWithMismatchedParamHash(t *testing.T) {
 
 	v1.AssertValidationErrorResponse(t, r, "data_hash", "Data hash mismatch")
 
-	taskInput.Prompt = oldPrompt
-	taskInput.TaskConfig.Steps = 60
+	taskInput.TaskArgs.Prompt = oldPrompt
+	taskInput.TaskArgs.TaskConfig.Steps = 60
 
 	timestamp, signature, err = v1.SignData(taskInput, privateKeys[0])
 	assert.Equal(t, nil, err, "sign data error")

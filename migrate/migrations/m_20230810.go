@@ -3,23 +3,10 @@ package migrations
 import (
 	"github.com/go-gormigrate/gormigrate/v2"
 	"gorm.io/gorm"
+	"h_relay/models"
 )
 
 func M20230810(db *gorm.DB) *gormigrate.Gormigrate {
-	type TaskConfig struct {
-		ImageHeight int `description:"Image height"`
-		ImageWidth  int `description:"Image width"`
-		LoraWeight  int `description:"Weight of the LoRA model"`
-		NumImages   int `description:"Number of images to generate"`
-		Seed        int `description:"The random seed used to generate images"`
-		Steps       int `description:"Steps"`
-	}
-
-	type PoseConfig struct {
-		DataURL    string `description:"The pose image DataURL"`
-		PoseWeight int    `description:"Weight of the pose model"`
-		Preprocess bool   `description:"Preprocess the image"`
-	}
 
 	type SelectedNode struct {
 		gorm.Model
@@ -27,24 +14,59 @@ func M20230810(db *gorm.DB) *gormigrate.Gormigrate {
 		NodeAddress     string
 	}
 
-	type InferenceTask struct {
-		gorm.Model
-		TaskId        uint64 `gorm:"uniqueIndex"`
-		Creator       string
-		TaskHash      string
-		DataHash      string
-		Prompt        string
-		BaseModel     string
-		LoraModel     string
-		TaskConfig    *TaskConfig `gorm:"embedded"`
-		Pose          *PoseConfig `gorm:"embedded"`
-		Status        int         ``
-		SelectedNodes []SelectedNode
-	}
-
 	type SyncedBlock struct {
 		gorm.Model
 		BlockNumber uint64
+	}
+
+	type TaskConfig struct {
+		CFG           int
+		ImageHeight   int
+		ImageWidth    int
+		NumImages     int
+		SafetyChecker bool
+		Seed          int
+		Steps         int
+	}
+
+	type RefinerArgs struct {
+		DenoisingCutoff int
+		Model           string
+		Steps           int
+	}
+
+	type ControlnetArgs struct {
+		Model        string
+		ImageDataURL string
+		Weight       int
+		Preprocess   *models.PreprocessArgs
+	}
+
+	type LoraArgs struct {
+		Model  string
+		Weight int
+	}
+
+	type TaskArgs struct {
+		BaseModel      string
+		Controlnet     *ControlnetArgs `gorm:"embedded;embeddedPrefix:controlnet_"`
+		Lora           *LoraArgs       `gorm:"embedded;embeddedPrefix:lora_"`
+		NegativePrompt string
+		Prompt         string
+		Refiner        *RefinerArgs `gorm:"embedded;embeddedPrefix:refiner_"`
+		TaskConfig     *TaskConfig  `gorm:"embedded;embeddedPrefix:task_config_"`
+		VAE            string
+	}
+
+	type InferenceTask struct {
+		gorm.Model
+		TaskArgs      `gorm:"embedded;embeddedPrefix:task_args_"`
+		TaskId        uint64
+		Creator       string
+		TaskHash      string
+		DataHash      string
+		Status        models.TaskStatus
+		SelectedNodes []SelectedNode
 	}
 
 	return gormigrate.New(db, gormigrate.DefaultOptions, []*gormigrate.Migration{

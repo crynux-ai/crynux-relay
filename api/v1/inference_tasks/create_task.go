@@ -11,12 +11,8 @@ import (
 )
 
 type TaskInput struct {
-	BaseModel  string            `json:"base_model" validate:"required"`
-	LoraModel  string            `json:"lora_model" default:""`
-	Pose       models.PoseConfig `json:"pose" validate:"required"`
-	Prompt     string            `json:"prompt" validate:"required"`
-	TaskConfig models.TaskConfig `json:"task_config"`
-	TaskId     uint64            `json:"task_id" description:"Task id" validate:"required"`
+	TaskArgs models.TaskArgs `json:"task_args" description:"Task arguments" validate:"required"`
+	TaskId   uint64          `json:"task_id" description:"Task id" validate:"required"`
 }
 
 type TaskInputWithSignature struct {
@@ -68,11 +64,7 @@ func CreateTask(_ *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 				"Task already uploaded")
 	}
 
-	task.BaseModel = in.BaseModel
-	task.LoraModel = in.LoraModel
-	task.Prompt = in.Prompt
-	task.TaskConfig = &in.TaskConfig
-	task.Pose = &in.Pose
+	task.TaskArgs = in.TaskArgs
 	task.Status = models.InferenceTaskUploaded
 
 	taskHash, err := task.GetTaskHash()

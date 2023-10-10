@@ -16,33 +16,14 @@ const (
 	InferenceTaskUploaded
 )
 
-type TaskConfig struct {
-	ImageHeight int `json:"image_height" description:"Image height" validate:"required,lte=1024"`
-	ImageWidth  int `json:"image_width" description:"Image width" validate:"required,lte=1024"`
-	LoraWeight  int `json:"lora_weight" description:"Weight of the LoRA model" validate:"required,max=100,min=1"`
-	NumImages   int `json:"num_images" description:"Number of images to generate" validate:"required,min=1,max=9"`
-	Seed        int `json:"seed" description:"The random seed used to generate images" validate:"required"`
-	Steps       int `json:"steps" description:"Steps" validate:"required,max=100,min=10"`
-}
-
-type PoseConfig struct {
-	DataURL    string `json:"data_url" description:"The pose image DataURL" default:""`
-	PoseWeight int    `json:"pose_weight" description:"Weight of the pose model" validate:"required,max=100,min=1"`
-	Preprocess bool   `json:"preprocess" description:"Preprocess the image"`
-}
-
 type InferenceTask struct {
 	gorm.Model
-	TaskId        uint64      `json:"task_id"`
-	Creator       string      `json:"creator"`
-	TaskHash      string      `json:"task_hash"`
-	DataHash      string      `json:"data_hash"`
-	Prompt        string      `json:"prompt"`
-	BaseModel     string      `json:"base_model"`
-	LoraModel     string      `json:"lora_model"`
-	TaskConfig    *TaskConfig `json:"task_config" gorm:"embedded"` // Before params uploaded, the field will be empty
-	Pose          *PoseConfig `json:"pose" gorm:"embedded"`        // Before params uploaded, the field will be empty
-	Status        TaskStatus  `json:"status"`
+	TaskArgs      `gorm:"embedded;embeddedPrefix:task_args_"`
+	TaskId        uint64     `json:"task_id"`
+	Creator       string     `json:"creator"`
+	TaskHash      string     `json:"task_hash"`
+	DataHash      string     `json:"data_hash"`
+	Status        TaskStatus `json:"status"`
 	SelectedNodes []SelectedNode
 }
 
@@ -51,10 +32,13 @@ func (t *InferenceTask) GetTaskIdAsString() string {
 }
 
 type DataHashInput struct {
-	BaseModel string     `json:"base_model"`
-	LoraModel string     `json:"lora_model"`
-	Pose      PoseConfig `json:"pose"`
-	Prompt    string     `json:"prompt"`
+	BaseModel      string          `json:"base_model"`
+	Controlnet     *ControlnetArgs `json:"controlnet"`
+	Lora           *LoraArgs       `json:"lora"`
+	NegativePrompt string          `json:"negative_prompt"`
+	Prompt         string          `json:"prompt"`
+	Refiner        *RefinerArgs    `json:"refiner"`
+	VAE            string          `json:"vae"`
 }
 
 func (t *InferenceTask) GetTaskHash() (*common.Hash, error) {
@@ -73,10 +57,13 @@ func (t *InferenceTask) GetTaskHash() (*common.Hash, error) {
 func (t *InferenceTask) GetDataHash() (*common.Hash, error) {
 
 	dataHash := &DataHashInput{
-		BaseModel: t.BaseModel,
-		LoraModel: t.LoraModel,
-		Prompt:    t.Prompt,
-		Pose:      *t.Pose,
+		BaseModel:      t.BaseModel,
+		Controlnet:     t.Controlnet,
+		Lora:           t.Lora,
+		NegativePrompt: t.NegativePrompt,
+		Prompt:         t.Prompt,
+		Refiner:        t.Refiner,
+		VAE:            t.VAE,
 	}
 
 	dataHashBytes, err := json.Marshal(dataHash)

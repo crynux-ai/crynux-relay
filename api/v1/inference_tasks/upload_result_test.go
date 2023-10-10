@@ -140,7 +140,7 @@ func prepareFileForm(t *testing.T, taskInput *inference_tasks.TaskInput, writer 
 		err = writer.WriteField("signature", signature)
 		assert.Equal(t, nil, err, "write signature failed")
 
-		for i := 0; i < taskInput.TaskConfig.NumImages; i++ {
+		for i := 0; i < taskInput.TaskArgs.TaskConfig.NumImages; i++ {
 			part, err := writer.CreateFormFile("images", "test_image_"+strconv.Itoa(i)+".png")
 			if err != nil {
 				t.Error(err)

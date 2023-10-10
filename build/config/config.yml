@@ -16,13 +16,13 @@ data_dir:
     inference_tasks: "/app/data/inference_tasks"
 blockchain:
   rpc_endpoint: "https://block-node.crynux.ai/rpc"
-  start_block_num: 162233
+  start_block_num: 778249
   gas_limit: 4294967
   account:
     address: ""
   contracts:
-    task: "0xc2D48388833F6b9401CA6027f086E0B5a26fA034"
-    node: "0xcF8432a6CBa43C68D50b72C22a5914318C26D63E"
-    crynux_token: "0xf051527Ab3Db231a0b5A556f5201FC474970F00B"
+    task: "0x66C6976550B83D813f8165DF781e8578A988D467"
+    node: "0x83BA661ED688238870Bd89d4F5Bb517F0e19196A"
+    crynux_token: "0xB627D84BFB8cC311A318fEf679ee498F822A0C7C"
 test:
   root_account: ""

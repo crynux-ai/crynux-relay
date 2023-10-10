@@ -41,7 +41,7 @@ func TestTaskCreatedAndSuccessOnChain(t *testing.T) {
 		BaseModel:  taskInput.BaseModel,
 		LoraModel:  taskInput.LoraModel,
 		TaskConfig: &taskInput.TaskConfig,
-		Pose:       &taskInput.Pose,
+		Controlnet: &taskInput.Pose,
 	}
 
 	_, err = blockchain.CreateTaskOnChain(task)
