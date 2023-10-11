@@ -8,11 +8,55 @@ import (
 	"h_relay/blockchain"
 	"h_relay/config"
 	"h_relay/models"
+	"h_relay/models/task_args"
 	"h_relay/tests/api/v1"
 	"os"
 	"path"
 	"strconv"
 )
+
+func FullTaskArgs() *task_args.TaskArgs {
+	return &task_args.TaskArgs{
+		BaseModel:      "runwayml/stable-diffusion-v1-5",
+		Prompt:         "a photo of an old man sitting on a brown chair, by the seaside, with blue sky and white clouds, a dog is lying under his legs, realistic+++, high res+++, masterpiece+++",
+		NegativePrompt: "paintings, sketches, worst quality+++++, low quality+++++, normal quality+++++, lowres, normal quality, monochrome++, grayscale++, skin spots, acnes, skin blemishes, age spot, glans, bad hands, bad fingers",
+		Controlnet: &task_args.ControlnetArgs{
+			Preprocess: &task_args.PreprocessArgs{
+				Method: "canny",
+				Args: &task_args.CannyPreprocessArgs{
+					LowThreshold:  100,
+					HighThreshold: 200,
+				},
+			},
+			ImageDataURL: "image/png,base64:FFFFFF",
+			Weight:       100,
+			Model:        "stabilityai/sdxl-controlnet-canny",
+		},
+		TaskConfig: &task_args.TaskConfig{
+			ImageWidth:    512,
+			ImageHeight:   512,
+			NumImages:     9,
+			Seed:          51233333,
+			Steps:         30,
+			SafetyChecker: false,
+			CFG:           700,
+		},
+		Lora: &task_args.LoraArgs{
+			Model:  "korean-doll-likeness-v2-0",
+			Weight: 90,
+		},
+		Refiner: &task_args.RefinerArgs{
+			Model:           "stabilityai/stable-diffusion-xl-refiner-1.0",
+			DenoisingCutoff: 70,
+			Steps:           30,
+		},
+		VAE: "sd-vae",
+	}
+}
+
+func FullTaskArgsString() string {
+	return `{"base_model":"runwayml/stable-diffusion-v1-5","controlnet":{"image_dataurl":"image/png,base64:FFFFFF","model":"stabilityai/sdxl-controlnet-canny","preprocess":{"args":{"high_threshold":200,"low_threshold":100},"method":"canny"},"weight":100},"lora":{"model":"korean-doll-likeness-v2-0","weight":90},"negative_prompt":"paintings, sketches, worst quality+++++, low quality+++++, normal quality+++++, lowres, normal quality, monochrome++, grayscale++, skin spots, acnes, skin blemishes, age spot, glans, bad hands, bad fingers","prompt":"a photo of an old man sitting on a brown chair, by the seaside, with blue sky and white clouds, a dog is lying under his legs, realistic+++, high res+++, masterpiece+++","refiner":{"denoising_cutoff":70,"model":"stabilityai/stable-diffusion-xl-refiner-1.0","steps":30},"task_config":{"cfg":700,"image_height":512,"image_width":512,"num_images":9,"safety_checker":false,"seed":51233333,"steps":30},"vae":"sd-vae"}`
+}
 
 func PrepareAccounts() (addresses []string, privateKeys []string, err error) {
 
@@ -32,49 +76,12 @@ func PrepareAccounts() (addresses []string, privateKeys []string, err error) {
 	return addresses, privateKeys, nil
 }
 
-func PrepareControlnetArgs() models.ControlnetArgs {
-	return models.ControlnetArgs{
-		Preprocess: &models.PreprocessArgs{
-			Method: "canny",
-			Args: &models.CannyPreprocessArgs{
-				LowThreshold:  100,
-				HighThreshold: 200,
-			},
-		},
-		ImageDataURL: "image/png,base64:FFFFFF",
-		Weight:       100,
-		Model:        "stabilityai/sdxl-controlnet-canny",
-	}
-}
+func PrepareTaskArgs() task_args.TaskArgs {
 
-func PrepareTaskConfig() models.TaskConfig {
-	return models.TaskConfig{
-		ImageWidth:    512,
-		ImageHeight:   512,
-		NumImages:     9,
-		Seed:          51233333,
-		Steps:         30,
-		SafetyChecker: false,
-		CFG:           700,
-	}
-}
+	taskArgs := FullTaskArgs()
+	taskArgs.Refiner = nil
 
-func PrepareTaskArgs() models.TaskArgs {
-
-	controlnetArgs := PrepareControlnetArgs()
-	taskConfig := PrepareTaskConfig()
-
-	return models.TaskArgs{
-		BaseModel:      "runwayml/stable-diffusion-v1-5",
-		Prompt:         "a photo of an old man sitting on a brown chair, by the seaside, with blue sky and white clouds, a dog is lying under his legs, realistic+++, high res+++, masterpiece+++",
-		NegativePrompt: "paintings, sketches, worst quality+++++, low quality+++++, normal quality+++++, lowres, normal quality, monochrome++, grayscale++, skin spots, acnes, skin blemishes, age spot, glans, bad hands, bad fingers",
-		Controlnet:     &controlnetArgs,
-		TaskConfig:     &taskConfig,
-		Lora: &models.LoraArgs{
-			Model:  "korean-doll-likeness-v2-0",
-			Weight: 90,
-		},
-	}
+	return *taskArgs
 }
 
 func PrepareRandomTask() *inference_tasks.TaskInput {

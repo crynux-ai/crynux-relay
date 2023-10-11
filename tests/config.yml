@@ -16,7 +16,7 @@ data_dir:
     inference_tasks: "/app/data/inference_tasks"
 blockchain:
   rpc_endpoint: "https://block-node.crynux.ai/rpc"
-  start_block_num: 778249
+  start_block_num: 789537
   gas_limit: 4294967
   account:
     address: "0xd075aB490857256e6fc85d75d8315e7c9914e008"

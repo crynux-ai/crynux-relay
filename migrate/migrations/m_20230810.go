@@ -4,6 +4,7 @@ import (
 	"github.com/go-gormigrate/gormigrate/v2"
 	"gorm.io/gorm"
 	"h_relay/models"
+	"h_relay/models/task_args"
 )
 
 func M20230810(db *gorm.DB) *gormigrate.Gormigrate {
@@ -29,32 +30,14 @@ func M20230810(db *gorm.DB) *gormigrate.Gormigrate {
 		Steps         int
 	}
 
-	type RefinerArgs struct {
-		DenoisingCutoff int
-		Model           string
-		Steps           int
-	}
-
-	type ControlnetArgs struct {
-		Model        string
-		ImageDataURL string
-		Weight       int
-		Preprocess   *models.PreprocessArgs
-	}
-
-	type LoraArgs struct {
-		Model  string
-		Weight int
-	}
-
 	type TaskArgs struct {
 		BaseModel      string
-		Controlnet     *ControlnetArgs `gorm:"embedded;embeddedPrefix:controlnet_"`
-		Lora           *LoraArgs       `gorm:"embedded;embeddedPrefix:lora_"`
+		Controlnet     *task_args.ControlnetArgs
+		Lora           *task_args.LoraArgs
 		NegativePrompt string
 		Prompt         string
-		Refiner        *RefinerArgs `gorm:"embedded;embeddedPrefix:refiner_"`
-		TaskConfig     *TaskConfig  `gorm:"embedded;embeddedPrefix:task_config_"`
+		Refiner        *task_args.RefinerArgs
+		TaskConfig     *TaskConfig `gorm:"embedded;embeddedPrefix:task_config_"`
 		VAE            string
 	}
 

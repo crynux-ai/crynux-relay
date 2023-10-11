@@ -8,11 +8,12 @@ import (
 	"h_relay/api/v1/response"
 	"h_relay/config"
 	"h_relay/models"
+	"h_relay/models/task_args"
 )
 
 type TaskInput struct {
-	TaskArgs models.TaskArgs `json:"task_args" description:"Task arguments" validate:"required"`
-	TaskId   uint64          `json:"task_id" description:"Task id" validate:"required"`
+	TaskArgs task_args.TaskArgs `json:"task_args" description:"Task arguments" validate:"required"`
+	TaskId   uint64             `json:"task_id" description:"Task id" validate:"required"`
 }
 
 type TaskInputWithSignature struct {

@@ -256,18 +256,18 @@ func ClearNetwork(addresses []string, privateKeys []string) error {
 
 func SubmitResultOnChain(taskId *big.Int, addresses []string, privateKeys []string) error {
 	results := [3][]byte{
-		[]byte("123456789"),
-		[]byte("123456789"),
-		[]byte("123456789"),
+		[]byte("12345678"),
+		[]byte("12345678"),
+		[]byte("12345678"),
 	}
 	return submitAndDiscloseResults(taskId, addresses, privateKeys, results)
 }
 
 func AbortTaskOnChain(taskId *big.Int, addresses []string, privateKeys []string) error {
 	results := [3][]byte{
-		[]byte("123456789"),
-		[]byte("555555555"),
-		[]byte("987654321"),
+		[]byte("12345678"),
+		[]byte("55555555"),
+		[]byte("98765432"),
 	}
 	return submitAndDiscloseResults(taskId, addresses, privateKeys, results)
 }

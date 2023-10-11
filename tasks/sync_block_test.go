@@ -36,13 +36,9 @@ func TestTaskCreatedAndSuccessOnChain(t *testing.T) {
 
 	taskInput := tests.PrepareRandomTask()
 
-	task := &models.InferenceTask{
-		Prompt:     taskInput.Prompt,
-		BaseModel:  taskInput.BaseModel,
-		LoraModel:  taskInput.LoraModel,
-		TaskConfig: &taskInput.TaskConfig,
-		Controlnet: &taskInput.Pose,
-	}
+	task := &models.InferenceTask{}
+
+	task.TaskArgs = taskInput.TaskArgs
 
 	_, err = blockchain.CreateTaskOnChain(task)
 	assert.Nil(t, err, "error creating task on chain")
@@ -83,7 +79,7 @@ func TestTaskCreatedAndSuccessOnChain(t *testing.T) {
 
 	assert.Equal(t, 3, len(taskInDbWithSelectedNodes.SelectedNodes), "wrong node number")
 
-	targetHash := hexutil.Encode([]byte("123456789"))
+	targetHash := hexutil.Encode([]byte("12345678"))
 
 	check := &models.SelectedNode{
 		InferenceTaskID:  taskInDbWithSelectedNodes.ID,

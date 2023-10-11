@@ -1,4 +1,4 @@
-package models
+package task_args
 
 import (
 	"database/sql/driver"
@@ -19,6 +19,10 @@ type PreprocessArgs struct {
 	Method string `json:"method" validate:"required"`
 }
 
+const (
+	PreprocessMethodCanny = "canny"
+)
+
 func (preprocessArgs *PreprocessArgs) MarshalJSON() ([]byte, error) {
 
 	output := make(map[string]any)
@@ -30,7 +34,7 @@ func (preprocessArgs *PreprocessArgs) MarshalJSON() ([]byte, error) {
 		var argsBytes []byte
 		var err error
 
-		if preprocessArgs.Method == "canny" {
+		if preprocessArgs.Method == PreprocessMethodCanny {
 			cannyArgs := preprocessArgs.Args.(*CannyPreprocessArgs)
 
 			argsBytes, err = json.Marshal(cannyArgs)
@@ -72,7 +76,7 @@ func (preprocessArgs *PreprocessArgs) UnmarshalJSON(data []byte) error {
 			return err
 		}
 
-		if preprocessArgs.Method == "canny" {
+		if preprocessArgs.Method == PreprocessMethodCanny {
 			args := &CannyPreprocessArgs{}
 
 			err := json.Unmarshal(argsBytes, args)
