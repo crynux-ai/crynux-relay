@@ -6,7 +6,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	"h_relay/models/task_args"
 	"strconv"
 )
 
@@ -19,32 +18,22 @@ const (
 
 type InferenceTask struct {
 	gorm.Model
-	task_args.TaskArgs `gorm:"embedded;embeddedPrefix:task_args_"`
-	TaskId             uint64     `json:"task_id"`
-	Creator            string     `json:"creator"`
-	TaskHash           string     `json:"task_hash"`
-	DataHash           string     `json:"data_hash"`
-	Status             TaskStatus `json:"status"`
-	SelectedNodes      []SelectedNode
+	TaskArgs      string     `json:"task_args"`
+	TaskId        uint64     `json:"task_id"`
+	Creator       string     `json:"creator"`
+	TaskHash      string     `json:"task_hash"`
+	DataHash      string     `json:"data_hash"`
+	Status        TaskStatus `json:"status"`
+	SelectedNodes []SelectedNode
 }
 
 func (t *InferenceTask) GetTaskIdAsString() string {
 	return strconv.FormatUint(t.TaskId, 10)
 }
 
-type DataHashInput struct {
-	BaseModel      string                    `json:"base_model"`
-	Controlnet     *task_args.ControlnetArgs `json:"controlnet"`
-	Lora           *task_args.LoraArgs       `json:"lora"`
-	NegativePrompt string                    `json:"negative_prompt"`
-	Prompt         string                    `json:"prompt"`
-	Refiner        *task_args.RefinerArgs    `json:"refiner"`
-	VAE            string                    `json:"vae"`
-}
-
 func (t *InferenceTask) GetTaskHash() (*common.Hash, error) {
 
-	taskHashBytes, err := json.Marshal(t.TaskConfig)
+	taskHashBytes, err := json.Marshal(t.TaskArgs)
 	if err != nil {
 		return nil, err
 	}
@@ -56,24 +45,5 @@ func (t *InferenceTask) GetTaskHash() (*common.Hash, error) {
 }
 
 func (t *InferenceTask) GetDataHash() (*common.Hash, error) {
-
-	dataHash := &DataHashInput{
-		BaseModel:      t.BaseModel,
-		Controlnet:     t.Controlnet,
-		Lora:           t.Lora,
-		NegativePrompt: t.NegativePrompt,
-		Prompt:         t.Prompt,
-		Refiner:        t.Refiner,
-		VAE:            t.VAE,
-	}
-
-	dataHashBytes, err := json.Marshal(dataHash)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Debugln("data hash string: " + string(dataHashBytes))
-
-	hash := crypto.Keccak256Hash(dataHashBytes)
-	return &hash, nil
+	return nil, nil
 }

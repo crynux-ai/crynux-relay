@@ -16,7 +16,8 @@ import (
 
 func TestCreateTaskBeforeBlockchainConfirmation(t *testing.T) {
 
-	task := tests.PrepareRandomTask()
+	task, err := tests.PrepareRandomTask()
+	assert.Equal(t, nil, err, "prepare task error")
 
 	_, privateKeys, err := tests.PrepareAccounts()
 	assert.Equal(t, nil, err, "prepare account error")
@@ -92,18 +93,30 @@ func TestCreateTaskWithMismatchedParamHash(t *testing.T) {
 	taskInput, _, err := tests.PrepareBlockchainConfirmedTask(addresses, config.GetDB())
 	assert.Equal(t, nil, err, "prepare task error")
 
-	oldPrompt := taskInput.TaskArgs.Prompt
-	taskInput.TaskArgs.Prompt += ", in anime style"
+	var taskArgsMap map[string]interface{}
+	err = json.Unmarshal([]byte(taskInput.TaskArgs), &taskArgsMap)
+	assert.Equal(t, nil, err, "unmarshall task json error")
+
+	oldPrompt := taskArgsMap["prompt"].(string)
+	taskArgsMap["prompt"] = oldPrompt + ", in anime style"
+
+	newTaskArgsJson, err := json.Marshal(taskArgsMap)
+	assert.Equal(t, nil, err, "marshall new task json error")
+	taskInput.TaskArgs = string(newTaskArgsJson)
 
 	timestamp, signature, err := v1.SignData(taskInput, privateKeys[0])
 	assert.Equal(t, nil, err, "sign data error")
 
 	r := callCreateTaskApi(t, taskInput, timestamp, signature)
 
-	v1.AssertValidationErrorResponse(t, r, "data_hash", "Data hash mismatch")
+	v1.AssertValidationErrorResponse(t, r, "task_hash", "Task hash mismatch")
 
-	taskInput.TaskArgs.Prompt = oldPrompt
-	taskInput.TaskArgs.TaskConfig.Steps = 60
+	taskArgsMap["prompt"] = oldPrompt
+	taskArgsMap["task_config"].(map[string]interface{})["steps"] = 60
+
+	newTaskArgsJson, err = json.Marshal(taskArgsMap)
+	assert.Equal(t, nil, err, "marshall new task json error")
+	taskInput.TaskArgs = string(newTaskArgsJson)
 
 	timestamp, signature, err = v1.SignData(taskInput, privateKeys[0])
 	assert.Equal(t, nil, err, "sign data error")

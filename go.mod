@@ -11,13 +11,13 @@ require (
 	github.com/go-gormigrate/gormigrate/v2 v2.1.0
 	github.com/loopfz/gadgeto v0.9.0
 	github.com/onrik/gorm-logrus v0.5.0
+	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.16.0
 	github.com/stretchr/testify v1.8.4
 	github.com/toorop/gin-logrus v0.0.0-20210225092905-2c785434f26f
 	github.com/wI2L/fizz v0.22.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
-	gorm.io/datatypes v1.0.5
 	gorm.io/driver/mysql v1.5.1
 	gorm.io/driver/postgres v1.5.2
 	gorm.io/driver/sqlite v1.5.2

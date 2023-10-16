@@ -34,7 +34,8 @@ func TestTaskCreatedAndSuccessOnChain(t *testing.T) {
 	appConfig.Blockchain.Account.Address = addresses[0]
 	appConfig.Blockchain.Account.PrivateKey = privateKeys[0]
 
-	taskInput := tests.PrepareRandomTask()
+	taskInput, err := tests.PrepareRandomTask()
+	assert.Nil(t, err, "error preparing random task")
 
 	task := &models.InferenceTask{}
 

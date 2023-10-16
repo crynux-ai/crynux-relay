@@ -8,12 +8,11 @@ import (
 	"h_relay/api/v1/response"
 	"h_relay/config"
 	"h_relay/models"
-	"h_relay/models/task_args"
 )
 
 type TaskInput struct {
-	TaskArgs task_args.TaskArgs `json:"task_args" description:"Task arguments" validate:"required"`
-	TaskId   uint64             `json:"task_id" description:"Task id" validate:"required"`
+	TaskArgs string `json:"task_args" description:"Task arguments" validate:"required"`
+	TaskId   uint64 `json:"task_id" description:"Task id" validate:"required"`
 }
 
 type TaskInputWithSignature struct {
@@ -34,6 +33,16 @@ func CreateTask(_ *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 
 		validationErr := response.NewValidationErrorResponse("signature", "Invalid signature")
 		return nil, validationErr
+	}
+
+	validationErr, err := models.ValidateTaskArgsJsonStr(in.TaskArgs)
+
+	if err != nil {
+		return nil, response.NewExceptionResponse(err)
+	}
+
+	if validationErr != nil {
+		return nil, response.NewValidationErrorResponse("task_args", validationErr.Error())
 	}
 
 	task := models.InferenceTask{
@@ -77,17 +86,6 @@ func CreateTask(_ *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 			response.NewValidationErrorResponse(
 				"task_hash",
 				"Task hash mismatch")
-	}
-
-	dataHash, err := task.GetDataHash()
-	if err != nil {
-		return nil, response.NewExceptionResponse(err)
-	}
-	if dataHash.Hex() != task.DataHash {
-		return nil,
-			response.NewValidationErrorResponse(
-				"data_hash",
-				"Data hash mismatch")
 	}
 
 	if err := config.GetDB().Save(&task).Error; err != nil {

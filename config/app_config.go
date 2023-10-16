@@ -46,6 +46,10 @@ type AppConfig struct {
 		} `mapstructure:"contracts"`
 	} `mapstructure:"blockchain"`
 
+	TaskSchema struct {
+		StableDiffusionInference string `mapstructure:"stable_diffusion_inference"`
+	} `mapstructure:"task_schema"`
+
 	Test struct {
 		RootAddress    string `mapstructure:"root_address"`
 		RootPrivateKey string `mapstructure:"root_private_key"`

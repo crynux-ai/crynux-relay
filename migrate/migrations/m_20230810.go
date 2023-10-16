@@ -4,7 +4,6 @@ import (
 	"github.com/go-gormigrate/gormigrate/v2"
 	"gorm.io/gorm"
 	"h_relay/models"
-	"h_relay/models/task_args"
 )
 
 func M20230810(db *gorm.DB) *gormigrate.Gormigrate {
@@ -20,30 +19,9 @@ func M20230810(db *gorm.DB) *gormigrate.Gormigrate {
 		BlockNumber uint64
 	}
 
-	type TaskConfig struct {
-		CFG           int
-		ImageHeight   int
-		ImageWidth    int
-		NumImages     int
-		SafetyChecker bool
-		Seed          int
-		Steps         int
-	}
-
-	type TaskArgs struct {
-		BaseModel      string
-		Controlnet     *task_args.ControlnetArgs
-		Lora           *task_args.LoraArgs
-		NegativePrompt string
-		Prompt         string
-		Refiner        *task_args.RefinerArgs
-		TaskConfig     *TaskConfig `gorm:"embedded;embeddedPrefix:task_config_"`
-		VAE            string
-	}
-
 	type InferenceTask struct {
 		gorm.Model
-		TaskArgs      `gorm:"embedded;embeddedPrefix:task_args_"`
+		TaskArgs      string
 		TaskId        uint64
 		Creator       string
 		TaskHash      string

@@ -31,11 +31,6 @@ func CreateTaskOnChain(task *models.InferenceTask) (string, error) {
 		return "", err
 	}
 
-	dataHash, err := task.GetDataHash()
-	if err != nil {
-		return "", err
-	}
-
 	taskContractAddress := common.HexToAddress(appConfig.Blockchain.Contracts.Task)
 	accountAddress := common.HexToAddress(appConfig.Blockchain.Account.Address)
 	accountPrivateKey := appConfig.Blockchain.Account.PrivateKey
@@ -56,9 +51,14 @@ func CreateTaskOnChain(task *models.InferenceTask) (string, error) {
 	}
 
 	log.Debugln("create task tx: TaskHash " + common.Bytes2Hex(taskHash[:]))
-	log.Debugln("create task tx: DataHash " + common.Bytes2Hex(dataHash[:]))
 
-	tx, err := instance.CreateTask(auth, *taskHash, *dataHash)
+	dataHash := [32]byte{
+		0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0}
+
+	tx, err := instance.CreateTask(auth, *taskHash, dataHash)
 	if err != nil {
 		return "", err
 	}

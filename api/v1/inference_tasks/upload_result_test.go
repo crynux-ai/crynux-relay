@@ -22,7 +22,7 @@ func TestWrongTaskId(t *testing.T) {
 	addresses, privateKeys, err := tests.PrepareAccounts()
 	assert.Equal(t, nil, err, "prepare accounts error")
 
-	taskInput, _, err := tests.PrepareParamsUploadedTask(addresses, config.GetDB())
+	_, _, err = tests.PrepareParamsUploadedTask(addresses, config.GetDB())
 	assert.Equal(t, nil, err, "prepare task error")
 
 	uploadResultInput := &inference_tasks.ResultInput{
@@ -35,7 +35,7 @@ func TestWrongTaskId(t *testing.T) {
 	timestamp, signature, err := v1.SignData(uploadResultInput, privateKeys[1])
 	assert.Equal(t, nil, err, "sign data error")
 
-	prepareFileForm(t, taskInput, writer, timestamp, signature)
+	prepareFileForm(t, writer, timestamp, signature)
 
 	r := callUploadResultApi(666, writer, pr)
 
@@ -96,7 +96,7 @@ func testUsingAddressNum(
 	addresses, privateKeys, err := tests.PrepareAccounts()
 	assert.Equal(t, nil, err, "prepare accounts error")
 
-	taskInput, task, err := tests.PrepareResultUploadedTask(addresses, config.GetDB())
+	_, task, err := tests.PrepareResultUploadedTask(addresses, config.GetDB())
 	assert.Equal(t, nil, err, "prepare task error")
 
 	uploadResultInput := &inference_tasks.ResultInput{
@@ -109,7 +109,7 @@ func testUsingAddressNum(
 	timestamp, signature, err := v1.SignData(uploadResultInput, privateKeys[num])
 	assert.Equal(t, nil, err, "sign data error")
 
-	prepareFileForm(t, taskInput, writer, timestamp, signature)
+	prepareFileForm(t, writer, timestamp, signature)
 
 	r := callUploadResultApi(task.TaskId, writer, pr)
 
@@ -123,7 +123,7 @@ func testUsingAddressNum(
 	})
 }
 
-func prepareFileForm(t *testing.T, taskInput *inference_tasks.TaskInput, writer *multipart.Writer, timestamp int64, signature string) {
+func prepareFileForm(t *testing.T, writer *multipart.Writer, timestamp int64, signature string) {
 	go func() {
 		defer func(writer *multipart.Writer) {
 			err := writer.Close()
@@ -140,7 +140,7 @@ func prepareFileForm(t *testing.T, taskInput *inference_tasks.TaskInput, writer 
 		err = writer.WriteField("signature", signature)
 		assert.Equal(t, nil, err, "write signature failed")
 
-		for i := 0; i < taskInput.TaskArgs.TaskConfig.NumImages; i++ {
+		for i := 0; i < 9; i++ {
 			part, err := writer.CreateFormFile("images", "test_image_"+strconv.Itoa(i)+".png")
 			if err != nil {
 				t.Error(err)

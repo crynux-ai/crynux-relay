@@ -8,55 +8,49 @@ import (
 	"h_relay/blockchain"
 	"h_relay/config"
 	"h_relay/models"
-	"h_relay/models/task_args"
-	"h_relay/tests/api/v1"
+	v1 "h_relay/tests/api/v1"
 	"os"
 	"path"
 	"strconv"
 )
 
-func FullTaskArgs() *task_args.TaskArgs {
-	return &task_args.TaskArgs{
-		BaseModel:      "runwayml/stable-diffusion-v1-5",
-		Prompt:         "a photo of an old man sitting on a brown chair, by the seaside, with blue sky and white clouds, a dog is lying under his legs, realistic+++, high res+++, masterpiece+++",
-		NegativePrompt: "paintings, sketches, worst quality+++++, low quality+++++, normal quality+++++, lowres, normal quality, monochrome++, grayscale++, skin spots, acnes, skin blemishes, age spot, glans, bad hands, bad fingers",
-		Controlnet: &task_args.ControlnetArgs{
-			Preprocess: &task_args.PreprocessArgs{
-				Method: "canny",
-				Args: &task_args.CannyPreprocessArgs{
-					LowThreshold:  100,
-					HighThreshold: 200,
-				},
-			},
-			ImageDataURL: "image/png,base64:FFFFFF",
-			Weight:       100,
-			Model:        "stabilityai/sdxl-controlnet-canny",
+const FullTaskArgsJson string = `{
+	"base_model": "runwayml/stable-diffusion-v1-5",
+	"prompt": "best quality, ultra high res, photorealistic++++, 1girl, off-shoulder sweater, smiling, faded ash gray messy bun hair+, border light, depth of field, looking at viewer, closeup",
+	"negative_prompt": "paintings, sketches, worst quality+++++, low quality+++++, normal quality+++++, lowres, normal quality, monochrome++, grayscale++, skin spots, acnes, skin blemishes, age spot, glans",
+	"controlnet": {
+		"preprocess": {
+			"method": "canny",
+			"args": {
+				"low_threshold": 100,
+				"high_threshold": 200
+			}
 		},
-		TaskConfig: &task_args.TaskConfig{
-			ImageWidth:    512,
-			ImageHeight:   512,
-			NumImages:     9,
-			Seed:          51233333,
-			Steps:         30,
-			SafetyChecker: false,
-			CFG:           700,
-		},
-		Lora: &task_args.LoraArgs{
-			Model:  "korean-doll-likeness-v2-0",
-			Weight: 90,
-		},
-		Refiner: &task_args.RefinerArgs{
-			Model:           "stabilityai/stable-diffusion-xl-refiner-1.0",
-			DenoisingCutoff: 70,
-			Steps:           30,
-		},
-		VAE: "sd-vae",
+		"model": "lllyasviel/sd-controlnet-canny",
+		"weight": 80,
+		"image_dataurl": "image/png,base64:FFFFFF"
+	},
+	"refiner": {
+		"model": "stabilityai/stable-diffusion-xl-refiner-1.0",
+		"denoising_cutoff": 80,
+		"steps": 25
+	},
+	"lora": {
+		"model": "https://civitai.com/api/download/models/34562",
+		"weight": 80
+	},
+	"vae": "stabilityai/sd-vae-ft-mse",
+	"textual_inversion": "sd-concepts-library/cat-toy",
+	"task_config": {
+		"image_width": 512,
+		"image_height": 512,
+		"num_images": 9,
+		"seed": 5123333,
+		"steps": 30,
+		"safety_checker": false,
+		"cfg": 7
 	}
-}
-
-func FullTaskArgsString() string {
-	return `{"base_model":"runwayml/stable-diffusion-v1-5","controlnet":{"image_dataurl":"image/png,base64:FFFFFF","model":"stabilityai/sdxl-controlnet-canny","preprocess":{"args":{"high_threshold":200,"low_threshold":100},"method":"canny"},"weight":100},"lora":{"model":"korean-doll-likeness-v2-0","weight":90},"negative_prompt":"paintings, sketches, worst quality+++++, low quality+++++, normal quality+++++, lowres, normal quality, monochrome++, grayscale++, skin spots, acnes, skin blemishes, age spot, glans, bad hands, bad fingers","prompt":"a photo of an old man sitting on a brown chair, by the seaside, with blue sky and white clouds, a dog is lying under his legs, realistic+++, high res+++, masterpiece+++","refiner":{"denoising_cutoff":70,"model":"stabilityai/stable-diffusion-xl-refiner-1.0","steps":30},"task_config":{"cfg":700,"image_height":512,"image_width":512,"num_images":9,"safety_checker":false,"seed":51233333,"steps":30},"vae":"sd-vae"}`
-}
+}`
 
 func PrepareAccounts() (addresses []string, privateKeys []string, err error) {
 
@@ -76,24 +70,20 @@ func PrepareAccounts() (addresses []string, privateKeys []string, err error) {
 	return addresses, privateKeys, nil
 }
 
-func PrepareTaskArgs() task_args.TaskArgs {
-
-	taskArgs := FullTaskArgs()
-	taskArgs.Refiner = nil
-
-	return *taskArgs
-}
-
-func PrepareRandomTask() *inference_tasks.TaskInput {
+func PrepareRandomTask() (*inference_tasks.TaskInput, error) {
 	return &inference_tasks.TaskInput{
 		TaskId:   999,
-		TaskArgs: PrepareTaskArgs(),
-	}
+		TaskArgs: FullTaskArgsJson,
+	}, nil
 }
 
 func PrepareBlockchainConfirmedTask(addresses []string, db *gorm.DB) (*inference_tasks.TaskInput, *models.InferenceTask, error) {
 
-	taskInput := PrepareRandomTask()
+	taskInput, err := PrepareRandomTask()
+
+	if err != nil {
+		return nil, nil, err
+	}
 
 	task := &models.InferenceTask{
 		TaskId:  taskInput.TaskId,
@@ -109,20 +99,7 @@ func PrepareBlockchainConfirmedTask(addresses []string, db *gorm.DB) (*inference
 	}
 	task.TaskHash = taskHash.Hex()
 
-	dataHash, err := task.GetDataHash()
-	if err != nil {
-		return nil, nil, err
-	}
-	task.DataHash = dataHash.Hex()
-
-	task.Prompt = ""
-	task.NegativePrompt = ""
-	task.BaseModel = ""
-	task.TaskConfig = nil
-	task.Controlnet = nil
-	task.Lora = nil
-	task.Refiner = nil
-	task.VAE = ""
+	task.TaskArgs = ""
 
 	if err := db.Create(task).Error; err != nil {
 		return nil, nil, err
@@ -161,7 +138,7 @@ func PrepareResultUploadedTask(addresses []string, db *gorm.DB) (*inference_task
 	}
 
 	// Prepare result images
-	err = prepareResultImagesForTask(task.GetTaskIdAsString(), taskInput.TaskArgs.TaskConfig.NumImages)
+	err = prepareResultImagesForTask(task.GetTaskIdAsString(), 9)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -170,7 +147,7 @@ func PrepareResultUploadedTask(addresses []string, db *gorm.DB) (*inference_task
 	var result []byte
 
 	appConfig := config.GetConfig()
-	for i := 0; i < taskInput.TaskArgs.TaskConfig.NumImages; i++ {
+	for i := 0; i < 9; i++ {
 		imageFilename := path.Join(
 			appConfig.DataDir.InferenceTasks,
 			task.GetTaskIdAsString(),
