@@ -22,7 +22,7 @@ func TestWrongTaskId(t *testing.T) {
 	addresses, privateKeys, err := tests.PrepareAccounts()
 	assert.Equal(t, nil, err, "prepare accounts error")
 
-	_, _, err = tests.PrepareParamsUploadedTask(addresses, config.GetDB())
+	_, _, err = tests.PreparePendingResultsTask(addresses, config.GetDB())
 	assert.Equal(t, nil, err, "prepare task error")
 
 	uploadResultInput := &inference_tasks.ResultInput{
@@ -96,8 +96,10 @@ func testUsingAddressNum(
 	addresses, privateKeys, err := tests.PrepareAccounts()
 	assert.Equal(t, nil, err, "prepare accounts error")
 
-	_, task, err := tests.PrepareResultUploadedTask(addresses, config.GetDB())
+	_, task, err := tests.PreparePendingResultsTask(addresses, config.GetDB())
 	assert.Equal(t, nil, err, "prepare task error")
+
+	assert.Equal(t, models.InferenceTaskPendingResults, task.Status, "wrong task status")
 
 	uploadResultInput := &inference_tasks.ResultInput{
 		TaskId: task.TaskId,

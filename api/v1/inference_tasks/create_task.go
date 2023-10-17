@@ -75,7 +75,7 @@ func CreateTask(_ *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 	}
 
 	task.TaskArgs = in.TaskArgs
-	task.Status = models.InferenceTaskUploaded
+	task.Status = models.InferenceTaskParamsUploaded
 
 	taskHash, err := task.GetTaskHash()
 	if err != nil {

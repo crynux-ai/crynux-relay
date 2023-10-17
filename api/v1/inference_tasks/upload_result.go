@@ -49,6 +49,11 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 		}
 	}
 
+	if task.Status != models.InferenceTaskPendingResults {
+		validationErr := response.NewValidationErrorResponse("task_id", "Task not success")
+		return nil, validationErr
+	}
+
 	resultNode := &models.SelectedNode{
 		InferenceTaskID:  task.ID,
 		IsResultSelected: true,
@@ -125,6 +130,13 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 		}
 
 		fileNum += 1
+	}
+
+	// Update task status
+	task.Status = models.InferenceTaskResultsUploaded
+
+	if err := config.GetDB().Save(&task).Error; err != nil {
+		return nil, response.NewExceptionResponse(err)
 	}
 
 	return &response.Response{}, nil

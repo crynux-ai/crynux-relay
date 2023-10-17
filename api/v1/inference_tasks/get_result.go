@@ -50,6 +50,10 @@ func GetResult(ctx *gin.Context, in *GetResultInputWithSignature) error {
 		return response.NewValidationErrorResponse("signature", "Signer not allowed")
 	}
 
+	if task.Status != models.InferenceTaskResultsUploaded {
+		return response.NewValidationErrorResponse("task_id", "Task results not uploaded")
+	}
+
 	appConfig := config.GetConfig()
 	imageFile := filepath.Join(
 		appConfig.DataDir.InferenceTasks,

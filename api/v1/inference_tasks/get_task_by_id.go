@@ -45,7 +45,7 @@ func GetTaskById(_ *gin.Context, in *GetTaskInputWithSignature) (*TaskResponse, 
 		}
 	}
 
-	if task.Status != models.InferenceTaskUploaded {
+	if task.Status != models.InferenceTaskParamsUploaded {
 		return nil, response.NewValidationErrorResponse("task_id", "Task not ready")
 	}
 

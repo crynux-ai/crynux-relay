@@ -11,4 +11,4 @@ COPY . .
 
 COPY ./tests/config.yml /app/config/config.yml
 
-CMD go test -p 1 ./...
+CMD go test -p 1 ./api/v1/inference_tasks

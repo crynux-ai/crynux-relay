@@ -13,7 +13,10 @@ type TaskStatus int
 
 const (
 	InferenceTaskCreatedOnChain TaskStatus = iota
-	InferenceTaskUploaded
+	InferenceTaskParamsUploaded
+	InferenceTaskAborted
+	InferenceTaskPendingResults
+	InferenceTaskResultsUploaded
 )
 
 type InferenceTask struct {

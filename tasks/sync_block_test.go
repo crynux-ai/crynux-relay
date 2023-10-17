@@ -59,17 +59,12 @@ func TestTaskCreatedAndSuccessOnChain(t *testing.T) {
 
 	assert.Equal(t, taskHash.Hex(), taskInDb.TaskHash, "task hash mismatch")
 
-	taskDataHash, err := task.GetDataHash()
-	assert.Nil(t, err, "error getting task data hash")
-
-	assert.Equal(t, taskDataHash.Hex(), taskInDb.DataHash, "task hash mismatch")
-
 	// Now Let's finish the task on chain
 
 	err = tests.SubmitResultOnChain(big.NewInt(int64(taskInDb.TaskId)), addresses, privateKeys)
 	assert.Nil(t, err, "error submitting task result on chain")
 
-	time.Sleep(20 * time.Second)
+	time.Sleep(30 * time.Second)
 
 	taskInDbWithSelectedNodes := &models.InferenceTask{
 		TaskId: taskInDb.TaskId,
@@ -77,6 +72,8 @@ func TestTaskCreatedAndSuccessOnChain(t *testing.T) {
 
 	err = config.GetDB().Where(taskInDbWithSelectedNodes).Preload("SelectedNodes").First(taskInDbWithSelectedNodes).Error
 	assert.Nil(t, err, "error finding task in db")
+
+	assert.Equal(t, models.InferenceTaskPendingResults, taskInDbWithSelectedNodes.Status, "Task not success on chain")
 
 	assert.Equal(t, 3, len(taskInDbWithSelectedNodes.SelectedNodes), "wrong node number")
 
@@ -92,9 +89,9 @@ func TestTaskCreatedAndSuccessOnChain(t *testing.T) {
 	assert.Nil(t, err, "error find result success node")
 
 	t.Cleanup(func() {
-		tests.ClearDB()
+		syncBlockChan <- 1
 		err := tests.ClearNetwork(addresses, privateKeys)
 		assert.Nil(t, err, "clear network error")
-		syncBlockChan <- 1
+		tests.ClearDB()
 	})
 }

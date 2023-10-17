@@ -121,6 +121,12 @@ func processChannel(syncedBlock *models.SyncedBlock) {
 			return
 		}
 
+		if err := processTaskAborted(start, end); err != nil {
+			log.Errorln(err)
+			time.Sleep(time.Duration(interval) * time.Second)
+			return
+		}
+
 		oldNum := syncedBlock.BlockNumber
 		syncedBlock.BlockNumber = end
 		if err := config.GetDB().Save(syncedBlock).Error; err != nil {
@@ -256,9 +262,64 @@ func processTaskSuccess(startBlockNum, endBlockNum uint64) error {
 		if err := config.GetDB().Model(selectedNode).Select("Result", "IsResultSelected").Updates(selectedNode).Error; err != nil {
 			return err
 		}
+
+		task.Status = models.InferenceTaskPendingResults
+
+		if err := config.GetDB().Save(task).Error; err != nil {
+			return err
+		}
 	}
 
 	if err := taskSuccessEventIterator.Close(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func processTaskAborted(startBlockNum, endBlockNum uint64) error {
+	taskContractInstance, err := blockchain.GetTaskContractInstance()
+	if err != nil {
+		return err
+	}
+
+	taskAbortedEventIterator, err := taskContractInstance.FilterTaskAborted(
+		&bind.FilterOpts{
+			Start:   startBlockNum,
+			End:     &endBlockNum,
+			Context: context.Background(),
+		},
+	)
+
+	if err != nil {
+		return err
+	}
+
+	for {
+		if !taskAbortedEventIterator.Next() {
+			break
+		}
+
+		taskAborted := taskAbortedEventIterator.Event
+
+		log.Debugln("Task aborted on chain: " + taskAborted.TaskId.String())
+
+		task := &models.InferenceTask{
+			TaskId: taskAborted.TaskId.Uint64(),
+		}
+
+		if err := config.GetDB().Where(task).First(task).Error; err != nil {
+			return err
+		}
+
+		task.Status = models.InferenceTaskAborted
+
+		if err := config.GetDB().Save(task).Error; err != nil {
+			return err
+		}
+	}
+
+	if err := taskAbortedEventIterator.Close(); err != nil {
 		return err
 	}
 
