@@ -1,10 +1,8 @@
 package models
 
 import (
-	"encoding/json"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 	"strconv"
 )
@@ -35,15 +33,7 @@ func (t *InferenceTask) GetTaskIdAsString() string {
 }
 
 func (t *InferenceTask) GetTaskHash() (*common.Hash, error) {
-
-	taskHashBytes, err := json.Marshal(t.TaskArgs)
-	if err != nil {
-		return nil, err
-	}
-
-	log.Debugln("task hash string: " + string(taskHashBytes))
-
-	hash := crypto.Keccak256Hash(taskHashBytes)
+	hash := crypto.Keccak256Hash([]byte(t.TaskArgs))
 	return &hash, nil
 }
 
