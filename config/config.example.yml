@@ -2,10 +2,10 @@
 environment: "debug"
 db:
   driver: "mysql"
-  connection: "user:mypass@(127.0.0.1:3306)/mydb"
+  connection: "user:mypass@(127.0.0.1:3306)/mydb?parseTime=true"
 log:
   level: "debug"
-  output: "data/logs"
+  output: "data/logs/log"
   max_file_size: 100
   max_days: 30
   max_file_num: 5
@@ -16,14 +16,14 @@ data_dir:
   inference_tasks: "data/inference_tasks"
 blockchain:
   rpc_endpoint: "https://block-node.crynux.ai/rpc"
-  start_block_num: 1010761
+  start_block_num: 1904715
   gas_limit: 4294967
   account:
     address: ""
   contracts:
-    task: "0x3f4e524d5Ff53D0e98eE5A37f81f4F21551502B2"
-    node: "0x73F8eAD4d29e227958aB5F3A3e38092271500865"
-    crynux_token: "0xB627D84BFB8cC311A318fEf679ee498F822A0C7C"
+    task: "0x396d211faf280d6b2AF36EEd4675B2E74a7CEC12"
+    node: "0x43fe24A779Cb463C080b95B8CbA4455A28AbA747"
+    crynux_token: "0x95E7e7Ed5463Ff482f61585605a0ff278e0E1FFb"
 task_schema:
   stable_diffusion_inference: 'https://raw.githubusercontent.com/crynux-ai/stable-diffusion-task/main/schema/stable-diffusion-inference-task.json'
 test:

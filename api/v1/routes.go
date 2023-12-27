@@ -4,6 +4,7 @@ import (
 	"github.com/loopfz/gadgeto/tonic"
 	"github.com/wI2L/fizz"
 	"h_relay/api/v1/inference_tasks"
+	"h_relay/api/v1/network"
 	"h_relay/api/v1/response"
 )
 
@@ -34,4 +35,16 @@ func InitRoutes(r *fizz.Fizz) {
 		fizz.Summary("Get the result of the inference task by node address"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(inference_tasks.GetResult, 200))
+
+	networkGroup := v1g.Group("network", "network", "Network stats related APIs")
+
+	networkGroup.GET("/nodes/data", []fizz.OperationOption{
+		fizz.Summary("Get the info of all the nodes in the network"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(network.GetAllNodeData, 200))
+
+	networkGroup.GET("/nodes/number", []fizz.OperationOption{
+		fizz.Summary("Get the info of all the nodes in the network"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(network.GetAllNodeNumber, 200))
 }
