@@ -2,6 +2,7 @@ package blockchain
 
 import (
 	"context"
+	"errors"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"math/big"
@@ -60,6 +61,10 @@ func GetAllNodesData(startIndex, endIndex int) ([]NodeData, error) {
 
 	if err != nil {
 		return nil, err
+	}
+
+	if allNode.Cmp(big.NewInt(int64(startIndex))) < 0 {
+		return nil, errors.New("start index out of range")
 	}
 
 	if allNode.Cmp(big.NewInt(int64(endIndex))) < 0 {
