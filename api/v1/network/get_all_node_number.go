@@ -19,7 +19,7 @@ type GetAllNodeNumberResponse struct {
 
 func GetAllNodeNumber(_ *gin.Context) (*GetAllNodeNumberResponse, error) {
 
-	allNodes, availableNodes, err := blockchain.GetAllNodesNumber()
+	availableNodes, allNodes, err := blockchain.GetAllNodesNumber()
 
 	if err != nil {
 		return nil, response.NewExceptionResponse(err)
