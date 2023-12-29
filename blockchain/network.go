@@ -63,7 +63,7 @@ func GetAllNodesData(startIndex, endIndex int) ([]NodeData, error) {
 		return nil, err
 	}
 
-	if allNode.Cmp(big.NewInt(int64(startIndex))) < 0 {
+	if allNode.Cmp(big.NewInt(int64(startIndex))) <= 0 {
 		return nil, errors.New("start index out of range")
 	}
 
