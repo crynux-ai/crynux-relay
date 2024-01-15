@@ -77,31 +77,36 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 	files := form.File["images"]
 
 	// Check whether the images are correct
-	var pHashBytes []byte
+	var resultHashBytes []byte
 
 	for _, file := range files {
 
-		imageFile, err := file.Open()
+		fileObj, err := file.Open()
+
+		if err != nil {
+			return nil, response.NewExceptionResponse(err)
+		}
+		
+		var hash []byte
+		if task.TaskType == models.TaskTypeSD {
+			hash, err = blockchain.GetPHashForImage(fileObj)
+		} else {
+			hash, err = blockchain.GetHashForGPTResponse(fileObj)
+		}
 
 		if err != nil {
 			return nil, response.NewExceptionResponse(err)
 		}
 
-		pHash, err := blockchain.GetPHashForImage(imageFile)
+		resultHashBytes = append(resultHashBytes, hash...)
 
-		if err != nil {
-			return nil, response.NewExceptionResponse(err)
-		}
-
-		pHashBytes = append(pHashBytes, pHash...)
-
-		err = imageFile.Close()
+		err = fileObj.Close()
 		if err != nil {
 			return nil, response.NewExceptionResponse(err)
 		}
 	}
 
-	uploadedResult := hexutil.Encode(pHashBytes)
+	uploadedResult := hexutil.Encode(resultHashBytes)
 
 	log.Debugln("image compare: result from the blockchain: " + resultNode.Result)
 	log.Debugln("image compare: result from the uploaded file: " + uploadedResult)
@@ -122,9 +127,15 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 	}
 
 	fileNum := 0
+	var fileExt string
+	if task.TaskType == models.TaskTypeSD {
+		fileExt = ".png"
+	} else {
+		fileExt = ".json"
+	}
 
 	for _, file := range files {
-		filename := filepath.Join(taskDir, strconv.Itoa(fileNum)+".png")
+		filename := filepath.Join(taskDir, strconv.Itoa(fileNum)+fileExt)
 		if err := ctx.SaveUploadedFile(file, filename); err != nil {
 			return nil, response.NewExceptionResponse(err)
 		}

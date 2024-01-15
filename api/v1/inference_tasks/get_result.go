@@ -55,22 +55,30 @@ func GetResult(ctx *gin.Context, in *GetResultInputWithSignature) error {
 	}
 
 	appConfig := config.GetConfig()
-	imageFile := filepath.Join(
+
+	var fileExt string
+	if task.TaskType == models.TaskTypeSD {
+		fileExt = ".png"
+	} else {
+		fileExt = ".json"
+	}
+
+	resultFile := filepath.Join(
 		appConfig.DataDir.InferenceTasks,
 		task.GetTaskIdAsString(),
 		"results",
-		in.ImageNum+".png",
+		in.ImageNum+fileExt,
 	)
 
-	if _, err := os.Stat(imageFile); err != nil {
+	if _, err := os.Stat(resultFile); err != nil {
 		return response.NewValidationErrorResponse("image_num", "File not found")
 	}
 
 	ctx.Header("Content-Description", "File Transfer")
 	ctx.Header("Content-Transfer-Encoding", "binary")
-	ctx.Header("Content-Disposition", "attachment; filename="+in.ImageNum+".png")
+	ctx.Header("Content-Disposition", "attachment; filename="+in.ImageNum+fileExt)
 	ctx.Header("Content-Type", "application/octet-stream")
-	ctx.File(imageFile)
+	ctx.File(resultFile)
 
 	return nil
 }

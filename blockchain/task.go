@@ -2,6 +2,7 @@ package blockchain
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"h_relay/blockchain/bindings"
@@ -169,4 +170,13 @@ func GetPHashForImage(reader io.Reader) ([]byte, error) {
 	bs := make([]byte, pHash.Bits()/8)
 	binary.BigEndian.PutUint64(bs, pHash.GetHash())
 	return bs, nil
+}
+
+func GetHashForGPTResponse(reader io.Reader) ([]byte, error) {
+	content, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, err
+	}
+	h := sha256.Sum256(content)
+	return h[:], nil
 }
