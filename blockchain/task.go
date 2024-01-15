@@ -58,7 +58,7 @@ func CreateTaskOnChain(task *models.InferenceTask) (string, error) {
 		0, 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0}
 
-	tx, err := instance.CreateTask(auth, *taskHash, dataHash)
+	tx, err := instance.CreateTask(auth, big.NewInt(int64(task.TaskType)), *taskHash, dataHash, big.NewInt(int64(task.VramLimit)))
 	if err != nil {
 		return "", err
 	}
@@ -136,7 +136,7 @@ func GetTaskResultCommitment(result []byte) (commitment [32]byte, nonce [32]byte
 	return commitment, nonce
 }
 
-func GetTaskById(taskId uint64) (*bindings.TaskTaskInfo, error) {
+func GetTaskById(taskId uint64) (*bindings.TaskInfo, error) {
 
 	taskInstance, err := GetTaskContractInstance()
 	if err != nil {
