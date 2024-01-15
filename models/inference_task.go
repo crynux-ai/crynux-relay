@@ -17,14 +17,23 @@ const (
 	InferenceTaskResultsUploaded
 )
 
+type ChainTaskType int
+
+const (
+	TaskTypeSD ChainTaskType = iota
+	TaskTypeLLM
+)
+
 type InferenceTask struct {
 	gorm.Model
-	TaskArgs      string     `json:"task_args"`
-	TaskId        uint64     `json:"task_id"`
-	Creator       string     `json:"creator"`
-	TaskHash      string     `json:"task_hash"`
-	DataHash      string     `json:"data_hash"`
-	Status        TaskStatus `json:"status"`
+	TaskArgs      string        `json:"task_args"`
+	TaskId        uint64        `json:"task_id"`
+	Creator       string        `json:"creator"`
+	TaskHash      string        `json:"task_hash"`
+	DataHash      string        `json:"data_hash"`
+	Status        TaskStatus    `json:"status"`
+	TaskType      ChainTaskType `json:"task_type"`
+	VramLimit     uint64        `json:"vram_limit"`
 	SelectedNodes []SelectedNode
 }
 
