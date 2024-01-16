@@ -19,58 +19,64 @@ import (
 )
 
 func TestWrongTaskId(t *testing.T) {
-	addresses, privateKeys, err := tests.PrepareAccounts()
-	assert.Equal(t, nil, err, "prepare accounts error")
-
-	_, _, err = tests.PreparePendingResultsTask(addresses, config.GetDB())
-	assert.Equal(t, nil, err, "prepare task error")
-
-	uploadResultInput := &inference_tasks.ResultInput{
-		TaskId: 666,
-	}
-
-	pr, pw := io.Pipe()
-	writer := multipart.NewWriter(pw)
-
-	timestamp, signature, err := v1.SignData(uploadResultInput, privateKeys[1])
-	assert.Equal(t, nil, err, "sign data error")
-
-	prepareFileForm(t, writer, timestamp, signature)
-
-	r := callUploadResultApi(666, writer, pr)
-
-	v1.AssertValidationErrorResponse(t, r, "task_id", "Task not found")
-
-	t.Cleanup(func() {
-		tests.ClearDB()
-		if err := tests.ClearDataFolders(); err != nil {
-			t.Error(err)
+	for _, taskType := range tests.TaskTypes {
+		addresses, privateKeys, err := tests.PrepareAccounts()
+		assert.Equal(t, nil, err, "prepare accounts error")
+	
+		_, _, err = tests.PreparePendingResultsTask(taskType, addresses, config.GetDB())
+		assert.Equal(t, nil, err, "prepare task error")
+	
+		uploadResultInput := &inference_tasks.ResultInput{
+			TaskId: 666,
 		}
-	})
+	
+		pr, pw := io.Pipe()
+		writer := multipart.NewWriter(pw)
+	
+		timestamp, signature, err := v1.SignData(uploadResultInput, privateKeys[1])
+		assert.Equal(t, nil, err, "sign data error")
+	
+		prepareFileForm(t, writer, taskType, timestamp, signature)
+	
+		r := callUploadResultApi(666, writer, pr)
+	
+		v1.AssertValidationErrorResponse(t, r, "task_id", "Task not found")
+	
+		t.Cleanup(func() {
+			tests.ClearDB()
+			if err := tests.ClearDataFolders(); err != nil {
+				t.Error(err)
+			}
+		})
+	}
 }
 
 func TestCreatorUpload(t *testing.T) {
-	testUsingAddressNum(t, 0, func(
-		t *testing.T,
-		r *httptest.ResponseRecorder,
-		task *models.InferenceTask,
-		addresses []string) {
-		v1.AssertValidationErrorResponse(t, r, "signature", "Signer not allowed")
-	})
+	for _, taskType := range tests.TaskTypes {
+		testUsingAddressNum(t, 0, taskType, func(
+			t *testing.T,
+			r *httptest.ResponseRecorder,
+			task *models.InferenceTask,
+			addresses []string) {
+			v1.AssertValidationErrorResponse(t, r, "signature", "Signer not allowed")
+		})
+	}
 }
 
 func TestNotAllowedAccount(t *testing.T) {
-	testUsingAddressNum(t, 4, func(
-		t *testing.T,
-		r *httptest.ResponseRecorder,
-		task *models.InferenceTask,
-		addresses []string) {
-		v1.AssertValidationErrorResponse(t, r, "signature", "Signer not allowed")
-	})
+	for _, taskType := range tests.TaskTypes {
+		testUsingAddressNum(t, 4, taskType, func(
+			t *testing.T,
+			r *httptest.ResponseRecorder,
+			task *models.InferenceTask,
+			addresses []string) {
+			v1.AssertValidationErrorResponse(t, r, "signature", "Signer not allowed")
+		})
+	}
 }
 
 func TestSuccessfulUpload(t *testing.T) {
-	testUsingAddressNum(t, 2, func(
+	testUsingAddressNum(t, 2, models.TaskTypeSD, func(
 		t *testing.T,
 		r *httptest.ResponseRecorder,
 		task *models.InferenceTask,
@@ -79,14 +85,27 @@ func TestSuccessfulUpload(t *testing.T) {
 		v1.AssertEmptySuccessResponse(t, r)
 
 		for i := 0; i < 5; i++ {
-			assertFileExists(t, task.TaskId, i)
+			assertFileExists(t, task.TaskId, models.TaskTypeSD, i)
 		}
 	})
+
+	testUsingAddressNum(t, 2, models.TaskTypeLLM, func(
+		t *testing.T,
+		r *httptest.ResponseRecorder,
+		task *models.InferenceTask,
+		addresses []string) {
+
+		v1.AssertEmptySuccessResponse(t, r)
+
+		assertFileExists(t, task.TaskId, models.TaskTypeLLM, 0)
+	})
+
 }
 
 func testUsingAddressNum(
 	t *testing.T,
 	num int,
+	taskType models.ChainTaskType,
 	assertFunc func(
 		t *testing.T,
 		r *httptest.ResponseRecorder,
@@ -96,7 +115,7 @@ func testUsingAddressNum(
 	addresses, privateKeys, err := tests.PrepareAccounts()
 	assert.Equal(t, nil, err, "prepare accounts error")
 
-	_, task, err := tests.PreparePendingResultsTask(addresses, config.GetDB())
+	_, task, err := tests.PreparePendingResultsTask(taskType, addresses, config.GetDB())
 	assert.Equal(t, nil, err, "prepare task error")
 
 	assert.Equal(t, models.InferenceTaskPendingResults, task.Status, "wrong task status")
@@ -111,7 +130,7 @@ func testUsingAddressNum(
 	timestamp, signature, err := v1.SignData(uploadResultInput, privateKeys[num])
 	assert.Equal(t, nil, err, "sign data error")
 
-	prepareFileForm(t, writer, timestamp, signature)
+	prepareFileForm(t, writer, taskType, timestamp, signature)
 
 	r := callUploadResultApi(task.TaskId, writer, pr)
 
@@ -123,9 +142,10 @@ func testUsingAddressNum(
 			t.Error(err)
 		}
 	})
+	
 }
 
-func prepareFileForm(t *testing.T, writer *multipart.Writer, timestamp int64, signature string) {
+func prepareFileForm(t *testing.T, writer *multipart.Writer, taskType models.ChainTaskType, timestamp int64, signature string) {
 	go func() {
 		defer func(writer *multipart.Writer) {
 			err := writer.Close()
@@ -142,29 +162,48 @@ func prepareFileForm(t *testing.T, writer *multipart.Writer, timestamp int64, si
 		err = writer.WriteField("signature", signature)
 		assert.Equal(t, nil, err, "write signature failed")
 
-		for i := 0; i < 9; i++ {
-			part, err := writer.CreateFormFile("images", "test_image_"+strconv.Itoa(i)+".png")
+		if taskType == models.TaskTypeSD {
+			for i := 0; i < 9; i++ {
+				part, err := writer.CreateFormFile("images", "test_image_"+strconv.Itoa(i)+".png")
+				if err != nil {
+					t.Error(err)
+				}
+	
+				img := tests.CreateImage()
+	
+				if err != nil {
+					t.Error(err)
+				}
+	
+				err = png.Encode(part, img)
+				if err != nil {
+					t.Error(err)
+				}
+			}
+		} else {
+			part, err := writer.CreateFormFile("images", "test_resp.json")
 			if err != nil {
 				t.Error(err)
 			}
 
-			img := tests.CreateImage()
-
-			if err != nil {
-				t.Error(err)
-			}
-
-			err = png.Encode(part, img)
+			_, err = part.Write([]byte(tests.GPTResponseStr))
 			if err != nil {
 				t.Error(err)
 			}
 		}
+
 	}()
 }
 
-func assertFileExists(t *testing.T, taskId uint64, imageNum int) {
+func assertFileExists(t *testing.T, taskId uint64, taskType models.ChainTaskType, imageNum int) {
 	taskIdStr := strconv.FormatUint(taskId, 10)
-	imageFilename := strconv.Itoa(imageNum) + ".png"
+	var ext string
+	if taskType == models.TaskTypeSD {
+		ext = ".png"
+	} else {
+		ext = ".json"
+	}
+	imageFilename := strconv.Itoa(imageNum) + ext
 
 	appConfig := config.GetConfig()
 	imageFilePath := filepath.Join(appConfig.DataDir.InferenceTasks, taskIdStr, "results", imageFilename)

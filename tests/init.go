@@ -15,8 +15,14 @@ import (
 var Application *gin.Engine = nil
 
 func init() {
+	wd, _ := os.Getwd()
+	wd = strings.SplitAfter(wd, "h-relay")[0]
+	if err := os.Chdir(wd); err != nil {
+		print(err.Error())
+		os.Exit(1)
+	}
 
-	if err := config.InitConfig(""); err != nil {
+	if err := config.InitConfig("tests"); err != nil {
 		print(err.Error())
 		os.Exit(1)
 	}
