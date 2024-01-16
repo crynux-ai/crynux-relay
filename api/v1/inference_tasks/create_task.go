@@ -35,16 +35,6 @@ func CreateTask(_ *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 		return nil, validationErr
 	}
 
-	validationErr, err := models.ValidateTaskArgsJsonStr(in.TaskArgs)
-
-	if err != nil {
-		return nil, response.NewExceptionResponse(err)
-	}
-
-	if validationErr != nil {
-		return nil, response.NewValidationErrorResponse("task_args", validationErr.Error())
-	}
-
 	task := models.InferenceTask{
 		TaskId: in.TaskId,
 	}
@@ -58,6 +48,16 @@ func CreateTask(_ *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 		} else {
 			return nil, response.NewExceptionResponse(err)
 		}
+	}
+
+	validationErr, err := models.ValidateTaskArgsJsonStr(in.TaskArgs, task.TaskType)
+
+	if err != nil {
+		return nil, response.NewExceptionResponse(err)
+	}
+
+	if validationErr != nil {
+		return nil, response.NewValidationErrorResponse("task_args", validationErr.Error())
 	}
 
 	if task.Creator != address {
