@@ -17,6 +17,11 @@ import (
 	"math/big"
 )
 
+const (
+	GPUName string = "NVIDIA GeForce GTX 1070 Ti"
+	GPUVram int = 8
+)
+
 func PrepareAccountsWithTokens() (addresses []string, privateKeys []string, err error) {
 
 	// Create 4 accounts
@@ -148,7 +153,7 @@ func PrepareNetwork(addresses []string, privateKeys []string) error {
 			return err
 		}
 
-		tx, err = nodeInstance.Join(auth)
+		tx, err = nodeInstance.Join(auth, GPUName, big.NewInt(int64(GPUVram)))
 		if err != nil {
 			return err
 		}

@@ -3,16 +3,25 @@ package models
 import (
 	"encoding/json"
 	"errors"
-	"github.com/santhosh-tekuri/jsonschema/v5"
-	_ "github.com/santhosh-tekuri/jsonschema/v5/httploader"
 	"h_relay/config"
 	"net/url"
+
+	"github.com/santhosh-tekuri/jsonschema/v5"
+	_ "github.com/santhosh-tekuri/jsonschema/v5/httploader"
 )
 
 var sdInferenceTaskSchema *jsonschema.Schema
+var gptInferenceTaskSchema *jsonschema.Schema
 
-func ValidateTaskArgsJsonStr(jsonStr string) (validationError, err error) {
+func ValidateTaskArgsJsonStr(jsonStr string, taskType ChainTaskType) (validationError, err error) {
+	if taskType == TaskTypeSD {
+		return validateSDTaskArgs(jsonStr)
+	} else {
+		return validateGPTTaskArgs(jsonStr)
+	}
+}
 
+func validateSDTaskArgs(jsonStr string) (validationError, err error) {
 	if sdInferenceTaskSchema == nil {
 		schemaJson := config.GetConfig().TaskSchema.StableDiffusionInference
 
@@ -33,6 +42,29 @@ func ValidateTaskArgsJsonStr(jsonStr string) (validationError, err error) {
 	}
 
 	return sdInferenceTaskSchema.Validate(v), nil
+}
+
+func validateGPTTaskArgs(jsonStr string) (validationError, err error) {
+	if gptInferenceTaskSchema == nil {
+		schemaJson := config.GetConfig().TaskSchema.GPTInference
+
+		if !isValidUrl(schemaJson) {
+			return nil, errors.New("invalid URL for task json schema")
+		}
+
+		gptInferenceTaskSchema, err = jsonschema.Compile(schemaJson)
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var v interface{}
+	if err := json.Unmarshal([]byte(jsonStr), &v); err != nil {
+		return nil, err
+	}
+
+	return gptInferenceTaskSchema.Validate(v), nil
 }
 
 func isValidUrl(toTest string) bool {

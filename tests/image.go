@@ -66,7 +66,7 @@ func prepareResultImagesForTask(task *models.InferenceTask, numImages int) (stri
 		"results",
 	)
 
-	if err := os.MkdirAll(imageFolder, os.ModeDir); err != nil {
+	if err := os.MkdirAll(imageFolder, 0700); err != nil {
 		return "", err
 	}
 

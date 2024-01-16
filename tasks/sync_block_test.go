@@ -34,59 +34,63 @@ func TestTaskCreatedAndSuccessOnChain(t *testing.T) {
 	appConfig.Blockchain.Account.Address = addresses[0]
 	appConfig.Blockchain.Account.PrivateKey = privateKeys[0]
 
-	taskInput, err := tests.PrepareRandomTask()
-	assert.Nil(t, err, "error preparing random task")
-
-	task := &models.InferenceTask{}
-
-	task.TaskArgs = taskInput.TaskArgs
-
-	_, err = blockchain.CreateTaskOnChain(task)
-	assert.Nil(t, err, "error creating task on chain")
-
-	time.Sleep(30 * time.Second)
-
-	taskInDb := &models.InferenceTask{}
-
-	err = config.GetDB().Model(taskInDb).First(taskInDb).Error
-	assert.Nil(t, err, "task not created")
-
-	// Task in DB has no params for now
-	// The params will be uploaded by the task creator later
-
-	taskHash, err := task.GetTaskHash()
-	assert.Nil(t, err, "error getting task hash")
-
-	assert.Equal(t, taskHash.Hex(), taskInDb.TaskHash, "task hash mismatch")
-
-	// Now Let's finish the task on chain
-
-	err = tests.SubmitResultOnChain(big.NewInt(int64(taskInDb.TaskId)), addresses, privateKeys)
-	assert.Nil(t, err, "error submitting task result on chain")
-
-	time.Sleep(30 * time.Second)
-
-	taskInDbWithSelectedNodes := &models.InferenceTask{
-		TaskId: taskInDb.TaskId,
+	for _, taskType := range tests.TaskTypes {
+		taskInput, err := tests.PrepareRandomTask(taskType)
+		assert.Nil(t, err, "error preparing random task")
+	
+		task := &models.InferenceTask{
+			TaskArgs: taskInput.TaskArgs,
+			TaskType: taskType,
+			VramLimit: 8,
+		}
+		
+		_, err = blockchain.CreateTaskOnChain(task)
+		assert.Nil(t, err, "error creating task on chain")
+	
+		time.Sleep(30 * time.Second)
+	
+		taskInDb := &models.InferenceTask{}
+	
+		err = config.GetDB().Model(taskInDb).Last(taskInDb).Error
+		assert.Nil(t, err, "task not created")
+	
+		// Task in DB has no params for now
+		// The params will be uploaded by the task creator later
+	
+		taskHash, err := task.GetTaskHash()
+		assert.Nil(t, err, "error getting task hash")
+	
+		assert.Equal(t, taskHash.Hex(), taskInDb.TaskHash, "task hash mismatch")
+	
+		// Now Let's finish the task on chain
+	
+		err = tests.SubmitResultOnChain(big.NewInt(int64(taskInDb.TaskId)), addresses, privateKeys)
+		assert.Nil(t, err, "error submitting task result on chain")
+	
+		time.Sleep(30 * time.Second)
+	
+		taskInDbWithSelectedNodes := &models.InferenceTask{
+			TaskId: taskInDb.TaskId,
+		}
+	
+		err = config.GetDB().Where(taskInDbWithSelectedNodes).Preload("SelectedNodes").First(taskInDbWithSelectedNodes).Error
+		assert.Nil(t, err, "error finding task in db")
+	
+		assert.Equal(t, models.InferenceTaskPendingResults, taskInDbWithSelectedNodes.Status, "Task not success on chain")
+	
+		assert.Equal(t, 3, len(taskInDbWithSelectedNodes.SelectedNodes), "wrong node number")
+	
+		targetHash := hexutil.Encode([]byte("12345678"))
+	
+		check := &models.SelectedNode{
+			InferenceTaskID:  taskInDbWithSelectedNodes.ID,
+			IsResultSelected: true,
+			Result:           targetHash,
+		}
+	
+		err = config.GetDB().Where(check).First(check).Error
+		assert.Nil(t, err, "error find result success node")
 	}
-
-	err = config.GetDB().Where(taskInDbWithSelectedNodes).Preload("SelectedNodes").First(taskInDbWithSelectedNodes).Error
-	assert.Nil(t, err, "error finding task in db")
-
-	assert.Equal(t, models.InferenceTaskPendingResults, taskInDbWithSelectedNodes.Status, "Task not success on chain")
-
-	assert.Equal(t, 3, len(taskInDbWithSelectedNodes.SelectedNodes), "wrong node number")
-
-	targetHash := hexutil.Encode([]byte("12345678"))
-
-	check := &models.SelectedNode{
-		InferenceTaskID:  taskInDbWithSelectedNodes.ID,
-		IsResultSelected: true,
-		Result:           targetHash,
-	}
-
-	err = config.GetDB().Where(check).First(check).Error
-	assert.Nil(t, err, "error find result success node")
 
 	t.Cleanup(func() {
 		syncBlockChan <- 1

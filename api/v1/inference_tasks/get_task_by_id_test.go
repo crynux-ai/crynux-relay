@@ -14,54 +14,60 @@ import (
 )
 
 func TestGetBlockchainConfirmedTask(t *testing.T) {
-	addresses, privateKeys, err := tests.PrepareAccounts()
-	assert.Equal(t, nil, err, "error preparing accounts")
-
-	taskInput, _, err := tests.PrepareBlockchainConfirmedTask(addresses, config.GetDB())
-	assert.Equal(t, nil, err, "error preparing task")
-
-	getResultInput := inference_tasks.GetTaskInput{TaskId: taskInput.TaskId}
-
-	timestamp, signature, err := v1.SignData(getResultInput, privateKeys[1])
-
-	r := callGetTaskByIdApi(taskInput.TaskId, timestamp, signature)
-	v1.AssertValidationErrorResponse(t, r, "task_id", "Task not ready")
-
-	t.Cleanup(tests.ClearDB)
+	for _, taskType := range tests.TaskTypes {
+		addresses, privateKeys, err := tests.PrepareAccounts()
+		assert.Equal(t, nil, err, "error preparing accounts")
+	
+		taskInput, _, err := tests.PrepareBlockchainConfirmedTask(taskType, addresses, config.GetDB())
+		assert.Equal(t, nil, err, "error preparing task")
+	
+		getResultInput := inference_tasks.GetTaskInput{TaskId: taskInput.TaskId}
+	
+		timestamp, signature, err := v1.SignData(getResultInput, privateKeys[1])
+	
+		r := callGetTaskByIdApi(taskInput.TaskId, timestamp, signature)
+		v1.AssertValidationErrorResponse(t, r, "task_id", "Task not ready")
+	
+		t.Cleanup(tests.ClearDB)
+	}
 }
 
 func TestGetParamsUploadedTask(t *testing.T) {
-	addresses, privateKeys, err := tests.PrepareAccounts()
-	assert.Equal(t, nil, err, "error preparing accounts")
-
-	taskInput, task, err := tests.PrepareParamsUploadedTask(addresses, config.GetDB())
-	assert.Equal(t, nil, err, "error preparing task")
-
-	getResultInput := inference_tasks.GetTaskInput{TaskId: taskInput.TaskId}
-
-	timestamp, signature, err := v1.SignData(getResultInput, privateKeys[1])
-
-	r := callGetTaskByIdApi(taskInput.TaskId, timestamp, signature)
-	v1.AssertTaskResponse(t, r, task)
-
-	t.Cleanup(tests.ClearDB)
+	for _, taskType := range tests.TaskTypes {
+		addresses, privateKeys, err := tests.PrepareAccounts()
+		assert.Equal(t, nil, err, "error preparing accounts")
+	
+		taskInput, task, err := tests.PrepareParamsUploadedTask(taskType, addresses, config.GetDB())
+		assert.Equal(t, nil, err, "error preparing task")
+	
+		getResultInput := inference_tasks.GetTaskInput{TaskId: taskInput.TaskId}
+	
+		timestamp, signature, err := v1.SignData(getResultInput, privateKeys[1])
+	
+		r := callGetTaskByIdApi(taskInput.TaskId, timestamp, signature)
+		v1.AssertTaskResponse(t, r, task)
+	
+		t.Cleanup(tests.ClearDB)
+	}
 }
 
 func TestGetUnauthorizedTask(t *testing.T) {
-	addresses, privateKeys, err := tests.PrepareAccounts()
-	assert.Equal(t, nil, err, "error preparing accounts")
-
-	taskInput, _, err := tests.PrepareParamsUploadedTask(addresses, config.GetDB())
-	assert.Equal(t, nil, err, "error preparing task")
-
-	getResultInput := inference_tasks.GetTaskInput{TaskId: taskInput.TaskId}
-
-	timestamp, signature, err := v1.SignData(getResultInput, privateKeys[4])
-
-	r := callGetTaskByIdApi(taskInput.TaskId, timestamp, signature)
-	v1.AssertValidationErrorResponse(t, r, "signature", "Signer not allowed")
-
-	t.Cleanup(tests.ClearDB)
+	for _, taskType := range tests.TaskTypes {
+		addresses, privateKeys, err := tests.PrepareAccounts()
+		assert.Equal(t, nil, err, "error preparing accounts")
+	
+		taskInput, _, err := tests.PrepareParamsUploadedTask(taskType, addresses, config.GetDB())
+		assert.Equal(t, nil, err, "error preparing task")
+	
+		getResultInput := inference_tasks.GetTaskInput{TaskId: taskInput.TaskId}
+	
+		timestamp, signature, err := v1.SignData(getResultInput, privateKeys[4])
+	
+		r := callGetTaskByIdApi(taskInput.TaskId, timestamp, signature)
+		v1.AssertValidationErrorResponse(t, r, "signature", "Signer not allowed")
+	
+		t.Cleanup(tests.ClearDB)
+	}
 }
 
 func callGetTaskByIdApi(taskId uint64, timestamp int64, signature string) *httptest.ResponseRecorder {

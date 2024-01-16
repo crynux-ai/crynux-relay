@@ -8,7 +8,7 @@ import (
 	v1 "h_relay/tests/api/v1"
 )
 
-const FullTaskArgsJson string = `{
+const SDTaskArgsJson string = `{
 	"base_model": "runwayml/stable-diffusion-v1-5",
 	"prompt": "best quality, ultra high res, photorealistic++++, 1girl, off-shoulder sweater, smiling, faded ash gray messy bun hair+, border light, depth of field, looking at viewer, closeup",
 	"negative_prompt": "paintings, sketches, worst quality+++++, low quality+++++, normal quality+++++, lowres, normal quality, monochrome++, grayscale++, skin spots, acnes, skin blemishes, age spot, glans",
@@ -46,6 +46,32 @@ const FullTaskArgsJson string = `{
 	}
 }`
 
+const GPTTaskArgsJson string = `{
+	"model": "gpt2",
+	"messages": [
+		{
+			"role": "user",
+			"content": "I want to create a chat bot. Any suggestions?"
+		}
+	],
+	"generation_config": {
+		"max_new_tokens": 30,
+		"do_sample": true,
+		"num_beams": 1,
+		"temperature": 1.0,
+		"typical_p": 1.0,
+		"top_k": 20,
+		"top_p": 1.0,
+		"repetition_penalty": 1.0,
+		"num_return_sequences": 1
+	},
+	"seed": 42,
+	"dtype": "auto",
+	"quantize_bits": 4
+}`
+
+var TaskTypes []models.ChainTaskType = []models.ChainTaskType{models.TaskTypeSD, models.TaskTypeLLM}
+
 func PrepareAccounts() (addresses []string, privateKeys []string, err error) {
 
 	for i := 0; i < 5; i++ {
@@ -64,25 +90,34 @@ func PrepareAccounts() (addresses []string, privateKeys []string, err error) {
 	return addresses, privateKeys, nil
 }
 
-func PrepareRandomTask() (*inference_tasks.TaskInput, error) {
-	return &inference_tasks.TaskInput{
-		TaskId:   999,
-		TaskArgs: FullTaskArgsJson,
-	}, nil
+func PrepareRandomTask(taskType models.ChainTaskType) (*inference_tasks.TaskInput, error) {
+	if taskType == models.TaskTypeSD {
+		return &inference_tasks.TaskInput{
+			TaskId:   999,
+			TaskArgs: SDTaskArgsJson,
+		}, nil
+	} else {
+		return &inference_tasks.TaskInput{
+			TaskId:   998,
+			TaskArgs: GPTTaskArgsJson,
+		}, nil
+	}
 }
 
-func PrepareBlockchainConfirmedTask(addresses []string, db *gorm.DB) (*inference_tasks.TaskInput, *models.InferenceTask, error) {
+func PrepareBlockchainConfirmedTask(taskType models.ChainTaskType, addresses []string, db *gorm.DB) (*inference_tasks.TaskInput, *models.InferenceTask, error) {
 
-	taskInput, err := PrepareRandomTask()
+	taskInput, err := PrepareRandomTask(taskType)
 
 	if err != nil {
 		return nil, nil, err
 	}
 
 	task := &models.InferenceTask{
-		TaskId:  taskInput.TaskId,
-		Creator: addresses[0],
-		Status:  models.InferenceTaskCreatedOnChain,
+		TaskId:    taskInput.TaskId,
+		Creator:   addresses[0],
+		Status:    models.InferenceTaskCreatedOnChain,
+		TaskType:  taskType,
+		VramLimit: 8,
 	}
 
 	task.TaskArgs = taskInput.TaskArgs
@@ -109,8 +144,8 @@ func PrepareBlockchainConfirmedTask(addresses []string, db *gorm.DB) (*inference
 	return taskInput, task, nil
 }
 
-func PrepareParamsUploadedTask(addresses []string, db *gorm.DB) (*inference_tasks.TaskInput, *models.InferenceTask, error) {
-	taskInput, task, err := PrepareBlockchainConfirmedTask(addresses, db)
+func PrepareParamsUploadedTask(taskType models.ChainTaskType, addresses []string, db *gorm.DB) (*inference_tasks.TaskInput, *models.InferenceTask, error) {
+	taskInput, task, err := PrepareBlockchainConfirmedTask(taskType, addresses, db)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -125,20 +160,29 @@ func PrepareParamsUploadedTask(addresses []string, db *gorm.DB) (*inference_task
 	return taskInput, task, nil
 }
 
-func PreparePendingResultsTask(addresses []string, db *gorm.DB) (*inference_tasks.TaskInput, *models.InferenceTask, error) {
-	taskInput, task, err := PrepareBlockchainConfirmedTask(addresses, db)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	pHash, err := prepareResultImagesForTask(task, 9)
+func PreparePendingResultsTask(taskType models.ChainTaskType, addresses []string, db *gorm.DB) (*inference_tasks.TaskInput, *models.InferenceTask, error) {
+	taskInput, task, err := PrepareBlockchainConfirmedTask(taskType, addresses, db)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	resultNode := task.SelectedNodes[1]
 	resultNode.IsResultSelected = true
-	resultNode.Result = pHash
+	if taskType == models.TaskTypeSD {
+		pHash, err := prepareResultImagesForTask(task, 9)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		resultNode.Result = pHash
+	} else {
+		h, err := prepareGPTResponseForTask(task)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		resultNode.Result = h
+	}
 
 	if err := db.Model(resultNode).Select("IsResultSelected", "Result").Updates(resultNode).Error; err != nil {
 		return nil, nil, err
@@ -154,8 +198,8 @@ func PreparePendingResultsTask(addresses []string, db *gorm.DB) (*inference_task
 	return taskInput, task, nil
 }
 
-func PrepareResultUploadedTask(addresses []string, db *gorm.DB) (*inference_tasks.TaskInput, *models.InferenceTask, error) {
-	taskInput, task, err := PreparePendingResultsTask(addresses, db)
+func PrepareResultUploadedTask(taskType models.ChainTaskType, addresses []string, db *gorm.DB) (*inference_tasks.TaskInput, *models.InferenceTask, error) {
+	taskInput, task, err := PreparePendingResultsTask(taskType, addresses, db)
 	if err != nil {
 		return nil, nil, err
 	}
