@@ -183,11 +183,18 @@ func processTaskCreated(startBlockNum, endBlockNum uint64) error {
 			TaskId: taskCreated.TaskId.Uint64(),
 		}
 
+		taskOnChain, err := blockchain.GetTaskById(taskCreated.TaskId.Uint64())
+		if err != nil {
+			return err
+		}
+
 		attributes := &models.InferenceTask{
 			Creator:  taskCreated.Creator.Hex(),
 			TaskHash: hexutil.Encode(taskCreated.TaskHash[:]),
 			DataHash: hexutil.Encode(taskCreated.DataHash[:]),
 			Status:   models.InferenceTaskCreatedOnChain,
+			TaskType: models.ChainTaskType(taskCreated.TaskType.Int64()),
+			VramLimit: taskOnChain.VramLimit.Uint64(),
 		}
 
 		if err := config.GetDB().Where(query).Attrs(attributes).FirstOrCreate(task).Error; err != nil {
