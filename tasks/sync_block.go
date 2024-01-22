@@ -2,16 +2,17 @@ package tasks
 
 import (
 	"context"
+	"crynux_relay/blockchain"
+	"crynux_relay/config"
+	"crynux_relay/models"
 	"errors"
+	"strconv"
+	"time"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	"h_relay/blockchain"
-	"h_relay/config"
-	"h_relay/models"
-	"strconv"
-	"time"
 )
 
 func StartSyncBlockWithTerminateChannel(ch <-chan int) {
@@ -189,11 +190,11 @@ func processTaskCreated(startBlockNum, endBlockNum uint64) error {
 		}
 
 		attributes := &models.InferenceTask{
-			Creator:  taskCreated.Creator.Hex(),
-			TaskHash: hexutil.Encode(taskCreated.TaskHash[:]),
-			DataHash: hexutil.Encode(taskCreated.DataHash[:]),
-			Status:   models.InferenceTaskCreatedOnChain,
-			TaskType: models.ChainTaskType(taskCreated.TaskType.Int64()),
+			Creator:   taskCreated.Creator.Hex(),
+			TaskHash:  hexutil.Encode(taskCreated.TaskHash[:]),
+			DataHash:  hexutil.Encode(taskCreated.DataHash[:]),
+			Status:    models.InferenceTaskCreatedOnChain,
+			TaskType:  models.ChainTaskType(taskCreated.TaskType.Int64()),
 			VramLimit: taskOnChain.VramLimit.Uint64(),
 		}
 

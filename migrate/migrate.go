@@ -1,10 +1,11 @@
 package migrate
 
 import (
+	"crynux_relay/migrate/migrations"
+
 	"github.com/go-gormigrate/gormigrate/v2"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	"h_relay/migrate/migrations"
 )
 
 var migrationScripts []*gormigrate.Gormigrate

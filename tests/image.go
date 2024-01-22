@@ -1,10 +1,9 @@
 package tests
 
 import (
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"h_relay/blockchain"
-	"h_relay/config"
-	"h_relay/models"
+	"crynux_relay/blockchain"
+	"crynux_relay/config"
+	"crynux_relay/models"
 	"image"
 	"image/color"
 	"image/png"
@@ -12,6 +11,8 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
+
+	"github.com/ethereum/go-ethereum/common/hexutil"
 )
 
 func CreateImage() *image.RGBA {

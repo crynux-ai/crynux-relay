@@ -1,7 +1,7 @@
 FROM golang:alpine3.18 AS builder
 RUN apk add --no-cache --update gcc g++
 
-WORKDIR /h_relay
+WORKDIR /crynux_relay
 
 COPY go.* .
 
@@ -18,7 +18,7 @@ ENV TZ=Asia/Tokyo
 
 WORKDIR /app
 
-COPY --from=builder /h_relay/h_relay .
+COPY --from=builder /crynux_relay/crynux_relay .
 COPY static ./static
 
-CMD ["/app/h_relay"]
+CMD ["/app/crynux_relay"]

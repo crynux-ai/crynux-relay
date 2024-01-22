@@ -2,12 +2,12 @@ package blockchain
 
 import (
 	"context"
+	"crynux_relay/blockchain/bindings"
+	"crynux_relay/config"
+	"crynux_relay/models"
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
-	"h_relay/blockchain/bindings"
-	"h_relay/config"
-	"h_relay/models"
 	"image/png"
 	"io"
 	"math/big"

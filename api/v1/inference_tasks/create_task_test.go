@@ -2,12 +2,12 @@ package inference_tasks_test
 
 import (
 	"bytes"
+	"crynux_relay/api/v1/inference_tasks"
+	"crynux_relay/config"
+	"crynux_relay/models"
+	"crynux_relay/tests"
+	v1 "crynux_relay/tests/api/v1"
 	"encoding/json"
-	"h_relay/api/v1/inference_tasks"
-	"h_relay/config"
-	"h_relay/models"
-	"h_relay/tests"
-	v1 "h_relay/tests/api/v1"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -20,34 +20,34 @@ func TestCreateTaskBeforeBlockchainConfirmation(t *testing.T) {
 	for _, taskType := range tests.TaskTypes {
 		task, err := tests.PrepareRandomTask(taskType)
 		assert.Equal(t, nil, err, "prepare task error")
-	
+
 		_, privateKeys, err := tests.PrepareAccounts()
 		assert.Equal(t, nil, err, "prepare account error")
-	
+
 		timestamp, signature, err := v1.SignData(task, privateKeys[0])
-	
+
 		r := callCreateTaskApi(t, task, timestamp, signature)
 		v1.AssertValidationErrorResponse(t, r, "task_id", "Task not found on the Blockchain")
-	
+
 		t.Cleanup(tests.ClearDB)
 	}
 }
 
 func TestCreateTaskAfterBlockchainConfirmation(t *testing.T) {
-	for _, taskType := range tests.TaskTypes{
+	for _, taskType := range tests.TaskTypes {
 		addresses, privateKeys, err := tests.PrepareAccounts()
 		assert.Equal(t, nil, err, "prepare account error")
-	
+
 		taskInput, task, err := tests.PrepareBlockchainConfirmedTask(taskType, addresses, config.GetDB())
 		assert.Equal(t, nil, err, "prepare task error")
-	
+
 		timestamp, signature, err := v1.SignData(taskInput, privateKeys[0])
 		r := callCreateTaskApi(t, taskInput, timestamp, signature)
-	
+
 		task.TaskArgs = taskInput.TaskArgs
-	
+
 		v1.AssertTaskResponse(t, r, task)
-	
+
 		t.Cleanup(tests.ClearDB)
 	}
 }
@@ -56,15 +56,15 @@ func TestCreateTaskUsingUnauthorizedAccount(t *testing.T) {
 	for _, taskType := range tests.TaskTypes {
 		addresses, privateKeys, err := tests.PrepareAccounts()
 		assert.Equal(t, nil, err, "prepare account error")
-	
+
 		taskInput, _, err := tests.PrepareBlockchainConfirmedTask(taskType, addresses, config.GetDB())
 		assert.Equal(t, nil, err, "prepare task error")
-	
+
 		timestamp, signature, err := v1.SignData(taskInput, privateKeys[1])
 		r := callCreateTaskApi(t, taskInput, timestamp, signature)
-	
+
 		v1.AssertValidationErrorResponse(t, r, "signature", "Signer not allowed")
-	
+
 		t.Cleanup(tests.ClearDB)
 	}
 }
@@ -73,22 +73,22 @@ func TestCreateDuplicateTask(t *testing.T) {
 	for _, taskType := range tests.TaskTypes {
 		addresses, privateKeys, err := tests.PrepareAccounts()
 		assert.Equal(t, nil, err, "prepare account error")
-	
+
 		taskInput, task, err := tests.PrepareBlockchainConfirmedTask(taskType, addresses, config.GetDB())
 		assert.Equal(t, nil, err, "prepare task error")
-	
+
 		timestamp, signature, err := v1.SignData(taskInput, privateKeys[0])
 		r := callCreateTaskApi(t, taskInput, timestamp, signature)
-	
+
 		task.TaskArgs = taskInput.TaskArgs
-	
+
 		v1.AssertTaskResponse(t, r, task)
-	
+
 		timestamp, signature, err = v1.SignData(taskInput, privateKeys[0])
 		r = callCreateTaskApi(t, taskInput, timestamp, signature)
-	
+
 		v1.AssertValidationErrorResponse(t, r, "task_id", "Task already uploaded")
-	
+
 		t.Cleanup(tests.ClearDB)
 	}
 }
@@ -97,10 +97,10 @@ func TestCreateTaskWithMismatchedParamHash(t *testing.T) {
 	for _, taskType := range tests.TaskTypes {
 		addresses, privateKeys, err := tests.PrepareAccounts()
 		assert.Equal(t, nil, err, "prepare account error")
-	
+
 		taskInput, _, err := tests.PrepareBlockchainConfirmedTask(taskType, addresses, config.GetDB())
 		assert.Equal(t, nil, err, "prepare task error")
-	
+
 		var taskArgsMap map[string]interface{}
 		err = json.Unmarshal([]byte(taskInput.TaskArgs), &taskArgsMap)
 		assert.Equal(t, nil, err, "unmarshall task json error")
@@ -111,24 +111,24 @@ func TestCreateTaskWithMismatchedParamHash(t *testing.T) {
 			newTaskArgsJson, err := json.Marshal(taskArgsMap)
 			assert.Equal(t, nil, err, "marshall new task json error")
 			taskInput.TaskArgs = string(newTaskArgsJson)
-		
+
 			timestamp, signature, err := v1.SignData(taskInput, privateKeys[0])
 			assert.Equal(t, nil, err, "sign data error")
-		
+
 			r := callCreateTaskApi(t, taskInput, timestamp, signature)
-		
+
 			v1.AssertValidationErrorResponse(t, r, "task_hash", "Task hash mismatch")
-		
+
 			taskArgsMap["prompt"] = oldPrompt
 			taskArgsMap["task_config"].(map[string]interface{})["steps"] = 60
-		
+
 			newTaskArgsJson, err = json.Marshal(taskArgsMap)
 			assert.Equal(t, nil, err, "marshall new task json error")
 			taskInput.TaskArgs = string(newTaskArgsJson)
-		
+
 			timestamp, signature, err = v1.SignData(taskInput, privateKeys[0])
 			assert.Equal(t, nil, err, "sign data error")
-		
+
 			r = callCreateTaskApi(t, taskInput, timestamp, signature)
 			v1.AssertValidationErrorResponse(t, r, "task_hash", "Task hash mismatch")
 		} else {
@@ -138,29 +138,28 @@ func TestCreateTaskWithMismatchedParamHash(t *testing.T) {
 			newTaskArgsJson, err := json.Marshal(taskArgsMap)
 			assert.Equal(t, nil, err, "marshall new task json error")
 			taskInput.TaskArgs = string(newTaskArgsJson)
-		
+
 			timestamp, signature, err := v1.SignData(taskInput, privateKeys[0])
 			assert.Equal(t, nil, err, "sign data error")
-		
+
 			r := callCreateTaskApi(t, taskInput, timestamp, signature)
-		
+
 			v1.AssertValidationErrorResponse(t, r, "task_hash", "Task hash mismatch")
-		
+
 			taskArgsMap["model"] = oldModel
 			taskArgsMap["seed"] = 0
 
 			newTaskArgsJson, err = json.Marshal(taskArgsMap)
 			assert.Equal(t, nil, err, "marshall new task json error")
 			taskInput.TaskArgs = string(newTaskArgsJson)
-		
+
 			timestamp, signature, err = v1.SignData(taskInput, privateKeys[0])
 			assert.Equal(t, nil, err, "sign data error")
-		
+
 			r = callCreateTaskApi(t, taskInput, timestamp, signature)
 			v1.AssertValidationErrorResponse(t, r, "task_hash", "Task hash mismatch")
 		}
-	
-	
+
 		t.Cleanup(tests.ClearDB)
 	}
 }

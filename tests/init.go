@@ -1,15 +1,16 @@
 package tests
 
 import (
+	"crynux_relay/api"
+	"crynux_relay/config"
+	"crynux_relay/migrate"
 	"crypto/ecdsa"
 	"errors"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/gin-gonic/gin"
-	"h_relay/api"
-	"h_relay/config"
-	"h_relay/migrate"
 	"os"
 	"strings"
+
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/gin-gonic/gin"
 )
 
 var Application *gin.Engine = nil

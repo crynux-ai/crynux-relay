@@ -1,9 +1,10 @@
 package migrations
 
 import (
+	"crynux_relay/models"
+
 	"github.com/go-gormigrate/gormigrate/v2"
 	"gorm.io/gorm"
-	"h_relay/models"
 )
 
 func M20230810(db *gorm.DB) *gormigrate.Gormigrate {

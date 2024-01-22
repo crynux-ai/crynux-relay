@@ -1,7 +1,7 @@
 package tests
 
 import (
-	"h_relay/config"
+	"crynux_relay/config"
 	"os"
 )
 
@@ -14,7 +14,6 @@ func removeAllContent(dir string) error {
 	if err := os.RemoveAll(dir); err != nil {
 		return err
 	}
-
 
 	return nil
 }

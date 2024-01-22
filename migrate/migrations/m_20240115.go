@@ -1,13 +1,14 @@
 package migrations
 
 import (
+	"crynux_relay/models"
+
 	"github.com/go-gormigrate/gormigrate/v2"
 	"gorm.io/gorm"
-	"h_relay/models"
 )
 
 func M20240115(db *gorm.DB) *gormigrate.Gormigrate {
-	
+
 	return gormigrate.New(db, gormigrate.DefaultOptions, []*gormigrate.Migration{
 		{
 			ID: "M20240115",

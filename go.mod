@@ -1,4 +1,4 @@
-module h_relay
+module crynux_relay
 
 go 1.20
 
