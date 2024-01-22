@@ -1,7 +1,7 @@
 package tests
 
 import (
-	"h_relay/config"
+	"crynux_relay/config"
 )
 
 func ClearDB() {

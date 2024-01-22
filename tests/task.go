@@ -1,11 +1,12 @@
 package tests
 
 import (
+	"crynux_relay/api/v1/inference_tasks"
+	"crynux_relay/models"
+	v1 "crynux_relay/tests/api/v1"
+
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	"h_relay/api/v1/inference_tasks"
-	"h_relay/models"
-	v1 "h_relay/tests/api/v1"
 )
 
 const SDTaskArgsJson string = `{

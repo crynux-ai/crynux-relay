@@ -1,13 +1,14 @@
 package main
 
 import (
+	"crynux_relay/api"
+	"crynux_relay/config"
+	"crynux_relay/migrate"
+	"crynux_relay/tasks"
 	"fmt"
-	log "github.com/sirupsen/logrus"
-	"h_relay/api"
-	"h_relay/config"
-	"h_relay/migrate"
-	"h_relay/tasks"
 	"os"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func main() {

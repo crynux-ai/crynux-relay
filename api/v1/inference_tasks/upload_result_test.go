@@ -1,12 +1,11 @@
 package inference_tasks_test
 
 import (
-	"github.com/stretchr/testify/assert"
-	"h_relay/api/v1/inference_tasks"
-	"h_relay/config"
-	"h_relay/models"
-	"h_relay/tests"
-	v1 "h_relay/tests/api/v1"
+	"crynux_relay/api/v1/inference_tasks"
+	"crynux_relay/config"
+	"crynux_relay/models"
+	"crynux_relay/tests"
+	v1 "crynux_relay/tests/api/v1"
 	"image/png"
 	"io"
 	"mime/multipart"
@@ -16,32 +15,34 @@ import (
 	"path/filepath"
 	"strconv"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestWrongTaskId(t *testing.T) {
 	for _, taskType := range tests.TaskTypes {
 		addresses, privateKeys, err := tests.PrepareAccounts()
 		assert.Equal(t, nil, err, "prepare accounts error")
-	
+
 		_, _, err = tests.PreparePendingResultsTask(taskType, addresses, config.GetDB())
 		assert.Equal(t, nil, err, "prepare task error")
-	
+
 		uploadResultInput := &inference_tasks.ResultInput{
 			TaskId: 666,
 		}
-	
+
 		pr, pw := io.Pipe()
 		writer := multipart.NewWriter(pw)
-	
+
 		timestamp, signature, err := v1.SignData(uploadResultInput, privateKeys[1])
 		assert.Equal(t, nil, err, "sign data error")
-	
+
 		prepareFileForm(t, writer, taskType, timestamp, signature)
-	
+
 		r := callUploadResultApi(666, writer, pr)
-	
+
 		v1.AssertValidationErrorResponse(t, r, "task_id", "Task not found")
-	
+
 		t.Cleanup(func() {
 			tests.ClearDB()
 			if err := tests.ClearDataFolders(); err != nil {
@@ -142,7 +143,7 @@ func testUsingAddressNum(
 			t.Error(err)
 		}
 	})
-	
+
 }
 
 func prepareFileForm(t *testing.T, writer *multipart.Writer, taskType models.ChainTaskType, timestamp int64, signature string) {
@@ -168,13 +169,13 @@ func prepareFileForm(t *testing.T, writer *multipart.Writer, taskType models.Cha
 				if err != nil {
 					t.Error(err)
 				}
-	
+
 				img := tests.CreateImage()
-	
+
 				if err != nil {
 					t.Error(err)
 				}
-	
+
 				err = png.Encode(part, img)
 				if err != nil {
 					t.Error(err)

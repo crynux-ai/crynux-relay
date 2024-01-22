@@ -1,8 +1,8 @@
 package inference_tasks
 
 import (
-	"h_relay/api/v1/response"
-	"h_relay/models"
+	"crynux_relay/api/v1/response"
+	"crynux_relay/models"
 )
 
 type TaskResponse struct {

@@ -1,18 +1,19 @@
 package inference_tasks
 
 import (
+	"crynux_relay/api/v1/response"
+	"crynux_relay/blockchain"
+	"crynux_relay/config"
+	"crynux_relay/models"
 	"errors"
+	"os"
+	"path/filepath"
+	"strconv"
+
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	"h_relay/api/v1/response"
-	"h_relay/blockchain"
-	"h_relay/config"
-	"h_relay/models"
-	"os"
-	"path/filepath"
-	"strconv"
 )
 
 type ResultInput struct {
@@ -86,7 +87,7 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 		if err != nil {
 			return nil, response.NewExceptionResponse(err)
 		}
-		
+
 		var hash []byte
 		if task.TaskType == models.TaskTypeSD {
 			hash, err = blockchain.GetPHashForImage(fileObj)

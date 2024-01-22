@@ -1,9 +1,9 @@
 package tests
 
 import (
-	"h_relay/blockchain"
-	"h_relay/config"
-	"h_relay/models"
+	"crynux_relay/blockchain"
+	"crynux_relay/config"
+	"crynux_relay/models"
 	"os"
 	"path/filepath"
 

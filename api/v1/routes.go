@@ -1,11 +1,12 @@
 package v1
 
 import (
+	"crynux_relay/api/v1/inference_tasks"
+	"crynux_relay/api/v1/network"
+	"crynux_relay/api/v1/response"
+
 	"github.com/loopfz/gadgeto/tonic"
 	"github.com/wI2L/fizz"
-	"h_relay/api/v1/inference_tasks"
-	"h_relay/api/v1/network"
-	"h_relay/api/v1/response"
 )
 
 func InitRoutes(r *fizz.Fizz) {

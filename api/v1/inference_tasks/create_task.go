@@ -1,13 +1,14 @@
 package inference_tasks
 
 import (
+	"crynux_relay/api/v1/response"
+	"crynux_relay/config"
+	"crynux_relay/models"
 	"errors"
+
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	"h_relay/api/v1/response"
-	"h_relay/config"
-	"h_relay/models"
 )
 
 type TaskInput struct {

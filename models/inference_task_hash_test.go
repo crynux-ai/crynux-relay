@@ -1,9 +1,10 @@
 package models_test
 
 import (
-	"github.com/stretchr/testify/assert"
-	"h_relay/models"
+	"crynux_relay/models"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestInferenceTaskHash(t *testing.T) {

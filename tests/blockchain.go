@@ -2,8 +2,13 @@ package tests
 
 import (
 	"context"
+	"crynux_relay/blockchain"
+	"crynux_relay/config"
+	"crynux_relay/models"
 	"crypto/ecdsa"
 	"errors"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -11,15 +16,11 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
-	"h_relay/blockchain"
-	"h_relay/config"
-	"h_relay/models"
-	"math/big"
 )
 
 const (
 	GPUName string = "NVIDIA GeForce GTX 1070 Ti"
-	GPUVram int = 8
+	GPUVram int    = 8
 )
 
 func PrepareAccountsWithTokens() (addresses []string, privateKeys []string, err error) {

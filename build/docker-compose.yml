@@ -8,9 +8,9 @@ services:
     restart: unless-stopped
     environment:
       MYSQL_RANDOM_ROOT_PASSWORD: yes
-      MYSQL_DATABASE: h_relay
-      MYSQL_USER: h_relay
-      MYSQL_PASSWORD: hrelaypass
+      MYSQL_DATABASE: crynux_relay
+      MYSQL_USER: crynux_relay
+      MYSQL_PASSWORD: crynuxrelaypass
       TZ: Asia/Tokyo
     volumes:
       - "./data/mysql:/var/lib/mysql"
@@ -21,12 +21,12 @@ services:
       timeout: 5s
       retries: 55
 
-  h_relay:
-    image: h_relay:dev
-    container_name: h_relay
+  crynux_relay:
+    image: crynux_relay:dev
+    container_name: crynux_relay
     restart: unless-stopped
     volumes:
-      - "./data/h_relay:/app/data"
+      - "./data/crynux_relay:/app/data"
       - "./config:/app/config"
     ports:
       - "8080:8080"

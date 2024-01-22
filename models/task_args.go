@@ -1,9 +1,9 @@
 package models
 
 import (
+	"crynux_relay/config"
 	"encoding/json"
 	"errors"
-	"h_relay/config"
 	"net/url"
 
 	"github.com/santhosh-tekuri/jsonschema/v5"
