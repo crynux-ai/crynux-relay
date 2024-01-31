@@ -17,7 +17,7 @@ var Application *gin.Engine = nil
 
 func init() {
 	wd, _ := os.Getwd()
-	wd = strings.SplitAfter(wd, "h-relay")[0]
+	wd = strings.SplitAfter(wd, "crynux-relay")[0]
 	if err := os.Chdir(wd); err != nil {
 		print(err.Error())
 		os.Exit(1)

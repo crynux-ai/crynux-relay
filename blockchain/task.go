@@ -7,6 +7,7 @@ import (
 	"crynux_relay/models"
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/json"
 	"errors"
 	"image/png"
 	"io"
@@ -172,8 +173,8 @@ func GetPHashForImage(reader io.Reader) ([]byte, error) {
 	return bs, nil
 }
 
-func GetHashForGPTResponse(reader io.Reader) ([]byte, error) {
-	content, err := io.ReadAll(reader)
+func GetHashForGPTResponse(response interface{}) ([]byte, error) {
+	content, err := json.Marshal(response)
 	if err != nil {
 		return nil, err
 	}

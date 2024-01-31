@@ -4,6 +4,7 @@ import (
 	"crynux_relay/api/v1/response"
 	"crynux_relay/config"
 	"crynux_relay/models"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -13,20 +14,20 @@ import (
 	"gorm.io/gorm"
 )
 
-type GetResultInput struct {
+type GetSDResultInput struct {
 	ImageNum string `path:"image_num" json:"image_num" description:"Image number" validate:"required"`
 	TaskId   uint64 `path:"task_id" json:"task_id" description:"Task id" validate:"required"`
 }
 
-type GetResultInputWithSignature struct {
-	GetResultInput
+type GetSDResultInputWithSignature struct {
+	GetSDResultInput
 	Timestamp int64  `query:"timestamp" description:"Signature timestamp" validate:"required"`
 	Signature string `query:"signature" description:"Signature" validate:"required"`
 }
 
-func GetResult(ctx *gin.Context, in *GetResultInputWithSignature) error {
+func GetSDResult(ctx *gin.Context, in *GetSDResultInputWithSignature) error {
 
-	match, address, err := ValidateSignature(in.GetResultInput, in.Timestamp, in.Signature)
+	match, address, err := ValidateSignature(in.GetSDResultInput, in.Timestamp, in.Signature)
 
 	if err != nil || !match {
 
@@ -57,18 +58,11 @@ func GetResult(ctx *gin.Context, in *GetResultInputWithSignature) error {
 
 	appConfig := config.GetConfig()
 
-	var fileExt string
-	if task.TaskType == models.TaskTypeSD {
-		fileExt = ".png"
-	} else {
-		fileExt = ".json"
-	}
-
 	resultFile := filepath.Join(
 		appConfig.DataDir.InferenceTasks,
 		task.GetTaskIdAsString(),
 		"results",
-		in.ImageNum+fileExt,
+		in.ImageNum+".png",
 	)
 
 	if _, err := os.Stat(resultFile); err != nil {
@@ -77,9 +71,75 @@ func GetResult(ctx *gin.Context, in *GetResultInputWithSignature) error {
 
 	ctx.Header("Content-Description", "File Transfer")
 	ctx.Header("Content-Transfer-Encoding", "binary")
-	ctx.Header("Content-Disposition", "attachment; filename="+in.ImageNum+fileExt)
+	ctx.Header("Content-Disposition", "attachment; filename="+in.ImageNum+".png")
 	ctx.Header("Content-Type", "application/octet-stream")
 	ctx.File(resultFile)
 
 	return nil
+}
+
+type GetGPTResultInput struct {
+	TaskId uint64 `path:"task_id" json:"task_id" description:"Task id" validate:"required"`
+}
+
+type GetGPTResultInputWithSignature struct {
+	GetGPTResultInput
+	Timestamp int64  `query:"timestamp" description:"Signature timestamp" validate:"required"`
+	Signature string `query:"signature" description:"Signature" validate:"required"`
+}
+
+func GetGPTResult(ctx *gin.Context, in *GetGPTResultInputWithSignature) (*GPTTaskResponse, error) {
+	match, address, err := ValidateSignature(in.GetGPTResultInput, in.Timestamp, in.Signature)
+
+	if err != nil || !match {
+
+		if err != nil {
+			log.Debugln(err)
+		}
+
+		return nil, response.NewValidationErrorResponse("signature", "Invalid signature")
+	}
+
+	var task models.InferenceTask
+
+	if err := config.GetDB().Where(&models.InferenceTask{TaskId: in.TaskId}).First(&task).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, response.NewValidationErrorResponse("task_id", "Task not found")
+		} else {
+			return nil, response.NewExceptionResponse(err)
+		}
+	}
+
+	if task.Creator != address {
+		return nil, response.NewValidationErrorResponse("signature", "Signer not allowed")
+	}
+
+	if task.Status != models.InferenceTaskResultsUploaded {
+		return nil, response.NewValidationErrorResponse("task_id", "Task results not uploaded")
+	}
+
+	appConfig := config.GetConfig()
+
+	resultFile := filepath.Join(
+		appConfig.DataDir.InferenceTasks,
+		task.GetTaskIdAsString(),
+		"results",
+		"0.json",
+	)
+
+	if _, err := os.Stat(resultFile); err != nil {
+		return nil, response.NewValidationErrorResponse("image_num", "File not found")
+	}
+
+	resultContent, err := os.ReadFile(resultFile)
+	if err != nil {
+		return nil, response.NewExceptionResponse(err)
+	}
+
+	result := &GPTTaskResponse{}
+	if err := json.Unmarshal(resultContent, result); err != nil {
+		return nil, response.NewExceptionResponse(err)
+	}
+
+	return result, nil
 }
