@@ -1,8 +1,8 @@
 package blockchain_test
 
 import (
-	"crynux_relay/api/v1/inference_tasks"
 	"crynux_relay/blockchain"
+	"crynux_relay/models"
 	"crynux_relay/tests"
 	"encoding/json"
 	"testing"
@@ -12,7 +12,7 @@ import (
 )
 
 func TestGPTRespHash(t *testing.T) {
-	resp := inference_tasks.GPTTaskResponse{}
+	resp := models.GPTTaskResponse{}
 	if err := json.Unmarshal([]byte(tests.GPTResponseStr), &resp); err != nil {
 		t.Error(err)
 	}

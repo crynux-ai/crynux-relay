@@ -165,15 +165,15 @@ func TestGetGPTResponse(t *testing.T) {
 
 	assert.Equal(t, 200, r.Code, "wrong http status code. message: "+r.Body.String())
 
-	res := inference_tasks.GPTTaskResponse{}
+	res := inference_tasks.GPTResultResponse{}
 	if err := json.Unmarshal(r.Body.Bytes(), &res); err != nil {
 		t.Error(err)
 	}
-	target := inference_tasks.GPTTaskResponse{}
+	target := models.GPTTaskResponse{}
 	if err := json.Unmarshal([]byte(tests.GPTResponseStr), &target); err != nil {
 		t.Error(err)
 	}
-	assert.Equal(t, target, res, "wrong returned gpt response")
+	assert.Equal(t, target, res.Data, "wrong returned gpt response")
 }
 
 func callGetImageApi(

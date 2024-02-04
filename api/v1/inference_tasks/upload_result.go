@@ -142,7 +142,7 @@ func UploadSDResult(ctx *gin.Context, in *SDResultInputWithSignature) (*response
 
 type GPTResultInput struct {
 	TaskId uint64          `path:"task_id" json:"task_id" description:"Task id" validate:"required"`
-	Result GPTTaskResponse `json:"result" description:"GPT task result" validate:"required"`
+	Result models.GPTTaskResponse `json:"result" description:"GPT task result" validate:"required"`
 }
 
 type GPTResultInputWithSignature struct {

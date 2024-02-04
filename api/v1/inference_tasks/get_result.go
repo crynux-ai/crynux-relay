@@ -88,7 +88,7 @@ type GetGPTResultInputWithSignature struct {
 	Signature string `query:"signature" description:"Signature" validate:"required"`
 }
 
-func GetGPTResult(ctx *gin.Context, in *GetGPTResultInputWithSignature) (*GPTTaskResponse, error) {
+func GetGPTResult(ctx *gin.Context, in *GetGPTResultInputWithSignature) (*GPTResultResponse, error) {
 	match, address, err := ValidateSignature(in.GetGPTResultInput, in.Timestamp, in.Signature)
 
 	if err != nil || !match {
@@ -136,10 +136,10 @@ func GetGPTResult(ctx *gin.Context, in *GetGPTResultInputWithSignature) (*GPTTas
 		return nil, response.NewExceptionResponse(err)
 	}
 
-	result := &GPTTaskResponse{}
-	if err := json.Unmarshal(resultContent, result); err != nil {
+	data := &models.GPTTaskResponse{}
+	if err := json.Unmarshal(resultContent, data); err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 
-	return result, nil
+	return &GPTResultResponse{Data: *data}, nil
 }

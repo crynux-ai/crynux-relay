@@ -1,7 +1,6 @@
 package tests
 
 import (
-	"crynux_relay/api/v1/inference_tasks"
 	"crynux_relay/blockchain"
 	"crynux_relay/config"
 	"crynux_relay/models"
@@ -49,7 +48,7 @@ func prepareGPTResponseForTask(task *models.InferenceTask) (string, error) {
 		return "", nil
 	}
 
-	resp := inference_tasks.GPTTaskResponse{}
+	resp := models.GPTTaskResponse{}
 	if err := json.Unmarshal([]byte(GPTResponseStr), &resp); err != nil {
 		return "", nil
 	}

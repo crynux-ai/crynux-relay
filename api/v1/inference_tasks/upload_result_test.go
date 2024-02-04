@@ -59,7 +59,7 @@ func TestWrongGPTTaskId(t *testing.T) {
 	_, _, err = tests.PreparePendingResultsTask(models.TaskTypeLLM, addresses, config.GetDB())
 	assert.Equal(t, nil, err, "prepare task error")
 
-	response := inference_tasks.GPTTaskResponse{}
+	response := models.GPTTaskResponse{}
 	err = json.Unmarshal([]byte(tests.GPTResponseStr), &response)
 	assert.Equal(t, nil, err, "json unmarshal error")
 
@@ -167,7 +167,7 @@ func testUsingAddressNum(
 		r := callUploadSDResultApi(task.TaskId, writer, pr)
 		assertFunc(t, r, task, addresses)
 	} else {
-		response := inference_tasks.GPTTaskResponse{}
+		response := models.GPTTaskResponse{}
 		err = json.Unmarshal([]byte(tests.GPTResponseStr), &response)
 		assert.Equal(t, nil, err, "json unmarshal error")
 
