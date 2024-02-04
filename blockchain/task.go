@@ -5,9 +5,9 @@ import (
 	"crynux_relay/blockchain/bindings"
 	"crynux_relay/config"
 	"crynux_relay/models"
+	"crynux_relay/utils"
 	"crypto/sha256"
 	"encoding/binary"
-	"encoding/json"
 	"errors"
 	"image/png"
 	"io"
@@ -174,7 +174,7 @@ func GetPHashForImage(reader io.Reader) ([]byte, error) {
 }
 
 func GetHashForGPTResponse(response interface{}) ([]byte, error) {
-	content, err := json.Marshal(response)
+	content, err := utils.JSONMarshalWithSortedKeys(response)
 	if err != nil {
 		return nil, err
 	}
