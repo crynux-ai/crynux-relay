@@ -208,7 +208,7 @@ func UploadGPTResult(ctx *gin.Context, in *GPTResultInputWithSignature) (*respon
 	log.Debugln("result hash from the uploaded result: " + uploadedResult)
 
 	if resultNode.Result != uploadedResult {
-		validationErr := response.NewValidationErrorResponse("images", "Wrong images uploaded")
+		validationErr := response.NewValidationErrorResponse("images", "Wrong result uploaded")
 		return nil, validationErr
 	}
 
