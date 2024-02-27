@@ -102,8 +102,18 @@ func GetAllNodesData(startIndex, endIndex int) ([]NodeData, error) {
 
 			nodeData[idx].Address = nodeAddress.Hex()
 			nodeData[idx].CNXBalance = cnxBalance
-			nodeData[idx].CardModel = "NVIDIA RTX 4090"
-			nodeData[idx].VRam = 24
+
+			nodeInfo, err := nodeInstance.GetNodeInfo(&bind.CallOpts{
+				Pending: false,
+				Context: context.Background(),
+			}, nodeAddress)
+
+			if err != nil {
+				return
+			}
+
+			nodeData[idx].CardModel = nodeInfo.Gpu.Name
+			nodeData[idx].VRam = int(nodeInfo.Gpu.Vram.Int64())
 
 		}(idx, nodeAddress, nodeData)
 	}
