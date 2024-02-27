@@ -1,11 +1,13 @@
 package inference_tasks_test
 
 import (
+	"bytes"
 	"crynux_relay/api/v1/inference_tasks"
 	"crynux_relay/config"
 	"crynux_relay/models"
 	"crynux_relay/tests"
 	v1 "crynux_relay/tests/api/v1"
+	"encoding/json"
 	"image/png"
 	"io"
 	"mime/multipart"
@@ -19,37 +21,66 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestWrongTaskId(t *testing.T) {
-	for _, taskType := range tests.TaskTypes {
-		addresses, privateKeys, err := tests.PrepareAccounts()
-		assert.Equal(t, nil, err, "prepare accounts error")
+func TestWrongSDTaskId(t *testing.T) {
+	addresses, privateKeys, err := tests.PrepareAccounts()
+	assert.Equal(t, nil, err, "prepare accounts error")
 
-		_, _, err = tests.PreparePendingResultsTask(taskType, addresses, config.GetDB())
-		assert.Equal(t, nil, err, "prepare task error")
+	_, _, err = tests.PreparePendingResultsTask(models.TaskTypeSD, addresses, config.GetDB())
+	assert.Equal(t, nil, err, "prepare task error")
 
-		uploadResultInput := &inference_tasks.ResultInput{
-			TaskId: 666,
-		}
-
-		pr, pw := io.Pipe()
-		writer := multipart.NewWriter(pw)
-
-		timestamp, signature, err := v1.SignData(uploadResultInput, privateKeys[1])
-		assert.Equal(t, nil, err, "sign data error")
-
-		prepareFileForm(t, writer, taskType, timestamp, signature)
-
-		r := callUploadResultApi(666, writer, pr)
-
-		v1.AssertValidationErrorResponse(t, r, "task_id", "Task not found")
-
-		t.Cleanup(func() {
-			tests.ClearDB()
-			if err := tests.ClearDataFolders(); err != nil {
-				t.Error(err)
-			}
-		})
+	uploadResultInput := &inference_tasks.SDResultInput{
+		TaskId: 666,
 	}
+
+	pr, pw := io.Pipe()
+	writer := multipart.NewWriter(pw)
+
+	timestamp, signature, err := v1.SignData(uploadResultInput, privateKeys[1])
+	assert.Equal(t, nil, err, "sign data error")
+
+	prepareFileForm(t, writer, models.TaskTypeSD, timestamp, signature)
+
+	r := callUploadSDResultApi(666, writer, pr)
+
+	v1.AssertValidationErrorResponse(t, r, "task_id", "Task not found")
+
+	t.Cleanup(func() {
+		tests.ClearDB()
+		if err := tests.ClearDataFolders(); err != nil {
+			t.Error(err)
+		}
+	})
+}
+
+func TestWrongGPTTaskId(t *testing.T) {
+	addresses, privateKeys, err := tests.PrepareAccounts()
+	assert.Equal(t, nil, err, "prepare accounts error")
+
+	_, _, err = tests.PreparePendingResultsTask(models.TaskTypeLLM, addresses, config.GetDB())
+	assert.Equal(t, nil, err, "prepare task error")
+
+	response := models.GPTTaskResponse{}
+	err = json.Unmarshal([]byte(tests.GPTResponseStr), &response)
+	assert.Equal(t, nil, err, "json unmarshal error")
+
+	uploadResultInput := &inference_tasks.GPTResultInput{
+		TaskId: 666,
+		Result: response,
+	}
+
+	timestamp, signature, err := v1.SignData(uploadResultInput, privateKeys[1])
+	assert.Equal(t, nil, err, "sign data error")
+
+	r := callUploadGPTResultApi(666, uploadResultInput, timestamp, signature)
+
+	v1.AssertValidationErrorResponse(t, r, "task_id", "Task not found")
+
+	t.Cleanup(func() {
+		tests.ClearDB()
+		if err := tests.ClearDataFolders(); err != nil {
+			t.Error(err)
+		}
+	})
 }
 
 func TestCreatorUpload(t *testing.T) {
@@ -121,21 +152,35 @@ func testUsingAddressNum(
 
 	assert.Equal(t, models.InferenceTaskPendingResults, task.Status, "wrong task status")
 
-	uploadResultInput := &inference_tasks.ResultInput{
-		TaskId: task.TaskId,
+	if taskType == models.TaskTypeSD {
+		uploadResultInput := &inference_tasks.SDResultInput{
+			TaskId: task.TaskId,
+		}
+
+		pr, pw := io.Pipe()
+		writer := multipart.NewWriter(pw)
+
+		timestamp, signature, err := v1.SignData(uploadResultInput, privateKeys[num])
+		assert.Equal(t, nil, err, "sign data error")
+
+		prepareFileForm(t, writer, taskType, timestamp, signature)
+		r := callUploadSDResultApi(task.TaskId, writer, pr)
+		assertFunc(t, r, task, addresses)
+	} else {
+		response := models.GPTTaskResponse{}
+		err = json.Unmarshal([]byte(tests.GPTResponseStr), &response)
+		assert.Equal(t, nil, err, "json unmarshal error")
+
+		uploadResultInput := &inference_tasks.GPTResultInput{
+			TaskId: task.TaskId,
+			Result: response,
+		}
+
+		timestamp, signature, err := v1.SignData(uploadResultInput, privateKeys[num])
+		assert.Equal(t, nil, err, "sign data error")
+		r := callUploadGPTResultApi(task.TaskId, uploadResultInput, timestamp, signature)
+		assertFunc(t, r, task, addresses)
 	}
-
-	pr, pw := io.Pipe()
-	writer := multipart.NewWriter(pw)
-
-	timestamp, signature, err := v1.SignData(uploadResultInput, privateKeys[num])
-	assert.Equal(t, nil, err, "sign data error")
-
-	prepareFileForm(t, writer, taskType, timestamp, signature)
-
-	r := callUploadResultApi(task.TaskId, writer, pr)
-
-	assertFunc(t, r, task, addresses)
 
 	t.Cleanup(func() {
 		tests.ClearDB()
@@ -214,11 +259,30 @@ func assertFileExists(t *testing.T, taskId uint64, taskType models.ChainTaskType
 	assert.Equal(t, nil, err, "image not exist")
 }
 
-func callUploadResultApi(taskId uint64, writer *multipart.Writer, pr *io.PipeReader) *httptest.ResponseRecorder {
+func callUploadSDResultApi(taskId uint64, writer *multipart.Writer, pr *io.PipeReader) *httptest.ResponseRecorder {
 	taskIdStr := strconv.FormatUint(taskId, 10)
 
-	req, _ := http.NewRequest("POST", "/v1/inference_tasks/"+taskIdStr+"/results", pr)
+	req, _ := http.NewRequest("POST", "/v1/inference_tasks/stable_diffusion/"+taskIdStr+"/results", pr)
 	req.Header.Add("Content-Type", writer.FormDataContentType())
+
+	w := httptest.NewRecorder()
+	tests.Application.ServeHTTP(w, req)
+
+	return w
+}
+
+func callUploadGPTResultApi(taskId uint64, input *inference_tasks.GPTResultInput, timestamp int64, signature string) *httptest.ResponseRecorder {
+	taskIdStr := strconv.FormatUint(taskId, 10)
+
+	inputWithSignature := inference_tasks.GPTResultInputWithSignature{
+		GPTResultInput: *input,
+		Timestamp:      timestamp,
+		Signature:      signature,
+	}
+	inputBytes, _ := json.Marshal(inputWithSignature)
+
+	req, _ := http.NewRequest("POST", "/v1/inference_tasks/gpt/"+taskIdStr+"/results", bytes.NewReader(inputBytes))
+	req.Header.Add("Content-Type", "application/json")
 
 	w := httptest.NewRecorder()
 	tests.Application.ServeHTTP(w, req)

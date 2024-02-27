@@ -1,18 +1,19 @@
 package inference_tasks
 
 import (
+	"crynux_relay/utils"
 	"encoding/hex"
-	"encoding/json"
-	"github.com/ethereum/go-ethereum/crypto"
-	log "github.com/sirupsen/logrus"
 	"math"
 	"strconv"
 	"time"
+
+	"github.com/ethereum/go-ethereum/crypto"
+	log "github.com/sirupsen/logrus"
 )
 
 func ValidateSignature(data interface{}, timestamp int64, signature string) (bool, string, error) {
 
-	dataBytes, err := json.Marshal(data)
+	dataBytes, err := utils.JSONMarshalWithSortedKeys(data)
 	if err != nil {
 		return false, "", err
 	}
