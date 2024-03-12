@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/params"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -59,7 +60,8 @@ func CreateTaskOnChain(task *models.InferenceTask) (string, error) {
 		0, 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0}
 
-	tx, err := instance.CreateTask(auth, big.NewInt(int64(task.TaskType)), *taskHash, dataHash, big.NewInt(int64(task.VramLimit)))
+	taskFee := new(big.Int).Mul(big.NewInt(30), big.NewInt(params.Ether))
+	tx, err := instance.CreateTask(auth, big.NewInt(int64(task.TaskType)), *taskHash, dataHash, big.NewInt(int64(task.VramLimit)), taskFee, big.NewInt(1))
 	if err != nil {
 		return "", err
 	}
@@ -110,20 +112,20 @@ func GetTaskCreationResult(txHash string) (*big.Int, error) {
 		return nil, err
 	}
 
-	// There are 5 events emitted from the CreateTask method
-	// Approval, Transfer, TaskCreated x 3
+	// There are 6 events emitted from the CreateTask method
+	// Approval, Transfer, TaskPending, TaskStarted x 3
 	if len(receipt.Logs) != 5 {
 		log.Errorln(receipt.Logs)
 		return nil, errors.New("wrong event logs number:" + strconv.Itoa(len(receipt.Logs)))
 	}
 
-	taskCreatedEvent, err := taskContractInstance.ParseTaskCreated(*receipt.Logs[2])
+	taskPendingEvent, err := taskContractInstance.ParseTaskPending(*receipt.Logs[2])
 	if err != nil {
 		log.Errorln("error parse task created event: " + receipt.TxHash.Hex())
 		return nil, err
 	}
 
-	taskId := taskCreatedEvent.TaskId
+	taskId := taskPendingEvent.TaskId
 
 	return taskId, nil
 }
@@ -137,7 +139,7 @@ func GetTaskResultCommitment(result []byte) (commitment [32]byte, nonce [32]byte
 	return commitment, nonce
 }
 
-func GetTaskById(taskId uint64) (*bindings.TaskInfo, error) {
+func GetTaskById(taskId uint64) (*bindings.TaskTaskInfo, error) {
 
 	taskInstance, err := GetTaskContractInstance()
 	if err != nil {
