@@ -45,7 +45,14 @@ func InitRoutes(r *fizz.Fizz) {
 	}, tonic.Handler(network.GetAllNodeData, 200))
 
 	networkGroup.GET("/nodes/number", []fizz.OperationOption{
-		fizz.Summary("Get the info of all the nodes in the network"),
+		fizz.Summary("Get total nodes number in the network"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(network.GetAllNodeNumber, 200))
+
+	networkGroup.GET("/tasks/number", []fizz.OperationOption{
+		fizz.Summary("Get total task number in the network"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(network.GetAllTaskNumber, 200))
+
+
 }

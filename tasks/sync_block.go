@@ -110,7 +110,13 @@ func processChannel(syncedBlock *models.SyncedBlock) {
 			" / " +
 			strconv.FormatUint(latestBlockNum, 10))
 
-		if err := processTaskCreated(start, end); err != nil {
+		if err := processTaskPending(start, end); err != nil {
+			log.Errorln(err)
+			time.Sleep(time.Duration(interval) * time.Second)
+			return
+		}
+
+		if err := processTaskStarted(start, end); err != nil {
 			log.Errorln(err)
 			time.Sleep(time.Duration(interval) * time.Second)
 			return
@@ -144,14 +150,78 @@ func processChannel(syncedBlock *models.SyncedBlock) {
 	time.Sleep(time.Duration(interval) * time.Second * 3)
 }
 
-func processTaskCreated(startBlockNum, endBlockNum uint64) error {
+func processTaskPending(startBlockNum, endBlockNum uint64) error {
+	taskContractInstance, err := blockchain.GetTaskContractInstance()
+	if err != nil {
+		return err
+	}
+
+	taskPendingEventIterator, err := taskContractInstance.FilterTaskPending(
+		&bind.FilterOpts{
+			Start:   startBlockNum,
+			End:     &endBlockNum,
+			Context: context.Background(),
+		},
+		nil,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	for {
+		if !taskPendingEventIterator.Next() {
+			break
+		}
+
+		taskPending := taskPendingEventIterator.Event
+
+		log.Debugln("Task pending on chain: " +
+			taskPending.TaskId.String() +
+			"|" + taskPending.Creator.Hex() +
+			"|" + string(taskPending.TaskHash[:]) +
+			"|" + string(taskPending.DataHash[:]))
+
+		task := &models.InferenceTask{}
+
+		query := &models.InferenceTask{
+			TaskId: taskPending.TaskId.Uint64(),
+		}
+
+		taskOnChain, err := blockchain.GetTaskById(taskPending.TaskId.Uint64())
+		if err != nil {
+			return err
+		}
+
+		attributes := &models.InferenceTask{
+			Creator:   taskPending.Creator.Hex(),
+			TaskHash:  hexutil.Encode(taskPending.TaskHash[:]),
+			DataHash:  hexutil.Encode(taskPending.DataHash[:]),
+			Status:    models.InferenceTaskCreatedOnChain,
+			TaskType:  models.ChainTaskType(taskPending.TaskType.Int64()),
+			VramLimit: taskOnChain.VramLimit.Uint64(),
+		}
+
+		if err := config.GetDB().Where(query).Attrs(attributes).FirstOrCreate(task).Error; err != nil {
+			return err
+		}
+	}
+
+	if err := taskPendingEventIterator.Close(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func processTaskStarted(startBlockNum, endBlockNum uint64) error {
 
 	taskContractInstance, err := blockchain.GetTaskContractInstance()
 	if err != nil {
 		return err
 	}
 
-	taskCreatedEventIterator, err := taskContractInstance.FilterTaskCreated(
+	taskStartedEventIterator, err := taskContractInstance.FilterTaskStarted(
 		&bind.FilterOpts{
 			Start:   startBlockNum,
 			End:     &endBlockNum,
@@ -166,50 +236,34 @@ func processTaskCreated(startBlockNum, endBlockNum uint64) error {
 	}
 
 	for {
-		if !taskCreatedEventIterator.Next() {
+		if !taskStartedEventIterator.Next() {
 			break
 		}
 
-		taskCreated := taskCreatedEventIterator.Event
+		taskStarted := taskStartedEventIterator.Event
 
 		log.Debugln("Task created on chain: " +
-			taskCreated.TaskId.String() +
-			"|" + taskCreated.Creator.Hex() +
-			"|" + string(taskCreated.TaskHash[:]) +
-			"|" + string(taskCreated.DataHash[:]))
+			taskStarted.TaskId.String() +
+			"|" + taskStarted.Creator.Hex() +
+			"|" + string(taskStarted.TaskHash[:]) +
+			"|" + string(taskStarted.DataHash[:]))
 
-		task := &models.InferenceTask{}
-
-		query := &models.InferenceTask{
-			TaskId: taskCreated.TaskId.Uint64(),
+		task := &models.InferenceTask{
+			TaskId: taskStarted.TaskId.Uint64(),
 		}
 
-		taskOnChain, err := blockchain.GetTaskById(taskCreated.TaskId.Uint64())
-		if err != nil {
-			return err
-		}
-
-		attributes := &models.InferenceTask{
-			Creator:   taskCreated.Creator.Hex(),
-			TaskHash:  hexutil.Encode(taskCreated.TaskHash[:]),
-			DataHash:  hexutil.Encode(taskCreated.DataHash[:]),
-			Status:    models.InferenceTaskCreatedOnChain,
-			TaskType:  models.ChainTaskType(taskCreated.TaskType.Int64()),
-			VramLimit: taskOnChain.VramLimit.Uint64(),
-		}
-
-		if err := config.GetDB().Where(query).Attrs(attributes).FirstOrCreate(task).Error; err != nil {
+		if err := config.GetDB().Where(task).First(task).Error; err != nil {
 			return err
 		}
 
 		association := config.GetDB().Model(task).Association("SelectedNodes")
 
-		if err := association.Append(&models.SelectedNode{NodeAddress: taskCreated.SelectedNode.Hex()}); err != nil {
+		if err := association.Append(&models.SelectedNode{NodeAddress: taskStarted.SelectedNode.Hex()}); err != nil {
 			return err
 		}
 	}
 
-	if err := taskCreatedEventIterator.Close(); err != nil {
+	if err := taskStartedEventIterator.Close(); err != nil {
 		return err
 	}
 
