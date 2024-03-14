@@ -9,8 +9,8 @@ import (
 )
 
 type AllNodeNumber struct {
-	AllNodes       *big.Int `json:"all_nodes"`
-	AvailableNodes *big.Int `json:"available_nodes"`
+	AllNodes  *big.Int `json:"all_nodes"`
+	BusyNodes *big.Int `json:"busy_nodes"`
 }
 
 type GetAllNodeNumberResponse struct {
@@ -20,7 +20,7 @@ type GetAllNodeNumberResponse struct {
 
 func GetAllNodeNumber(_ *gin.Context) (*GetAllNodeNumberResponse, error) {
 
-	availableNodes, allNodes, err := blockchain.GetAllNodesNumber()
+	busyNodes, allNodes, err := blockchain.GetAllNodesNumber()
 
 	if err != nil {
 		return nil, response.NewExceptionResponse(err)
@@ -28,8 +28,8 @@ func GetAllNodeNumber(_ *gin.Context) (*GetAllNodeNumberResponse, error) {
 
 	return &GetAllNodeNumberResponse{
 		Data: &AllNodeNumber{
-			AllNodes:       allNodes,
-			AvailableNodes: availableNodes,
+			AllNodes:  allNodes,
+			BusyNodes: busyNodes,
 		},
 	}, nil
 }

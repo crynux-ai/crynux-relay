@@ -3,19 +3,20 @@ package blockchain
 import (
 	"context"
 	"errors"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"sync"
+
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 )
 
-func GetAllNodesNumber() (availableNode *big.Int, allNode *big.Int, err error) {
-	nodeInstance, err := GetNodeContractInstance()
+func GetAllNodesNumber() (busyNodes *big.Int, allNodes *big.Int, err error) {
+	netstatsInstance, err := GetNetstatsContractInstance()
 	if err != nil {
 		return big.NewInt(0), big.NewInt(0), err
 	}
 
-	allNode, err = nodeInstance.TotalNodes(&bind.CallOpts{
+	allNodes, err = netstatsInstance.TotalNodes(&bind.CallOpts{
 		Pending: false,
 		Context: context.Background(),
 	})
@@ -24,7 +25,7 @@ func GetAllNodesNumber() (availableNode *big.Int, allNode *big.Int, err error) {
 		return big.NewInt(0), big.NewInt(0), err
 	}
 
-	availableNode, err = nodeInstance.AvailableNodes(&bind.CallOpts{
+	busyNodes, err = netstatsInstance.BusyNodes(&bind.CallOpts{
 		Pending: false,
 		Context: context.Background(),
 	})
@@ -33,7 +34,43 @@ func GetAllNodesNumber() (availableNode *big.Int, allNode *big.Int, err error) {
 		return big.NewInt(0), big.NewInt(0), err
 	}
 
-	return availableNode, allNode, nil
+	return busyNodes, allNodes, nil
+}
+
+func GetAllTasksNumber() (totalTasks *big.Int, runningTasks *big.Int, queuedTasks *big.Int, err error) {
+	netstatsInstance, err := GetNetstatsContractInstance()
+	if err != nil {
+		return big.NewInt(0), big.NewInt(0), big.NewInt(0), err
+	}
+
+	totalTasks, err = netstatsInstance.TotalTasks(&bind.CallOpts{
+		Pending: false,
+		Context: context.Background(),
+	})
+
+	if err != nil {
+		return big.NewInt(0), big.NewInt(0), big.NewInt(0), err
+	}
+
+	runningTasks, err = netstatsInstance.RunningTasks(&bind.CallOpts{
+		Pending: false,
+		Context: context.Background(),
+	})
+
+	if err != nil {
+		return big.NewInt(0), big.NewInt(0), big.NewInt(0), err
+	}
+
+	queuedTasks, err = netstatsInstance.QueuedTasks(&bind.CallOpts{
+		Pending: false,
+		Context: context.Background(),
+	})
+
+	if err != nil {
+		return big.NewInt(0), big.NewInt(0), big.NewInt(0), err
+	}
+
+	return totalTasks, runningTasks, queuedTasks, nil
 }
 
 type NodeData struct {
@@ -44,7 +81,7 @@ type NodeData struct {
 }
 
 func GetAllNodesData(startIndex, endIndex int) ([]NodeData, error) {
-	nodeInstance, err := GetNodeContractInstance()
+	netstatsInstance, err := GetNetstatsContractInstance()
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +91,7 @@ func GetAllNodesData(startIndex, endIndex int) ([]NodeData, error) {
 		return nil, err
 	}
 
-	allNode, err := nodeInstance.TotalNodes(&bind.CallOpts{
+	allNode, err := netstatsInstance.TotalNodes(&bind.CallOpts{
 		Pending: false,
 		Context: context.Background(),
 	})
@@ -71,24 +108,28 @@ func GetAllNodesData(startIndex, endIndex int) ([]NodeData, error) {
 		endIndex = int(allNode.Int64())
 	}
 
-	allNodeAddresses, err := nodeInstance.GetAllNodeAddresses(&bind.CallOpts{
+	allNodeInfos, err := netstatsInstance.GetAllNodeInfo(&bind.CallOpts{
 		Pending: false,
 		Context: context.Background(),
-	})
+	}, big.NewInt(int64(startIndex)), big.NewInt(int64(endIndex-startIndex)))
 	if err != nil {
 		return nil, err
 	}
 
-	selectedNodeAddresses := allNodeAddresses[startIndex:endIndex]
-
-	nodeData := make([]NodeData, len(selectedNodeAddresses))
+	nodeData := make([]NodeData, len(allNodeInfos))
 
 	var wg sync.WaitGroup
 
-	for idx, nodeAddress := range selectedNodeAddresses {
+	for idx, nodeInfo := range allNodeInfos {
 		wg.Add(1)
 
-		go func(idx int, nodeAddress common.Address, nodeData []NodeData) {
+		nodeData[idx] = NodeData{
+			Address:   nodeInfo.NodeAddress.Hex(),
+			CardModel: nodeInfo.GPUModel,
+			VRam:      int(nodeInfo.VRAM.Int64()),
+		}
+
+		go func(idx int, nodeAddress common.Address) {
 			defer wg.Done()
 
 			cnxBalance, err := cnxInstance.BalanceOf(&bind.CallOpts{
@@ -100,22 +141,8 @@ func GetAllNodesData(startIndex, endIndex int) ([]NodeData, error) {
 				return
 			}
 
-			nodeData[idx].Address = nodeAddress.Hex()
 			nodeData[idx].CNXBalance = cnxBalance
-
-			nodeInfo, err := nodeInstance.GetNodeInfo(&bind.CallOpts{
-				Pending: false,
-				Context: context.Background(),
-			}, nodeAddress)
-
-			if err != nil {
-				return
-			}
-
-			nodeData[idx].CardModel = nodeInfo.Gpu.Name
-			nodeData[idx].VRam = int(nodeInfo.Gpu.Vram.Int64())
-
-		}(idx, nodeAddress, nodeData)
+		}(idx, nodeInfo.NodeAddress)
 	}
 
 	wg.Wait()

@@ -25,6 +25,7 @@ var ethRpcClient *ethclient.Client
 var taskContractInstance *bindings.Task
 var crynuxTokenContractInstance *bindings.CrynuxToken
 var nodeContractInstance *bindings.Node
+var netstatsContractInstance *bindings.NetworkStats
 
 func GetRpcClient() (*ethclient.Client, error) {
 	if ethRpcClient == nil {
@@ -244,4 +245,26 @@ func GetNodeContractInstance() (*bindings.Node, error) {
 	}
 
 	return nodeContractInstance, nil
+}
+
+func GetNetstatsContractInstance() (*bindings.NetworkStats, error) {
+	if netstatsContractInstance == nil {
+		appConfig := config.GetConfig()
+		address := common.HexToAddress(appConfig.Blockchain.Contracts.Netstats)
+
+		client, err := GetRpcClient()
+		if err != nil {
+			return nil, err
+		}
+
+		instance, err := bindings.NewNetworkStats(address, client)
+
+		if err != nil {
+			return nil, err
+		}
+
+		netstatsContractInstance = instance
+	}
+
+	return netstatsContractInstance, nil
 }
