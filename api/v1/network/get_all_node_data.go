@@ -9,7 +9,7 @@ import (
 
 type GetAllNodesDataParams struct {
 	Start int `query:"start" json:"start" validate:"min=0"`
-	Total int `query:"total" json:"total" validate:"required,max=20,min=1"`
+	Total int `query:"total" json:"total" validate:"required,max=100,min=1"`
 }
 
 type GetAllNodesDataResponse struct {
