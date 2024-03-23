@@ -283,6 +283,7 @@ func processTaskSuccess(startBlockNum, endBlockNum uint64) error {
 			Context: context.Background(),
 		},
 		nil,
+		nil,
 	)
 
 	if err != nil {
@@ -351,6 +352,7 @@ func processTaskAborted(startBlockNum, endBlockNum uint64) error {
 			End:     &endBlockNum,
 			Context: context.Background(),
 		},
+		nil,
 	)
 
 	if err != nil {
