@@ -81,12 +81,12 @@ type NodeData struct {
 }
 
 func GetAllNodesData(startIndex, endIndex int) ([]NodeData, error) {
-	netstatsInstance, err := GetNetstatsContractInstance()
-	if err != nil {
-		return nil, err
+	client, err := GetRpcClient()
+		if err != nil {
+			return nil, err
 	}
 
-	cnxInstance, err := GetCrynuxTokenContractInstance()
+	netstatsInstance, err := GetNetstatsContractInstance()
 	if err != nil {
 		return nil, err
 	}
@@ -132,10 +132,7 @@ func GetAllNodesData(startIndex, endIndex int) ([]NodeData, error) {
 		go func(idx int, nodeAddress common.Address) {
 			defer wg.Done()
 
-			cnxBalance, err := cnxInstance.BalanceOf(&bind.CallOpts{
-				Pending: false,
-				Context: context.Background(),
-			}, nodeAddress)
+			cnxBalance, err := client.BalanceAt(context.Background(), nodeAddress, nil)
 
 			if err != nil {
 				return
