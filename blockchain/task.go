@@ -61,7 +61,8 @@ func CreateTaskOnChain(task *models.InferenceTask) (string, error) {
 		0, 0, 0, 0, 0, 0, 0, 0}
 
 	taskFee := new(big.Int).Mul(big.NewInt(30), big.NewInt(params.Ether))
-	tx, err := instance.CreateTask(auth, big.NewInt(int64(task.TaskType)), *taskHash, dataHash, big.NewInt(int64(task.VramLimit)), taskFee, big.NewInt(1))
+	auth.Value = taskFee
+	tx, err := instance.CreateTask(auth, big.NewInt(int64(task.TaskType)), *taskHash, dataHash, big.NewInt(int64(task.VramLimit)), big.NewInt(1))
 	if err != nil {
 		return "", err
 	}

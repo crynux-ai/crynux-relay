@@ -10,7 +10,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/params"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
@@ -43,13 +42,6 @@ func PrepareNetwork(addresses []string, privateKeys []string) error {
 	// Approve the staking tokens to the node contract
 	// Join 3 nodes to the network
 
-	tokenInstance, err := blockchain.GetCrynuxTokenContractInstance()
-	if err != nil {
-		log.Errorln("error get token contract instance")
-		log.Errorln(err)
-		return err
-	}
-
 	nodeInstance, err := blockchain.GetNodeContractInstance()
 	if err != nil {
 		log.Errorln("error get node contract instance")
@@ -64,34 +56,15 @@ func PrepareNetwork(addresses []string, privateKeys []string) error {
 		return err
 	}
 
-	nodeContractAddress := common.HexToAddress(config.GetConfig().Blockchain.Contracts.Node)
 	for i := 1; i <= 3; i++ {
 		address := common.HexToAddress(addresses[i])
+
 		auth, err := blockchain.GetAuth(client, address, privateKeys[i])
 		if err != nil {
 			return err
 		}
 
-		tx, err := tokenInstance.Approve(
-			auth,
-			nodeContractAddress,
-			new(big.Int).Mul(big.NewInt(500), big.NewInt(params.Ether)))
-
-		if err != nil {
-			return err
-		}
-
-		_, err = bind.WaitMined(context.Background(), client, tx)
-		if err != nil {
-			return err
-		}
-
-		auth, err = blockchain.GetAuth(client, address, privateKeys[i])
-		if err != nil {
-			return err
-		}
-
-		tx, err = nodeInstance.Join(auth, GPUName, big.NewInt(int64(GPUVram)))
+		tx, err := nodeInstance.Join(auth, GPUName, big.NewInt(int64(GPUVram)))
 		if err != nil {
 			return err
 		}
@@ -113,47 +86,11 @@ func PrepareTaskCreatorAccount(address string, privateKey string) error {
 		return err
 	}
 
-	tokenInstance, err := blockchain.GetCrynuxTokenContractInstance()
-	if err != nil {
-		log.Errorln("error get token contract instance")
-		log.Errorln(err)
-		return err
-	}
-
-	// Approve some tokens to the task contract for the task creator account
-	auth, err := blockchain.GetAuth(
-		client,
-		common.HexToAddress(address),
-		privateKey)
-
+	// Display curre
+	balance, err := client.BalanceAt(context.Background(), common.HexToAddress(address), nil)
 	if err != nil {
 		return err
 	}
-
-	taskContractAddress := common.HexToAddress(config.GetConfig().Blockchain.Contracts.Task)
-	tx, err := tokenInstance.Approve(
-		auth,
-		taskContractAddress,
-		new(big.Int).Mul(big.NewInt(1000), big.NewInt(params.Ether)))
-
-	if err != nil {
-		return err
-	}
-
-	_, err = bind.WaitMined(context.Background(), client, tx)
-	if err != nil {
-		return err
-	}
-
-	// Display current approved amount
-	opts := &bind.CallOpts{
-		Pending: false,
-		Context: context.Background(),
-	}
-
-	allowance, err := tokenInstance.Allowance(opts, common.HexToAddress(address), taskContractAddress)
-	log.Debugln("allowance for task creator: " + allowance.String())
-	balance, err := tokenInstance.BalanceOf(opts, common.HexToAddress(address))
 	log.Debugln("balance of task creator: " + balance.String())
 
 	return nil
@@ -263,6 +200,9 @@ func submitAndDiscloseResults(taskId *big.Int, addresses []string, privateKeys [
 		tx, err := taskInstance.SubmitTaskResultCommitment(
 			auth, taskId, big.NewInt(int64(rounds[addresses[i]])),
 			commitment, nonce)
+		if err != nil {
+			return err
+		}
 
 		_, err = bind.WaitMined(context.Background(), client, tx)
 		if err != nil {
@@ -282,6 +222,9 @@ func submitAndDiscloseResults(taskId *big.Int, addresses []string, privateKeys [
 		}
 
 		tx, err := taskInstance.DiscloseTaskResult(auth, taskId, big.NewInt(int64(rounds[addresses[i]])), results[i-1])
+		if err != nil {
+			return err
+		}
 
 		receipt, err := bind.WaitMined(context.Background(), client, tx)
 		if err != nil {
@@ -335,8 +278,6 @@ func submitAndDiscloseResults(taskId *big.Int, addresses []string, privateKeys [
 	log.Debugln("report results uploaded")
 	return nil
 }
-
-
 
 func SyncToLatestBlock() error {
 	client, err := blockchain.GetRpcClient()
