@@ -74,16 +74,16 @@ func GetAllTasksNumber() (totalTasks *big.Int, runningTasks *big.Int, queuedTask
 }
 
 type NodeData struct {
-	Address    string   `json:"address"`
-	CardModel  string   `json:"card_model"`
-	VRam       int      `json:"v_ram"`
-	CNXBalance *big.Int `json:"cnx_balance"`
+	Address   string   `json:"address"`
+	CardModel string   `json:"card_model"`
+	VRam      int      `json:"v_ram"`
+	Balance   *big.Int `json:"balance"`
 }
 
 func GetAllNodesData(startIndex, endIndex int) ([]NodeData, error) {
 	client, err := GetRpcClient()
-		if err != nil {
-			return nil, err
+	if err != nil {
+		return nil, err
 	}
 
 	netstatsInstance, err := GetNetstatsContractInstance()
@@ -132,13 +132,13 @@ func GetAllNodesData(startIndex, endIndex int) ([]NodeData, error) {
 		go func(idx int, nodeAddress common.Address) {
 			defer wg.Done()
 
-			cnxBalance, err := client.BalanceAt(context.Background(), nodeAddress, nil)
+			balance, err := client.BalanceAt(context.Background(), nodeAddress, nil)
 
 			if err != nil {
 				return
 			}
 
-			nodeData[idx].CNXBalance = cnxBalance
+			nodeData[idx].Balance = balance
 		}(idx, nodeInfo.NodeAddress)
 	}
 
