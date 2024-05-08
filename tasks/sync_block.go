@@ -147,7 +147,7 @@ func processChannel(syncedBlock *models.SyncedBlock) {
 		}
 	}
 
-	time.Sleep(time.Duration(interval) * time.Second * 3)
+	time.Sleep(time.Duration(interval) * time.Second)
 }
 
 func processTaskPending(startBlockNum, endBlockNum uint64) error {
