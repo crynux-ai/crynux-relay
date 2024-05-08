@@ -7,6 +7,7 @@ import (
 	"crynux_relay/models"
 	"errors"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -110,28 +111,59 @@ func processChannel(syncedBlock *models.SyncedBlock) {
 			" / " +
 			strconv.FormatUint(latestBlockNum, 10))
 
-		if err := processTaskPending(start, end); err != nil {
-			log.Errorln(err)
-			time.Sleep(time.Duration(interval) * time.Second)
-			return
-		}
+		errCh := make(chan error, 4)
 
-		if err := processTaskStarted(start, end); err != nil {
-			log.Errorln(err)
-			time.Sleep(time.Duration(interval) * time.Second)
-			return
-		}
+		var wg sync.WaitGroup
 
-		if err := processTaskSuccess(start, end); err != nil {
-			log.Errorln(err)
-			time.Sleep(time.Duration(interval) * time.Second)
-			return
-		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := processTaskPending(start, end)
+			if err != nil {
+				log.Errorln(err)
+			}
+			errCh <- err
+		}()
 
-		if err := processTaskAborted(start, end); err != nil {
-			log.Errorln(err)
-			time.Sleep(time.Duration(interval) * time.Second)
-			return
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := processTaskStarted(start, end)
+			if err != nil {
+				log.Errorln(err)
+			}
+			errCh <- err
+		}()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := processTaskSuccess(start, end)
+			if err != nil {
+				log.Errorln(err)
+			}
+			errCh <- err
+		}()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := processTaskAborted(start, end)
+			if err != nil {
+				log.Errorln(err)
+			}
+			errCh <- err
+		}()
+
+		go func()  {
+			wg.Wait()
+			close(errCh)
+		}()
+
+		for err := range errCh {
+			if err != nil {
+				return
+			}
 		}
 
 		oldNum := syncedBlock.BlockNumber
@@ -168,6 +200,8 @@ func processTaskPending(startBlockNum, endBlockNum uint64) error {
 	if err != nil {
 		return err
 	}
+
+	defer taskPendingEventIterator.Close()
 
 	for {
 		if !taskPendingEventIterator.Next() {
@@ -207,10 +241,6 @@ func processTaskPending(startBlockNum, endBlockNum uint64) error {
 		}
 	}
 
-	if err := taskPendingEventIterator.Close(); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -235,6 +265,10 @@ func processTaskStarted(startBlockNum, endBlockNum uint64) error {
 		return err
 	}
 
+	defer taskStartedEventIterator.Close()
+
+	taskStartedEvents := make(map[uint64][]models.SelectedNode)
+
 	for {
 		if !taskStartedEventIterator.Next() {
 			break
@@ -248,23 +282,16 @@ func processTaskStarted(startBlockNum, endBlockNum uint64) error {
 			"|" + string(taskStarted.TaskHash[:]) +
 			"|" + string(taskStarted.DataHash[:]))
 
-		task := &models.InferenceTask{
-			TaskId: taskStarted.TaskId.Uint64(),
-		}
-
-		if err := config.GetDB().Where(task).First(task).Error; err != nil {
-			return err
-		}
-
-		association := config.GetDB().Model(task).Association("SelectedNodes")
-
-		if err := association.Append(&models.SelectedNode{NodeAddress: taskStarted.SelectedNode.Hex()}); err != nil {
-			return err
-		}
+		taskId := taskStarted.TaskId.Uint64()
+		taskStartedEvents[taskId] = append(taskStartedEvents[taskId], models.SelectedNode{NodeAddress: taskStarted.SelectedNode.Hex()})
 	}
 
-	if err := taskStartedEventIterator.Close(); err != nil {
-		return err
+	for taskId, selectedNodes := range taskStartedEvents {
+		task := &models.InferenceTask{TaskId: taskId}
+
+		if err := config.GetDB().Model(task).Association("SelectedNodes").Append(selectedNodes); err != nil {
+			return nil
+		}
 	}
 
 	return nil
@@ -289,6 +316,8 @@ func processTaskSuccess(startBlockNum, endBlockNum uint64) error {
 	if err != nil {
 		return err
 	}
+
+	defer taskSuccessEventIterator.Close()
 
 	for {
 		if !taskSuccessEventIterator.Next() {
@@ -333,10 +362,6 @@ func processTaskSuccess(startBlockNum, endBlockNum uint64) error {
 		}
 	}
 
-	if err := taskSuccessEventIterator.Close(); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -358,6 +383,8 @@ func processTaskAborted(startBlockNum, endBlockNum uint64) error {
 	if err != nil {
 		return err
 	}
+
+	defer taskAbortedEventIterator.Close()
 
 	for {
 		if !taskAbortedEventIterator.Next() {
@@ -381,10 +408,6 @@ func processTaskAborted(startBlockNum, endBlockNum uint64) error {
 		if err := config.GetDB().Save(task).Error; err != nil {
 			return err
 		}
-	}
-
-	if err := taskAbortedEventIterator.Close(); err != nil {
-		return err
 	}
 
 	return nil
