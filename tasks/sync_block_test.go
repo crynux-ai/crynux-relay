@@ -48,7 +48,7 @@ func TestTaskCreatedAndSuccessOnChain(t *testing.T) {
 		_, err = blockchain.CreateTaskOnChain(task)
 		assert.Nil(t, err, "error creating task on chain")
 
-		time.Sleep(30 * time.Second)
+		time.Sleep(5 * time.Second)
 
 		taskInDb := &models.InferenceTask{}
 
@@ -68,7 +68,7 @@ func TestTaskCreatedAndSuccessOnChain(t *testing.T) {
 		err = tests.SubmitResultOnChain(big.NewInt(int64(taskInDb.TaskId)), addresses, privateKeys)
 		assert.Nil(t, err, "error submitting task result on chain")
 
-		time.Sleep(30 * time.Second)
+		time.Sleep(5 * time.Second)
 
 		taskInDbWithSelectedNodes := &models.InferenceTask{
 			TaskId: taskInDb.TaskId,

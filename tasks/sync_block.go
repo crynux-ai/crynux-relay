@@ -267,7 +267,7 @@ func processTaskStarted(startBlockNum, endBlockNum uint64) error {
 
 	defer taskStartedEventIterator.Close()
 
-	taskStartedEvents := make(map[uint64][]models.SelectedNode)
+	taskStartedEvents := make(map[uint64][]*models.SelectedNode)
 
 	for {
 		if !taskStartedEventIterator.Next() {
@@ -283,13 +283,19 @@ func processTaskStarted(startBlockNum, endBlockNum uint64) error {
 			"|" + string(taskStarted.DataHash[:]))
 
 		taskId := taskStarted.TaskId.Uint64()
-		taskStartedEvents[taskId] = append(taskStartedEvents[taskId], models.SelectedNode{NodeAddress: taskStarted.SelectedNode.Hex()})
+		taskStartedEvents[taskId] = append(taskStartedEvents[taskId], &models.SelectedNode{NodeAddress: taskStarted.SelectedNode.Hex()})
 	}
 
 	for taskId, selectedNodes := range taskStartedEvents {
 		task := &models.InferenceTask{TaskId: taskId}
+		
+		if err := config.GetDB().Where(task).First(task).Error; err != nil {
+			return err
+		}
 
-		if err := config.GetDB().Model(task).Association("SelectedNodes").Append(selectedNodes); err != nil {
+		association := config.GetDB().Model(task).Association("SelectedNodes")
+
+		if err := association.Append(selectedNodes); err != nil {
 			return nil
 		}
 	}
