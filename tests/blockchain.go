@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/params"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
@@ -63,6 +64,8 @@ func PrepareNetwork(addresses []string, privateKeys []string) error {
 		if err != nil {
 			return err
 		}
+		stakeAmount := new(big.Int).Mul(big.NewInt(400), big.NewInt(params.Ether))
+		auth.Value = stakeAmount
 
 		tx, err := nodeInstance.Join(auth, GPUName, big.NewInt(int64(GPUVram)))
 		if err != nil {
