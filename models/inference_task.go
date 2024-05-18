@@ -27,7 +27,7 @@ const (
 type InferenceTask struct {
 	gorm.Model
 	TaskArgs      string        `json:"task_args"`
-	TaskId        uint64        `json:"task_id"`
+	TaskId        uint64        `json:"task_id" gorm:"index"`
 	Creator       string        `json:"creator"`
 	TaskHash      string        `json:"task_hash"`
 	DataHash      string        `json:"data_hash"`
