@@ -2,16 +2,16 @@ package network
 
 import (
 	"crynux_relay/api/v1/response"
-	"crynux_relay/blockchain"
-	"math/big"
+	"crynux_relay/config"
+	"crynux_relay/models"
 
 	"github.com/gin-gonic/gin"
 )
 
 type AllTaskNumber struct {
-	TotalTasks   *big.Int `json:"total_tasks"`
-	RunningTasks *big.Int `json:"running_tasks"`
-	QueuedTasks  *big.Int `json:"queued_tasks"`
+	TotalTasks   uint64 `json:"total_tasks"`
+	RunningTasks uint64 `json:"running_tasks"`
+	QueuedTasks  uint64 `json:"queued_tasks"`
 }
 
 type GetAllTaskNumberResponse struct {
@@ -21,17 +21,16 @@ type GetAllTaskNumberResponse struct {
 
 func GetAllTaskNumber(_ *gin.Context) (*GetAllTaskNumberResponse, error) {
 
-	totalTasks, runningTasks, queuedTasks, err := blockchain.GetAllTasksNumber()
-
-	if err != nil {
+	var taskNumber models.NetworkTaskNumber
+	if err := config.GetDB().Model(&models.NetworkTaskNumber{}).First(&taskNumber).Error; err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 
 	return &GetAllTaskNumberResponse{
 		Data: &AllTaskNumber{
-			TotalTasks:   totalTasks,
-			RunningTasks: runningTasks,
-			QueuedTasks:  queuedTasks,
+			TotalTasks:   taskNumber.TotalTasks,
+			RunningTasks: taskNumber.RunningTasks,
+			QueuedTasks:  taskNumber.QueuedTasks,
 		},
 	}, nil
 }
