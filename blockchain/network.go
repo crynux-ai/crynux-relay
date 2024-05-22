@@ -2,7 +2,6 @@ package blockchain
 
 import (
 	"context"
-	"errors"
 	"math/big"
 	"sync"
 
@@ -89,23 +88,6 @@ func GetAllNodesData(startIndex, endIndex int) ([]NodeData, error) {
 	netstatsInstance, err := GetNetstatsContractInstance()
 	if err != nil {
 		return nil, err
-	}
-
-	allNode, err := netstatsInstance.TotalNodes(&bind.CallOpts{
-		Pending: false,
-		Context: context.Background(),
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	if allNode.Cmp(big.NewInt(int64(startIndex))) <= 0 {
-		return nil, errors.New("start index out of range")
-	}
-
-	if allNode.Cmp(big.NewInt(int64(endIndex))) < 0 {
-		endIndex = int(allNode.Int64())
 	}
 
 	allNodeInfos, err := netstatsInstance.GetAllNodeInfo(&bind.CallOpts{

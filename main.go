@@ -33,6 +33,7 @@ func main() {
 
 	startDBMigration()
 
+	go tasks.StartSyncNetwork()
 	go tasks.StartSyncBlock()
 
 	startServer()

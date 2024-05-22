@@ -48,9 +48,13 @@ func InitDB(appConfig *AppConfig) error {
 		return err
 	}
 
-	sqlDB.SetMaxIdleConns(20)
-	sqlDB.SetMaxOpenConns(100)
-	sqlDB.SetConnMaxLifetime(5 * time.Second)
+	if appConfig.Db.Driver == "sqlite" {
+		sqlDB.SetMaxOpenConns(1)
+	} else {
+		sqlDB.SetMaxIdleConns(20)
+		sqlDB.SetMaxOpenConns(100)
+		sqlDB.SetConnMaxLifetime(5 * time.Second)
+	}
 
 	db = instance
 

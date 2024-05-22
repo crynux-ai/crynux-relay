@@ -40,6 +40,7 @@ func init() {
 		print(err.Error())
 		os.Exit(1)
 	}
+	
 
 	appConfig := config.GetConfig()
 

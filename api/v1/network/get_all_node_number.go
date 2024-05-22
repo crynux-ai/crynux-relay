@@ -2,15 +2,15 @@ package network
 
 import (
 	"crynux_relay/api/v1/response"
-	"crynux_relay/blockchain"
-	"math/big"
+	"crynux_relay/config"
+	"crynux_relay/models"
 
 	"github.com/gin-gonic/gin"
 )
 
 type AllNodeNumber struct {
-	AllNodes  *big.Int `json:"all_nodes"`
-	BusyNodes *big.Int `json:"busy_nodes"`
+	AllNodes  uint64 `json:"all_nodes"`
+	BusyNodes uint64 `json:"busy_nodes"`
 }
 
 type GetAllNodeNumberResponse struct {
@@ -20,16 +20,16 @@ type GetAllNodeNumberResponse struct {
 
 func GetAllNodeNumber(_ *gin.Context) (*GetAllNodeNumberResponse, error) {
 
-	busyNodes, allNodes, err := blockchain.GetAllNodesNumber()
-
-	if err != nil {
+	var nodeNumber models.NetworkNodeNumber
+	if err := config.GetDB().Model(&models.NetworkNodeNumber{}).First(&nodeNumber).Error; err != nil {
 		return nil, response.NewExceptionResponse(err)
+
 	}
 
 	return &GetAllNodeNumberResponse{
 		Data: &AllNodeNumber{
-			AllNodes:  allNodes,
-			BusyNodes: busyNodes,
+			AllNodes:  nodeNumber.AllNodes,
+			BusyNodes: nodeNumber.BusyNodes,
 		},
 	}, nil
 }

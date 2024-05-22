@@ -2,7 +2,8 @@ package network
 
 import (
 	"crynux_relay/api/v1/response"
-	"crynux_relay/blockchain"
+	"crynux_relay/config"
+	"crynux_relay/models"
 
 	"github.com/gin-gonic/gin"
 )
@@ -14,14 +15,13 @@ type GetAllNodesDataParams struct {
 
 type GetAllNodesDataResponse struct {
 	response.Response
-	Data []blockchain.NodeData `json:"data"`
+	Data []models.NetworkNodeData `json:"data"`
 }
 
 func GetAllNodeData(_ *gin.Context, in *GetAllNodesDataParams) (*GetAllNodesDataResponse, error) {
 
-	allNodeData, err := blockchain.GetAllNodesData(in.Start, in.Start+in.Total)
-
-	if err != nil {
+	var allNodeData []models.NetworkNodeData
+	if err := config.GetDB().Model(&models.NetworkNodeData{}).Order("id ASC").Limit(in.Total).Offset(in.Start).Find(&allNodeData).Error; err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 
