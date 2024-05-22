@@ -22,14 +22,14 @@ func StartSyncNetworkWithTerminalChannel(ch <-chan int) {
 		default:
 			SyncNetwork()
 		}
-		time.Sleep(1 * time.Second)
+		time.Sleep(60 * time.Second)
 	}
 }
 
 func StartSyncNetwork() {
 	for {
 		SyncNetwork()
-		time.Sleep(1 * time.Second)
+		time.Sleep(60 * time.Second)
 	}
 }
 
