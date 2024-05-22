@@ -4,8 +4,10 @@ import (
 	"crynux_relay/api/v1/response"
 	"crynux_relay/config"
 	"crynux_relay/models"
+	"errors"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type AllNodeNumber struct {
@@ -22,8 +24,9 @@ func GetAllNodeNumber(_ *gin.Context) (*GetAllNodeNumberResponse, error) {
 
 	var nodeNumber models.NetworkNodeNumber
 	if err := config.GetDB().Model(&models.NetworkNodeNumber{}).First(&nodeNumber).Error; err != nil {
-		return nil, response.NewExceptionResponse(err)
-
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, response.NewExceptionResponse(err)
+		}
 	}
 
 	return &GetAllNodeNumberResponse{
