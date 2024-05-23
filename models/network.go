@@ -15,13 +15,16 @@ type BigInt struct {
 
 
 func (i *BigInt) Scan(val interface{}) error {
-	intStr, ok := val.(string)
-	if !ok {
-		intBytes, ok := val.([]rune)
-		if !ok {
-			return errors.New(fmt.Sprint("Unable to convert BigInt value to string: ", val))
-		}
-		intStr = string(intBytes)
+	var intStr string
+	switch v := val.(type) {
+	case string:
+		intStr = v
+	case []byte:
+		intStr = string(v)
+	case nil:
+		return nil
+	default:
+		return errors.New(fmt.Sprint("Unable to convert BigInt value to string: ", val))
 	}
 
 	_, success := i.SetString(intStr, 10)
