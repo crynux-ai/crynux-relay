@@ -4,7 +4,6 @@ import (
 	"crynux_relay/blockchain"
 	"crynux_relay/config"
 	"crynux_relay/models"
-	"sync/atomic"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -85,9 +84,6 @@ func SyncNetwork() error {
 			return err
 		}
 
-		errCh := make(chan error, len(nodeDatas))
-		var respCount atomic.Uint32
-
 		for _, data := range nodeDatas {
 			nodeData := models.NetworkNodeData{
 				Address:   data.Address,
@@ -95,22 +91,9 @@ func SyncNetwork() error {
 				VRam:      data.VRam,
 				Balance:   models.BigInt{Int: *data.Balance},
 			}
-			go func() {
-				if err := config.GetDB().Model(&nodeData).Where("address = ?", nodeData.Address).Attrs(nodeData).FirstOrCreate(&models.NetworkNodeData{}).Error; err != nil {
-					log.Errorln("error updating NetworkNodeData")
-					log.Error(err)
-					errCh <- err
-				}
-				errCh <- nil
-				cnt := respCount.Add(1)
-				if int(cnt) == len(nodeDatas) {
-					close(errCh)
-				}
-			}()
-		}
-
-		for err := range errCh {
-			if err != nil {
+			if err := config.GetDB().Model(&nodeData).Where("address = ?", nodeData.Address).Attrs(nodeData).FirstOrCreate(&models.NetworkNodeData{}).Error; err != nil {
+				log.Errorln("error updating NetworkNodeData")
+				log.Error(err)
 				return err
 			}
 		}

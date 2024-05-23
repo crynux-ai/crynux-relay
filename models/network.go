@@ -17,7 +17,11 @@ type BigInt struct {
 func (i *BigInt) Scan(val interface{}) error {
 	intStr, ok := val.(string)
 	if !ok {
-		return errors.New(fmt.Sprint("Unable to convert BigInt value to string: ", val))
+		intBytes, ok := val.([]rune)
+		if !ok {
+			return errors.New(fmt.Sprint("Unable to convert BigInt value to string: ", val))
+		}
+		intStr = string(intBytes)
 	}
 
 	_, success := i.SetString(intStr, 10)
