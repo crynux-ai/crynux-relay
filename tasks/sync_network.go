@@ -45,7 +45,7 @@ func SyncNetwork() error {
 		AllNodes:  allNodes.Uint64(),
 	}
 
-	if err := config.GetDB().Model(&nodeNumber).Where("id = ?", 1).Attrs(nodeNumber).FirstOrCreate(&models.NetworkNodeNumber{}).Error; err != nil {
+	if err := config.GetDB().Model(&nodeNumber).Where("id = ?", 1).Assign(nodeNumber).FirstOrCreate(&models.NetworkNodeNumber{}).Error; err != nil {
 		log.Errorln("error update NetworkNodeNumber")
 		log.Error(err)
 		return err
@@ -64,7 +64,7 @@ func SyncNetwork() error {
 		QueuedTasks:  queuedTasks.Uint64(),
 	}
 
-	if err := config.GetDB().Model(&taskNumber).Where("id = ?", 1).Attrs(taskNumber).FirstOrCreate(&models.NetworkTaskNumber{}).Error; err != nil {
+	if err := config.GetDB().Model(&taskNumber).Where("id = ?", 1).Assign(taskNumber).FirstOrCreate(&models.NetworkTaskNumber{}).Error; err != nil {
 		log.Errorln("error update NetworkNodeNumber")
 		log.Error(err)
 		return err
@@ -91,7 +91,7 @@ func SyncNetwork() error {
 				VRam:      data.VRam,
 				Balance:   models.BigInt{Int: *data.Balance},
 			}
-			if err := config.GetDB().Model(&nodeData).Where("address = ?", nodeData.Address).Attrs(nodeData).FirstOrCreate(&models.NetworkNodeData{}).Error; err != nil {
+			if err := config.GetDB().Model(&nodeData).Where("address = ?", nodeData.Address).Assign(nodeData).FirstOrCreate(&models.NetworkNodeData{}).Error; err != nil {
 				log.Errorln("error updating NetworkNodeData")
 				log.Error(err)
 				return err
