@@ -50,6 +50,10 @@ func GetTaskById(_ *gin.Context, in *GetTaskInputWithSignature) (*TaskResponse, 
 		return nil, response.NewValidationErrorResponse("task_id", "Task not ready")
 	}
 
+	if len(task.SelectedNodes) < 3 {
+		return nil, response.NewValidationErrorResponse("task_id", "Task not ready")
+	}
+
 	if task.Creator == address {
 		return &TaskResponse{Data: task}, nil
 	}
