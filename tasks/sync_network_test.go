@@ -32,6 +32,16 @@ func getTaskNumber() (*models.NetworkTaskNumber, error) {
 	return &taskNumber, nil
 }
 
+func getNetworkFLOPS() (*models.NetworkFLOPS, error) {
+	var flops models.NetworkFLOPS
+	if err := config.GetDB().Model(&models.NetworkFLOPS{}).First(&flops).Error; err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
+	}
+	return &flops, nil
+}
+
 func getAllNodeDatas(count int) ([]models.NetworkNodeData, error) {
 	step := 100
 	var allNodeDatas []models.NetworkNodeData
@@ -59,6 +69,12 @@ func TestSyncNetWork(t *testing.T) {
 	}
 	assert.Equal(t, int(taskNumber.TotalTasks), 0)
 
+	flops, err := getNetworkFLOPS()
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, int(flops.GFLOPS), 0)
+
 	allNodeDatas, err := getAllNodeDatas(100)
 	if err != nil {
 		t.Fatal(err)
@@ -82,6 +98,12 @@ func TestSyncNetWork(t *testing.T) {
 		t.Fatal(err)
 	}
 	assert.GreaterOrEqual(t, int(taskNumber.TotalTasks), 0)
+
+	flops, err = getNetworkFLOPS()
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Greater(t, flops.GFLOPS, float64(0))
 
 	allNodeDatas, err = getAllNodeDatas(int(nodeNumber.AllNodes))
 	if err != nil {

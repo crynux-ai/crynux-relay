@@ -71,6 +71,7 @@ func SyncNetwork() error {
 	}
 
 	step := 100
+	var totalGFLOPS float64 = 0
 	for start := 0; start < int(allNodes.Int64()); start += step {
 		end := start + step
 		if end > int(allNodes.Int64()) {
@@ -91,12 +92,20 @@ func SyncNetwork() error {
 				VRam:      data.VRam,
 				Balance:   models.BigInt{Int: *data.Balance},
 			}
+			totalGFLOPS += models.GetGPUGFLOPS(data.CardModel)
 			if err := config.GetDB().Model(&nodeData).Where("address = ?", nodeData.Address).Assign(nodeData).FirstOrCreate(&models.NetworkNodeData{}).Error; err != nil {
 				log.Errorln("error updating NetworkNodeData")
 				log.Error(err)
 				return err
 			}
 		}
+	}
+
+	networkFLOPS := models.NetworkFLOPS{GFLOPS: totalGFLOPS}
+	if err := config.GetDB().Model(&networkFLOPS).Where("id = ?", 1).Assign(networkFLOPS).FirstOrCreate(&models.NetworkFLOPS{}).Error; err != nil {
+		log.Errorln("error updating NetworkFLOPS")
+		log.Error(err)
+		return err
 	}
 	return nil
 }
