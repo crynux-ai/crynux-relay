@@ -54,5 +54,8 @@ func InitRoutes(r *fizz.Fizz) {
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(network.GetAllTaskNumber, 200))
 
-
+	networkGroup.GET("", []fizz.OperationOption{
+		fizz.Summary("Get total TFLOPS of the network"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(network.GetNetworkTFLOPS, 200))
 }
