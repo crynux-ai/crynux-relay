@@ -4,6 +4,7 @@ import (
 	"crynux_relay/api/v1/inference_tasks"
 	"crynux_relay/api/v1/network"
 	"crynux_relay/api/v1/response"
+	"crynux_relay/api/v1/time"
 
 	"github.com/loopfz/gadgeto/tonic"
 	"github.com/wI2L/fizz"
@@ -12,6 +13,11 @@ import (
 func InitRoutes(r *fizz.Fizz) {
 
 	v1g := r.Group("v1", "ApiV1", "API version 1")
+
+	v1g.GET("now", []fizz.OperationOption{
+		fizz.Summary("Get current unix timestamp of server"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(time.GetNow, 200))
 
 	tasksGroup := v1g.Group("inference_tasks", "Inference tasks", "Inference tasks related APIs")
 
