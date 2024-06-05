@@ -1,5 +1,7 @@
 package response
 
+import "fmt"
+
 type ValidationErrorResponse struct {
 	ErrorResponse
 
@@ -23,6 +25,10 @@ func (ver *ValidationErrorResponse) GetFieldName() string {
 
 func (ver *ValidationErrorResponse) GetFieldMessage() string {
 	return ver.Data.Message
+}
+
+func (ver *ValidationErrorResponse) Error() string {
+	return fmt.Sprintf("%s %s: %s", ver.GetErrorType(), ver.GetFieldName(), ver.GetFieldMessage())
 }
 
 func NewValidationErrorResponse(fieldName, fieldMessage string) *ValidationErrorResponse {
