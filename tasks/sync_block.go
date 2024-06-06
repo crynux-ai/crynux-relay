@@ -7,7 +7,6 @@ import (
 	"crynux_relay/models"
 	"errors"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -111,59 +110,28 @@ func processChannel(syncedBlock *models.SyncedBlock) {
 			" / " +
 			strconv.FormatUint(latestBlockNum, 10))
 
-		errCh := make(chan error, 4)
+		if err := processTaskPending(start, end); err != nil {
+			log.Errorf("processing task pending error: %v", err)
+			time.Sleep(time.Duration(interval) * time.Second)
+			return
+		}
 
-		var wg sync.WaitGroup
+		if err := processTaskStarted(start, end); err != nil {
+			log.Errorf("processing task started error: %v", err)
+			time.Sleep(time.Duration(interval) * time.Second)
+			return
+		}
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			err := processTaskPending(start, end)
-			if err != nil {
-				log.Errorln(err)
-			}
-			errCh <- err
-		}()
+		if err := processTaskSuccess(start, end); err != nil {
+			log.Errorf("processing task success error: %v", err)
+			time.Sleep(time.Duration(interval) * time.Second)
+			return
+		}
 
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			err := processTaskStarted(start, end)
-			if err != nil {
-				log.Errorln(err)
-			}
-			errCh <- err
-		}()
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			err := processTaskSuccess(start, end)
-			if err != nil {
-				log.Errorln(err)
-			}
-			errCh <- err
-		}()
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			err := processTaskAborted(start, end)
-			if err != nil {
-				log.Errorln(err)
-			}
-			errCh <- err
-		}()
-
-		go func()  {
-			wg.Wait()
-			close(errCh)
-		}()
-
-		for err := range errCh {
-			if err != nil {
-				return
-			}
+		if err := processTaskAborted(start, end); err != nil {
+			log.Errorf("processing task aborted error: %v", err)
+			time.Sleep(time.Duration(interval) * time.Second)
+			return
 		}
 
 		oldNum := syncedBlock.BlockNumber
@@ -294,10 +262,33 @@ func processTaskStarted(startBlockNum, endBlockNum uint64) error {
 		}
 
 		association := config.GetDB().Model(task).Association("SelectedNodes")
-
-		if err := association.Append(selectedNodes); err != nil {
-			return nil
+		var existSelectedNodes []models.SelectedNode
+		if err := association.Find(&existSelectedNodes); err != nil {
+			return err
 		}
+		if len(existSelectedNodes) == 0 {
+			if err := association.Append(selectedNodes); err != nil {
+				return err
+			}
+		} else {
+			existNodeAddresses := make(map[string]interface{})
+			for _, node := range existSelectedNodes {
+				existNodeAddresses[node.NodeAddress] = nil
+			}
+			
+			var newSelectedNodes []*models.SelectedNode
+			for _, node := range selectedNodes {
+				_, ok := existNodeAddresses[node.NodeAddress]
+				if !ok {
+					newSelectedNodes = append(newSelectedNodes, node)
+				}
+			}
+
+			if err := association.Append(newSelectedNodes); err != nil {
+				return err
+			}
+		}
+
 	}
 
 	return nil
@@ -343,6 +334,10 @@ func processTaskSuccess(startBlockNum, endBlockNum uint64) error {
 
 		if err := config.GetDB().Where(task).First(task).Error; err != nil {
 			return err
+		}
+
+		if task.Status != models.InferenceTaskParamsUploaded {
+			continue
 		}
 
 		selectedNode := &models.SelectedNode{
@@ -407,6 +402,10 @@ func processTaskAborted(startBlockNum, endBlockNum uint64) error {
 
 		if err := config.GetDB().Where(task).First(task).Error; err != nil {
 			return err
+		}
+
+		if task.Status == models.InferenceTaskResultsUploaded {
+			continue
 		}
 
 		task.Status = models.InferenceTaskAborted
