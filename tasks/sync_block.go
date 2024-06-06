@@ -235,7 +235,7 @@ func processTaskStarted(startBlockNum, endBlockNum uint64) error {
 
 	defer taskStartedEventIterator.Close()
 
-	taskStartedEvents := make(map[uint64][]*models.SelectedNode)
+	taskStartedEvents := make(map[uint64][]models.SelectedNode)
 
 	for {
 		if !taskStartedEventIterator.Next() {
@@ -251,7 +251,7 @@ func processTaskStarted(startBlockNum, endBlockNum uint64) error {
 			"|" + string(taskStarted.DataHash[:]))
 
 		taskId := taskStarted.TaskId.Uint64()
-		taskStartedEvents[taskId] = append(taskStartedEvents[taskId], &models.SelectedNode{NodeAddress: taskStarted.SelectedNode.Hex()})
+		taskStartedEvents[taskId] = append(taskStartedEvents[taskId], models.SelectedNode{NodeAddress: taskStarted.SelectedNode.Hex()})
 	}
 
 	for taskId, selectedNodes := range taskStartedEvents {
@@ -261,13 +261,12 @@ func processTaskStarted(startBlockNum, endBlockNum uint64) error {
 			return err
 		}
 
-		association := config.GetDB().Model(task).Association("SelectedNodes")
 		var existSelectedNodes []models.SelectedNode
-		if err := association.Find(&existSelectedNodes); err != nil {
+		if err := config.GetDB().Model(task).Association("SelectedNodes").Find(&existSelectedNodes); err != nil {
 			return err
 		}
 		if len(existSelectedNodes) == 0 {
-			if err := association.Append(selectedNodes); err != nil {
+			if err := config.GetDB().Model(task).Association("SelectedNodes").Append(selectedNodes); err != nil {
 				return err
 			}
 		} else {
@@ -276,7 +275,7 @@ func processTaskStarted(startBlockNum, endBlockNum uint64) error {
 				existNodeAddresses[node.NodeAddress] = nil
 			}
 			
-			var newSelectedNodes []*models.SelectedNode
+			var newSelectedNodes []models.SelectedNode
 			for _, node := range selectedNodes {
 				_, ok := existNodeAddresses[node.NodeAddress]
 				if !ok {
@@ -284,7 +283,7 @@ func processTaskStarted(startBlockNum, endBlockNum uint64) error {
 				}
 			}
 
-			if err := association.Append(newSelectedNodes); err != nil {
+			if err := config.GetDB().Model(task).Association("SelectedNodes").Append(newSelectedNodes); err != nil {
 				return err
 			}
 		}
