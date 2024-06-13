@@ -33,7 +33,7 @@ func StartSyncNetwork() {
 }
 
 func SyncNetwork() error {
-	busyNodes, allNodes, err := blockchain.GetAllNodesNumber()
+	busyNodes, allNodes, activeNodes, err := blockchain.GetAllNodesNumber()
 	if err != nil {
 		log.Errorln("error getting all nodes number from blockchain")
 		log.Error(err)
@@ -43,6 +43,7 @@ func SyncNetwork() error {
 	nodeNumber := models.NetworkNodeNumber{
 		BusyNodes: busyNodes.Uint64(),
 		AllNodes:  allNodes.Uint64(),
+		ActiveNodes: activeNodes.Uint64(),
 	}
 
 	if err := config.GetDB().Model(&nodeNumber).Where("id = ?", 1).Assign(nodeNumber).FirstOrCreate(&models.NetworkNodeNumber{}).Error; err != nil {

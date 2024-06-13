@@ -43,6 +43,7 @@ type NetworkNodeNumber struct {
 	gorm.Model
 	AllNodes  uint64 `json:"all_nodes"`
 	BusyNodes uint64 `json:"busy_nodes"`
+	ActiveNodes uint64 `json:"active_nodes"`
 }
 
 type NetworkTaskNumber struct {

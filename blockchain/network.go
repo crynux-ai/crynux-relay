@@ -9,10 +9,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-func GetAllNodesNumber() (busyNodes *big.Int, allNodes *big.Int, err error) {
+func GetAllNodesNumber() (busyNodes *big.Int, allNodes *big.Int, activeNodes *big.Int, err error) {
 	netstatsInstance, err := GetNetstatsContractInstance()
 	if err != nil {
-		return big.NewInt(0), big.NewInt(0), err
+		return big.NewInt(0), big.NewInt(0), big.NewInt(0), err
 	}
 
 	allNodes, err = netstatsInstance.TotalNodes(&bind.CallOpts{
@@ -21,7 +21,7 @@ func GetAllNodesNumber() (busyNodes *big.Int, allNodes *big.Int, err error) {
 	})
 
 	if err != nil {
-		return big.NewInt(0), big.NewInt(0), err
+		return big.NewInt(0), big.NewInt(0), big.NewInt(0), err
 	}
 
 	busyNodes, err = netstatsInstance.BusyNodes(&bind.CallOpts{
@@ -30,10 +30,19 @@ func GetAllNodesNumber() (busyNodes *big.Int, allNodes *big.Int, err error) {
 	})
 
 	if err != nil {
-		return big.NewInt(0), big.NewInt(0), err
+		return big.NewInt(0), big.NewInt(0),big.NewInt(0), err
 	}
 
-	return busyNodes, allNodes, nil
+	activeNodes, err = netstatsInstance.ActiveNodes(&bind.CallOpts{
+		Pending: false,
+		Context: context.Background(),
+	})
+
+	if err != nil {
+		return big.NewInt(0), big.NewInt(0),big.NewInt(0), err
+	}
+
+	return busyNodes, allNodes, activeNodes, nil
 }
 
 func GetAllTasksNumber() (totalTasks *big.Int, runningTasks *big.Int, queuedTasks *big.Int, err error) {
