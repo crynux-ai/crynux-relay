@@ -12,7 +12,7 @@ func M20240613(db *gorm.DB) *gormigrate.Gormigrate {
 		
 	return gormigrate.New(db, gormigrate.DefaultOptions, []*gormigrate.Migration{
 		{
-			ID: "M20240530",
+			ID: "M20240613",
 			Migrate: func(tx *gorm.DB) error {
 
 				if err := tx.Migrator().AddColumn(&NetworkNodeNumber{}, "ActiveNodes"); err != nil {
