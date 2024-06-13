@@ -62,6 +62,7 @@ func TestSyncNetWork(t *testing.T) {
 	}
 	assert.Equal(t, int(nodeNumber.AllNodes), 0)
 	assert.Equal(t, int(nodeNumber.BusyNodes), 0)
+	assert.Equal(t, int(nodeNumber.ActiveNodes), 0)
 
 	taskNumber, err := getTaskNumber()
 	if err != nil {
@@ -92,6 +93,7 @@ func TestSyncNetWork(t *testing.T) {
 	}
 	assert.GreaterOrEqual(t, int(nodeNumber.AllNodes), 0)
 	assert.GreaterOrEqual(t, int(nodeNumber.BusyNodes), 0)
+	assert.GreaterOrEqual(t, int(nodeNumber.ActiveNodes), 0)
 
 	taskNumber, err = getTaskNumber()
 	if err != nil {

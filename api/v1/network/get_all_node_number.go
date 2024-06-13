@@ -13,6 +13,7 @@ import (
 type AllNodeNumber struct {
 	AllNodes  uint64 `json:"all_nodes"`
 	BusyNodes uint64 `json:"busy_nodes"`
+	ActiveNodes uint64 `json:"active_nodes"`
 }
 
 type GetAllNodeNumberResponse struct {
@@ -33,6 +34,7 @@ func GetAllNodeNumber(_ *gin.Context) (*GetAllNodeNumberResponse, error) {
 		Data: &AllNodeNumber{
 			AllNodes:  nodeNumber.AllNodes,
 			BusyNodes: nodeNumber.BusyNodes,
+			ActiveNodes: nodeNumber.ActiveNodes,
 		},
 	}, nil
 }
