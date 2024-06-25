@@ -30,7 +30,7 @@ func GetAllNodesNumber() (busyNodes *big.Int, allNodes *big.Int, activeNodes *bi
 	})
 
 	if err != nil {
-		return big.NewInt(0), big.NewInt(0),big.NewInt(0), err
+		return big.NewInt(0), big.NewInt(0), big.NewInt(0), err
 	}
 
 	activeNodes, err = netstatsInstance.ActiveNodes(&bind.CallOpts{
@@ -39,7 +39,7 @@ func GetAllNodesNumber() (busyNodes *big.Int, allNodes *big.Int, activeNodes *bi
 	})
 
 	if err != nil {
-		return big.NewInt(0), big.NewInt(0),big.NewInt(0), err
+		return big.NewInt(0), big.NewInt(0), big.NewInt(0), err
 	}
 
 	return busyNodes, allNodes, activeNodes, nil
@@ -86,6 +86,7 @@ type NodeData struct {
 	CardModel string   `json:"card_model"`
 	VRam      int      `json:"v_ram"`
 	Balance   *big.Int `json:"balance"`
+	Active    bool     `json:"active"`
 }
 
 func GetAllNodesData(startIndex, endIndex int) ([]NodeData, error) {
@@ -95,6 +96,11 @@ func GetAllNodesData(startIndex, endIndex int) ([]NodeData, error) {
 	}
 
 	netstatsInstance, err := GetNetstatsContractInstance()
+	if err != nil {
+		return nil, err
+	}
+
+	nodeContractInstance, err := GetNodeContractInstance()
 	if err != nil {
 		return nil, err
 	}
@@ -127,6 +133,18 @@ func GetAllNodesData(startIndex, endIndex int) ([]NodeData, error) {
 
 			if err != nil {
 				return
+			}
+
+			status, err := nodeContractInstance.GetNodeStatus(&bind.CallOpts{
+				Pending: false,
+				Context: context.Background(),
+			}, nodeAddress)
+			if err != nil {
+				return
+			}
+
+			if status.Cmp(big.NewInt(0)) != 0 {
+				nodeData[idx].Active = true
 			}
 
 			nodeData[idx].Balance = balance
