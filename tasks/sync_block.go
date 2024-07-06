@@ -6,11 +6,12 @@ import (
 	"crynux_relay/config"
 	"crynux_relay/models"
 	"errors"
+	"math/big"
 	"strconv"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
@@ -70,7 +71,6 @@ func getSyncedBlock() (*models.SyncedBlock, error) {
 func processChannel(syncedBlock *models.SyncedBlock) {
 
 	interval := 1
-	batchSize := uint64(500)
 
 	client, err := blockchain.GetRpcClient()
 	if err != nil {
@@ -95,54 +95,56 @@ func processChannel(syncedBlock *models.SyncedBlock) {
 
 	log.Debugln("new block received: " + strconv.FormatUint(latestBlockNum, 10))
 
-	for start := syncedBlock.BlockNumber + 1; start <= latestBlockNum; start += batchSize {
+	for start := syncedBlock.BlockNumber + 1; start <= latestBlockNum; start += 1 {
+		log.Debugf("processing block %d", start)
 
-		end := start + batchSize - 1
-
-		if end > latestBlockNum {
-			end = latestBlockNum
+		block, err := client.BlockByNumber(context.Background(), big.NewInt(int64(start)))
+		if err != nil {
+			log.Errorf("get block %d error: %v", start, err)
+			time.Sleep(time.Duration(interval) * time.Second)
+			return
 		}
 
-		log.Debugln("processing blocks from " +
-			strconv.FormatUint(start, 10) +
-			" to " +
-			strconv.FormatUint(end, 10) +
-			" / " +
-			strconv.FormatUint(latestBlockNum, 10))
+		var receipts []*types.Receipt
+		for _, tx := range block.Transactions() {
+			receipt, err := client.TransactionReceipt(context.Background(), tx.Hash())
+			if err != nil {
+				log.Errorf("get transaction receipt of tx %s err: %v", tx.Hash().Hex(), err)
+				time.Sleep(time.Duration(interval) * time.Second)
+				return
+			}
+			receipts = append(receipts, receipt)
+		}
 
-		if err := processTaskPending(start, end); err != nil {
+		if err := processTaskPending(receipts); err != nil {
 			log.Errorf("processing task pending error: %v", err)
 			time.Sleep(time.Duration(interval) * time.Second)
 			return
 		}
 
-		if err := processTaskStarted(start, end); err != nil {
+		if err := processTaskStarted(receipts); err != nil {
 			log.Errorf("processing task started error: %v", err)
 			time.Sleep(time.Duration(interval) * time.Second)
 			return
 		}
 
-		if err := processTaskSuccess(start, end); err != nil {
+		if err := processTaskSuccess(receipts); err != nil {
 			log.Errorf("processing task success error: %v", err)
 			time.Sleep(time.Duration(interval) * time.Second)
 			return
 		}
 
-		if err := processTaskAborted(start, end); err != nil {
+		if err := processTaskAborted(receipts); err != nil {
 			log.Errorf("processing task aborted error: %v", err)
 			time.Sleep(time.Duration(interval) * time.Second)
 			return
 		}
 
 		oldNum := syncedBlock.BlockNumber
-		syncedBlock.BlockNumber = end
+		syncedBlock.BlockNumber = start
 		if err := config.GetDB().Save(syncedBlock).Error; err != nil {
 			syncedBlock.BlockNumber = oldNum
 			log.Errorln(err)
-			time.Sleep(time.Duration(interval) * time.Second)
-		}
-
-		if end != latestBlockNum {
 			time.Sleep(time.Duration(interval) * time.Second)
 		}
 	}
@@ -150,113 +152,85 @@ func processChannel(syncedBlock *models.SyncedBlock) {
 	time.Sleep(time.Duration(interval) * time.Second)
 }
 
-func processTaskPending(startBlockNum, endBlockNum uint64) error {
+func processTaskPending(receipts []*types.Receipt) error {
 	taskContractInstance, err := blockchain.GetTaskContractInstance()
 	if err != nil {
 		return err
 	}
 
-	taskPendingEventIterator, err := taskContractInstance.FilterTaskPending(
-		&bind.FilterOpts{
-			Start:   startBlockNum,
-			End:     &endBlockNum,
-			Context: context.Background(),
-		},
-		nil,
-	)
+	for _, receipt := range receipts {
+		for _, rLog := range receipt.Logs {
+			taskPending, err := taskContractInstance.ParseTaskPending(*rLog)
+			if err != nil {
+				continue
+			}
 
-	if err != nil {
-		return err
-	}
+			log.Debugln("Task pending on chain: " +
+				taskPending.TaskId.String() +
+				"|" + taskPending.Creator.Hex() +
+				"|" + string(taskPending.TaskHash[:]) +
+				"|" + string(taskPending.DataHash[:]))
 
-	defer taskPendingEventIterator.Close()
+			task := &models.InferenceTask{}
 
-	for {
-		if !taskPendingEventIterator.Next() {
-			break
+			query := &models.InferenceTask{
+				TaskId: taskPending.TaskId.Uint64(),
+			}
+
+			taskOnChain, err := blockchain.GetTaskById(taskPending.TaskId.Uint64())
+			if err != nil {
+				return err
+			}
+
+			attributes := &models.InferenceTask{
+				Creator:   taskPending.Creator.Hex(),
+				TaskHash:  hexutil.Encode(taskPending.TaskHash[:]),
+				DataHash:  hexutil.Encode(taskPending.DataHash[:]),
+				Status:    models.InferenceTaskCreatedOnChain,
+				TaskType:  models.ChainTaskType(taskPending.TaskType.Int64()),
+				VramLimit: taskOnChain.VramLimit.Uint64(),
+			}
+
+			if err := config.GetDB().Where(query).Attrs(attributes).FirstOrCreate(task).Error; err != nil {
+				return err
+			}
 		}
 
-		taskPending := taskPendingEventIterator.Event
-
-		log.Debugln("Task pending on chain: " +
-			taskPending.TaskId.String() +
-			"|" + taskPending.Creator.Hex() +
-			"|" + string(taskPending.TaskHash[:]) +
-			"|" + string(taskPending.DataHash[:]))
-
-		task := &models.InferenceTask{}
-
-		query := &models.InferenceTask{
-			TaskId: taskPending.TaskId.Uint64(),
-		}
-
-		taskOnChain, err := blockchain.GetTaskById(taskPending.TaskId.Uint64())
-		if err != nil {
-			return err
-		}
-
-		attributes := &models.InferenceTask{
-			Creator:   taskPending.Creator.Hex(),
-			TaskHash:  hexutil.Encode(taskPending.TaskHash[:]),
-			DataHash:  hexutil.Encode(taskPending.DataHash[:]),
-			Status:    models.InferenceTaskCreatedOnChain,
-			TaskType:  models.ChainTaskType(taskPending.TaskType.Int64()),
-			VramLimit: taskOnChain.VramLimit.Uint64(),
-		}
-
-		if err := config.GetDB().Where(query).Attrs(attributes).FirstOrCreate(task).Error; err != nil {
-			return err
-		}
 	}
 
 	return nil
 }
 
-func processTaskStarted(startBlockNum, endBlockNum uint64) error {
+func processTaskStarted(receipts []*types.Receipt) error {
 
 	taskContractInstance, err := blockchain.GetTaskContractInstance()
 	if err != nil {
 		return err
 	}
 
-	taskStartedEventIterator, err := taskContractInstance.FilterTaskStarted(
-		&bind.FilterOpts{
-			Start:   startBlockNum,
-			End:     &endBlockNum,
-			Context: context.Background(),
-		},
-		nil,
-		nil,
-	)
-
-	if err != nil {
-		return err
-	}
-
-	defer taskStartedEventIterator.Close()
-
 	taskStartedEvents := make(map[uint64][]models.SelectedNode)
 
-	for {
-		if !taskStartedEventIterator.Next() {
-			break
+	for _, receipt := range receipts {
+		for _, rLog := range receipt.Logs {
+			taskStarted, err := taskContractInstance.ParseTaskStarted(*rLog)
+			if err != nil {
+				continue
+			}
+
+			log.Debugln("Task created on chain: " +
+				taskStarted.TaskId.String() +
+				"|" + taskStarted.Creator.Hex() +
+				"|" + string(taskStarted.TaskHash[:]) +
+				"|" + string(taskStarted.DataHash[:]))
+
+			taskId := taskStarted.TaskId.Uint64()
+			taskStartedEvents[taskId] = append(taskStartedEvents[taskId], models.SelectedNode{NodeAddress: taskStarted.SelectedNode.Hex()})
 		}
-
-		taskStarted := taskStartedEventIterator.Event
-
-		log.Debugln("Task created on chain: " +
-			taskStarted.TaskId.String() +
-			"|" + taskStarted.Creator.Hex() +
-			"|" + string(taskStarted.TaskHash[:]) +
-			"|" + string(taskStarted.DataHash[:]))
-
-		taskId := taskStarted.TaskId.Uint64()
-		taskStartedEvents[taskId] = append(taskStartedEvents[taskId], models.SelectedNode{NodeAddress: taskStarted.SelectedNode.Hex()})
 	}
 
 	for taskId, selectedNodes := range taskStartedEvents {
 		task := &models.InferenceTask{TaskId: taskId}
-		
+
 		if err := config.GetDB().Where(task).First(task).Error; err != nil {
 			return err
 		}
@@ -274,7 +248,7 @@ func processTaskStarted(startBlockNum, endBlockNum uint64) error {
 			for _, node := range existSelectedNodes {
 				existNodeAddresses[node.NodeAddress] = nil
 			}
-			
+
 			var newSelectedNodes []models.SelectedNode
 			for _, node := range selectedNodes {
 				_, ok := existNodeAddresses[node.NodeAddress]
@@ -293,124 +267,95 @@ func processTaskStarted(startBlockNum, endBlockNum uint64) error {
 	return nil
 }
 
-func processTaskSuccess(startBlockNum, endBlockNum uint64) error {
+func processTaskSuccess(receipts []*types.Receipt) error {
 	taskContractInstance, err := blockchain.GetTaskContractInstance()
 	if err != nil {
 		return err
 	}
 
-	taskSuccessEventIterator, err := taskContractInstance.FilterTaskSuccess(
-		&bind.FilterOpts{
-			Start:   startBlockNum,
-			End:     &endBlockNum,
-			Context: context.Background(),
-		},
-		nil,
-		nil,
-	)
+	for _, receipt := range receipts {
+		for _, rLog := range receipt.Logs {
+			taskSuccess, err := taskContractInstance.ParseTaskSuccess(*rLog)
+			if err != nil {
+				continue
+			}
 
-	if err != nil {
-		return err
-	}
+			log.Debugln("Task success on chain: " +
+				taskSuccess.TaskId.String() +
+				"|" + string(taskSuccess.Result) +
+				"|" + taskSuccess.ResultNode.Hex())
 
-	defer taskSuccessEventIterator.Close()
+			task := &models.InferenceTask{
+				TaskId: taskSuccess.TaskId.Uint64(),
+			}
 
-	for {
-		if !taskSuccessEventIterator.Next() {
-			break
-		}
+			if err := config.GetDB().Where(task).First(task).Error; err != nil {
+				return err
+			}
 
-		taskSuccess := taskSuccessEventIterator.Event
+			if task.Status != models.InferenceTaskParamsUploaded {
+				continue
+			}
 
-		log.Debugln("Task success on chain: " +
-			taskSuccess.TaskId.String() +
-			"|" + string(taskSuccess.Result) +
-			"|" + taskSuccess.ResultNode.Hex())
+			selectedNode := &models.SelectedNode{
+				InferenceTaskID: task.ID,
+				NodeAddress:     taskSuccess.ResultNode.Hex(),
+			}
 
-		task := &models.InferenceTask{
-			TaskId: taskSuccess.TaskId.Uint64(),
-		}
+			if err := config.GetDB().Where(selectedNode).First(selectedNode).Error; err != nil {
+				return err
+			}
 
-		if err := config.GetDB().Where(task).First(task).Error; err != nil {
-			return err
-		}
+			selectedNode.Result = hexutil.Encode(taskSuccess.Result)
+			selectedNode.IsResultSelected = true
 
-		if task.Status != models.InferenceTaskParamsUploaded {
-			continue
-		}
+			if err := config.GetDB().Model(selectedNode).Select("Result", "IsResultSelected").Updates(selectedNode).Error; err != nil {
+				return err
+			}
 
-		selectedNode := &models.SelectedNode{
-			InferenceTaskID: task.ID,
-			NodeAddress:     taskSuccess.ResultNode.Hex(),
-		}
+			task.Status = models.InferenceTaskPendingResults
 
-		if err := config.GetDB().Where(selectedNode).First(selectedNode).Error; err != nil {
-			return err
-		}
-
-		selectedNode.Result = hexutil.Encode(taskSuccess.Result)
-		selectedNode.IsResultSelected = true
-
-		if err := config.GetDB().Model(selectedNode).Select("Result", "IsResultSelected").Updates(selectedNode).Error; err != nil {
-			return err
-		}
-
-		task.Status = models.InferenceTaskPendingResults
-
-		if err := config.GetDB().Save(task).Error; err != nil {
-			return err
+			if err := config.GetDB().Save(task).Error; err != nil {
+				return err
+			}
 		}
 	}
 
 	return nil
 }
 
-func processTaskAborted(startBlockNum, endBlockNum uint64) error {
+func processTaskAborted(receipts []*types.Receipt) error {
 	taskContractInstance, err := blockchain.GetTaskContractInstance()
 	if err != nil {
 		return err
 	}
 
-	taskAbortedEventIterator, err := taskContractInstance.FilterTaskAborted(
-		&bind.FilterOpts{
-			Start:   startBlockNum,
-			End:     &endBlockNum,
-			Context: context.Background(),
-		},
-		nil,
-	)
+	for _, receipt := range receipts {
+		for _, rLog := range receipt.Logs {
+			taskAborted, err := taskContractInstance.ParseTaskAborted(*rLog)
+			if err != nil {
+				continue
+			}
 
-	if err != nil {
-		return err
-	}
+			log.Debugln("Task aborted on chain: " + taskAborted.TaskId.String())
 
-	defer taskAbortedEventIterator.Close()
+			task := &models.InferenceTask{
+				TaskId: taskAborted.TaskId.Uint64(),
+			}
 
-	for {
-		if !taskAbortedEventIterator.Next() {
-			break
-		}
+			if err := config.GetDB().Where(task).First(task).Error; err != nil {
+				return err
+			}
 
-		taskAborted := taskAbortedEventIterator.Event
+			if task.Status == models.InferenceTaskResultsUploaded {
+				continue
+			}
 
-		log.Debugln("Task aborted on chain: " + taskAborted.TaskId.String())
+			task.Status = models.InferenceTaskAborted
 
-		task := &models.InferenceTask{
-			TaskId: taskAborted.TaskId.Uint64(),
-		}
-
-		if err := config.GetDB().Where(task).First(task).Error; err != nil {
-			return err
-		}
-
-		if task.Status == models.InferenceTaskResultsUploaded {
-			continue
-		}
-
-		task.Status = models.InferenceTaskAborted
-
-		if err := config.GetDB().Save(task).Error; err != nil {
-			return err
+			if err := config.GetDB().Save(task).Error; err != nil {
+				return err
+			}
 		}
 	}
 
