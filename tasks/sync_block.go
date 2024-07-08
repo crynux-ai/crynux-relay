@@ -232,6 +232,9 @@ func processTaskStarted(receipts []*types.Receipt) error {
 		task := &models.InferenceTask{TaskId: taskId}
 
 		if err := config.GetDB().Where(task).First(task).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				continue
+			}
 			return err
 		}
 
@@ -290,6 +293,9 @@ func processTaskSuccess(receipts []*types.Receipt) error {
 			}
 
 			if err := config.GetDB().Where(task).First(task).Error; err != nil {
+				if err == gorm.ErrRecordNotFound {
+					continue
+				}
 				return err
 			}
 
@@ -344,6 +350,9 @@ func processTaskAborted(receipts []*types.Receipt) error {
 			}
 
 			if err := config.GetDB().Where(task).First(task).Error; err != nil {
+				if err == gorm.ErrRecordNotFound {
+					continue
+				}	
 				return err
 			}
 
