@@ -22,7 +22,7 @@ func WorkerJoin(_ *gin.Context, in *WorkerInput) (*response.Response, error) {
 		return nil, response.NewExceptionResponse(err)
 	}
 
-	if err := config.GetDB().Model(&workerCount).Update("count", gorm.Expr("gorm + ?", 1)).Error; err != nil {
+	if err := config.GetDB().Model(&workerCount).Update("count", gorm.Expr("count + ?", 1)).Error; err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 
@@ -41,7 +41,7 @@ func WorkerQuit(_ *gin.Context, in *WorkerInput) (*response.Response, error) {
 		return nil, response.NewExceptionResponse(err)
 	}
 
-	if err := config.GetDB().Model(&workerCount).Update("count", gorm.Expr("gorm - ?", 1)).Error; err != nil {
+	if err := config.GetDB().Model(&workerCount).Update("count", gorm.Expr("count - ?", 1)).Error; err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 
