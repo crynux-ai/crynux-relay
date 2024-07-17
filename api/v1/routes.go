@@ -5,6 +5,7 @@ import (
 	"crynux_relay/api/v1/network"
 	"crynux_relay/api/v1/response"
 	"crynux_relay/api/v1/time"
+	"crynux_relay/api/v1/worker"
 
 	"github.com/loopfz/gadgeto/tonic"
 	"github.com/wI2L/fizz"
@@ -64,4 +65,21 @@ func InitRoutes(r *fizz.Fizz) {
 		fizz.Summary("Get total TFLOPS of the network"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(network.GetNetworkTFLOPS, 200))
+
+	workerGroup := v1g.Group("worker", "worker", "Worker count related APIs")
+
+	workerGroup.POST("/:version", []fizz.OperationOption{
+		fizz.Summary("Called when a worker is up"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(worker.WorkerJoin, 200))
+
+	workerGroup.DELETE("/:version", []fizz.OperationOption{
+		fizz.Summary("Called when a worker is down"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(worker.WorkerQuit, 200))
+
+	workerGroup.GET("/:version/count", []fizz.OperationOption{
+		fizz.Summary("Get worker count of specified version"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(worker.GetWorkerCount, 200))
 }
