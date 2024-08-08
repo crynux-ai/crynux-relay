@@ -4,6 +4,7 @@ import (
 	"crynux_relay/blockchain"
 	"crynux_relay/config"
 	"crynux_relay/models"
+	"encoding/json"
 	"os"
 	"path/filepath"
 
@@ -11,19 +12,22 @@ import (
 )
 
 const GPTResponseStr = `{
-	"model": "gpt2",
-	"choices": [
-		{
-			"finish_reason": "length",
-			"message": {
-				"role": "assistant",
-				"content": '\n\nI have a chat bot, called "Eleanor" which was developed by my team on Skype. '
-				"The only thing I will say is this",
-			},
-			"index": 0,
-		}
-	],
-	"usage": {"prompt_tokens": 11, "completion_tokens": 30, "total_tokens": 41},
+    "model": "gpt2",
+    "choices": [
+        {
+            "finish_reason": "length",
+            "message": {
+                "role": "assistant",
+                "content": "\n\nI have a chat bot, called \"Eleanor\" which was developed by my team on Skype. The only thing I will say is this"
+            },
+            "index": 0
+        }
+    ],
+    "usage": {
+        "prompt_tokens": 11,
+        "completion_tokens": 30,
+        "total_tokens": 41
+    }
 }`
 
 func prepareGPTResponseForTask(task *models.InferenceTask) (string, error) {
@@ -44,11 +48,11 @@ func prepareGPTResponseForTask(task *models.InferenceTask) (string, error) {
 		return "", nil
 	}
 
-	resultFile, err := os.Open(filename)
-	if err != nil {
+	resp := models.GPTTaskResponse{}
+	if err := json.Unmarshal([]byte(GPTResponseStr), &resp); err != nil {
 		return "", nil
 	}
-	h, err := blockchain.GetHashForGPTResponse(resultFile)
+	h, err := blockchain.GetHashForGPTResponse(resp)
 	if err != nil {
 		return "", nil
 	}
