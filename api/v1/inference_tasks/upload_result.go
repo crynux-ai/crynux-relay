@@ -129,7 +129,7 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 
 	fileNum := 0
 	var fileExt string
-	if task.TaskType == models.TaskTypeSD {
+	if task.TaskType == models.TaskTypeSD || task.TaskType == models.TaskTypeSDFT{
 		fileExt = ".png"
 	} else {
 		fileExt = ".json"
@@ -142,6 +142,22 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 		}
 
 		fileNum += 1
+	}
+
+	// store checkpoint of finetune type task
+	if task.TaskType == models.TaskTypeSDFT {
+		checkpointFiles, ok := form.File["checkpoint"]
+		if !ok {
+			return nil, response.NewValidationErrorResponse("checkpoint", "Checkpoint not uploaded")
+		}
+		if len(checkpointFiles) != 1 {
+			return nil, response.NewValidationErrorResponse("checkpoint", "Too many checkpoint files")
+		}
+		checkpointFile := checkpointFiles[0]
+		checkpointFilename := filepath.Join(taskDir, "checkpoint.zip")
+		if err := ctx.SaveUploadedFile(checkpointFile, checkpointFilename); err != nil {
+			return nil, response.NewExceptionResponse(err)
+		}
 	}
 
 	// Update task status

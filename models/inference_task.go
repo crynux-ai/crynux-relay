@@ -22,6 +22,7 @@ type ChainTaskType int
 const (
 	TaskTypeSD ChainTaskType = iota
 	TaskTypeLLM
+	TaskTypeSDFT
 )
 
 type InferenceTask struct {
