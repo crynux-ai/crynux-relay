@@ -186,6 +186,25 @@
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "nodeAddress",
+        "type": "address"
+      }
+    ],
+    "name": "getStakedAmount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "string",
         "name": "gpuName",
         "type": "string"
@@ -249,6 +268,16 @@
         "internalType": "bytes32",
         "name": "seed",
         "type": "bytes32"
+      },
+      {
+        "internalType": "string",
+        "name": "gpuName",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "gpuVram",
+        "type": "uint256"
       }
     ],
     "name": "randomSelectNodes",

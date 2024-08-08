@@ -79,6 +79,11 @@
         "internalType": "uint256",
         "name": "vramLimit",
         "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "gpuID",
+        "type": "bytes32"
       }
     ],
     "name": "popTask",
@@ -124,6 +129,11 @@
             "internalType": "uint256",
             "name": "price",
             "type": "uint256"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "gpuID",
+            "type": "bytes32"
           }
         ],
         "internalType": "struct TaskInQueue",
@@ -175,6 +185,11 @@
         "internalType": "uint256",
         "name": "price",
         "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "gpuID",
+        "type": "bytes32"
       }
     ],
     "name": "pushTask",
@@ -227,6 +242,11 @@
             "internalType": "uint256",
             "name": "price",
             "type": "uint256"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "gpuID",
+            "type": "bytes32"
           }
         ],
         "internalType": "struct TaskInQueue",
@@ -288,6 +308,11 @@
             "internalType": "uint256",
             "name": "price",
             "type": "uint256"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "gpuID",
+            "type": "bytes32"
           }
         ],
         "internalType": "struct TaskInQueue",

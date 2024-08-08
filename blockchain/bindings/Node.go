@@ -45,7 +45,7 @@ type NodeNodeInfo struct {
 
 // NodeMetaData contains all meta data concerning the Node contract.
 var NodeMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"contractQOS\",\"name\":\"qosInstance\",\"type\":\"address\"},{\"internalType\":\"contractNetworkStats\",\"name\":\"netStatsInstance\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"nodeAddress\",\"type\":\"address\"}],\"name\":\"NodeKickedOut\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"nodeAddress\",\"type\":\"address\"}],\"name\":\"NodeSlashed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"nodeAddress\",\"type\":\"address\"}],\"name\":\"finishTask\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAvailableGPUs\",\"outputs\":[{\"components\":[{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"vram\",\"type\":\"uint256\"}],\"internalType\":\"structNode.GPUInfo[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAvailableNodes\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"nodeAddress\",\"type\":\"address\"}],\"name\":\"getNodeInfo\",\"outputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"status\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"gpuID\",\"type\":\"bytes32\"},{\"components\":[{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"vram\",\"type\":\"uint256\"}],\"internalType\":\"structNode.GPUInfo\",\"name\":\"gpu\",\"type\":\"tuple\"},{\"internalType\":\"uint256\",\"name\":\"score\",\"type\":\"uint256\"}],\"internalType\":\"structNode.NodeInfo\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"nodeAddress\",\"type\":\"address\"}],\"name\":\"getNodeStatus\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"gpuName\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"gpuVram\",\"type\":\"uint256\"}],\"name\":\"join\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"pause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"quit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"k\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"vramLimit\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"useSameGPU\",\"type\":\"bool\"},{\"internalType\":\"bytes32\",\"name\":\"seed\",\"type\":\"bytes32\"}],\"name\":\"randomSelectNodes\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"resume\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"root\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"k\",\"type\":\"uint256\"}],\"name\":\"selectNodesWithRoot\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"nodeAddress\",\"type\":\"address\"}],\"name\":\"slash\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"nodeAddress\",\"type\":\"address\"}],\"name\":\"startTask\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"taskContract\",\"type\":\"address\"}],\"name\":\"updateTaskContractAddress\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[{\"internalType\":\"contractQOS\",\"name\":\"qosInstance\",\"type\":\"address\"},{\"internalType\":\"contractNetworkStats\",\"name\":\"netStatsInstance\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"nodeAddress\",\"type\":\"address\"}],\"name\":\"NodeKickedOut\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"nodeAddress\",\"type\":\"address\"}],\"name\":\"NodeSlashed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"previousOwner\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"nodeAddress\",\"type\":\"address\"}],\"name\":\"finishTask\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAvailableGPUs\",\"outputs\":[{\"components\":[{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"vram\",\"type\":\"uint256\"}],\"internalType\":\"structNode.GPUInfo[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAvailableNodes\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"nodeAddress\",\"type\":\"address\"}],\"name\":\"getNodeInfo\",\"outputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"status\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"gpuID\",\"type\":\"bytes32\"},{\"components\":[{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"vram\",\"type\":\"uint256\"}],\"internalType\":\"structNode.GPUInfo\",\"name\":\"gpu\",\"type\":\"tuple\"},{\"internalType\":\"uint256\",\"name\":\"score\",\"type\":\"uint256\"}],\"internalType\":\"structNode.NodeInfo\",\"name\":\"\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"nodeAddress\",\"type\":\"address\"}],\"name\":\"getNodeStatus\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"nodeAddress\",\"type\":\"address\"}],\"name\":\"getStakedAmount\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"gpuName\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"gpuVram\",\"type\":\"uint256\"}],\"name\":\"join\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"pause\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"quit\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"k\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"vramLimit\",\"type\":\"uint256\"},{\"internalType\":\"bool\",\"name\":\"useSameGPU\",\"type\":\"bool\"},{\"internalType\":\"bytes32\",\"name\":\"seed\",\"type\":\"bytes32\"},{\"internalType\":\"string\",\"name\":\"gpuName\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"gpuVram\",\"type\":\"uint256\"}],\"name\":\"randomSelectNodes\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"renounceOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"resume\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"root\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"k\",\"type\":\"uint256\"}],\"name\":\"selectNodesWithRoot\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"nodeAddress\",\"type\":\"address\"}],\"name\":\"slash\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"nodeAddress\",\"type\":\"address\"}],\"name\":\"startTask\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newOwner\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"taskContract\",\"type\":\"address\"}],\"name\":\"updateTaskContractAddress\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
 }
 
 // NodeABI is the input ABI used to generate the binding from.
@@ -318,6 +318,37 @@ func (_Node *NodeCallerSession) GetNodeStatus(nodeAddress common.Address) (*big.
 	return _Node.Contract.GetNodeStatus(&_Node.CallOpts, nodeAddress)
 }
 
+// GetStakedAmount is a free data retrieval call binding the contract method 0x4da6a556.
+//
+// Solidity: function getStakedAmount(address nodeAddress) view returns(uint256)
+func (_Node *NodeCaller) GetStakedAmount(opts *bind.CallOpts, nodeAddress common.Address) (*big.Int, error) {
+	var out []interface{}
+	err := _Node.contract.Call(opts, &out, "getStakedAmount", nodeAddress)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// GetStakedAmount is a free data retrieval call binding the contract method 0x4da6a556.
+//
+// Solidity: function getStakedAmount(address nodeAddress) view returns(uint256)
+func (_Node *NodeSession) GetStakedAmount(nodeAddress common.Address) (*big.Int, error) {
+	return _Node.Contract.GetStakedAmount(&_Node.CallOpts, nodeAddress)
+}
+
+// GetStakedAmount is a free data retrieval call binding the contract method 0x4da6a556.
+//
+// Solidity: function getStakedAmount(address nodeAddress) view returns(uint256)
+func (_Node *NodeCallerSession) GetStakedAmount(nodeAddress common.Address) (*big.Int, error) {
+	return _Node.Contract.GetStakedAmount(&_Node.CallOpts, nodeAddress)
+}
+
 // Owner is a free data retrieval call binding the contract method 0x8da5cb5b.
 //
 // Solidity: function owner() view returns(address)
@@ -464,25 +495,25 @@ func (_Node *NodeTransactorSession) Quit() (*types.Transaction, error) {
 	return _Node.Contract.Quit(&_Node.TransactOpts)
 }
 
-// RandomSelectNodes is a paid mutator transaction binding the contract method 0x7fdb9db3.
+// RandomSelectNodes is a paid mutator transaction binding the contract method 0x7ae90e98.
 //
-// Solidity: function randomSelectNodes(uint256 k, uint256 vramLimit, bool useSameGPU, bytes32 seed) returns(address[])
-func (_Node *NodeTransactor) RandomSelectNodes(opts *bind.TransactOpts, k *big.Int, vramLimit *big.Int, useSameGPU bool, seed [32]byte) (*types.Transaction, error) {
-	return _Node.contract.Transact(opts, "randomSelectNodes", k, vramLimit, useSameGPU, seed)
+// Solidity: function randomSelectNodes(uint256 k, uint256 vramLimit, bool useSameGPU, bytes32 seed, string gpuName, uint256 gpuVram) returns(address[])
+func (_Node *NodeTransactor) RandomSelectNodes(opts *bind.TransactOpts, k *big.Int, vramLimit *big.Int, useSameGPU bool, seed [32]byte, gpuName string, gpuVram *big.Int) (*types.Transaction, error) {
+	return _Node.contract.Transact(opts, "randomSelectNodes", k, vramLimit, useSameGPU, seed, gpuName, gpuVram)
 }
 
-// RandomSelectNodes is a paid mutator transaction binding the contract method 0x7fdb9db3.
+// RandomSelectNodes is a paid mutator transaction binding the contract method 0x7ae90e98.
 //
-// Solidity: function randomSelectNodes(uint256 k, uint256 vramLimit, bool useSameGPU, bytes32 seed) returns(address[])
-func (_Node *NodeSession) RandomSelectNodes(k *big.Int, vramLimit *big.Int, useSameGPU bool, seed [32]byte) (*types.Transaction, error) {
-	return _Node.Contract.RandomSelectNodes(&_Node.TransactOpts, k, vramLimit, useSameGPU, seed)
+// Solidity: function randomSelectNodes(uint256 k, uint256 vramLimit, bool useSameGPU, bytes32 seed, string gpuName, uint256 gpuVram) returns(address[])
+func (_Node *NodeSession) RandomSelectNodes(k *big.Int, vramLimit *big.Int, useSameGPU bool, seed [32]byte, gpuName string, gpuVram *big.Int) (*types.Transaction, error) {
+	return _Node.Contract.RandomSelectNodes(&_Node.TransactOpts, k, vramLimit, useSameGPU, seed, gpuName, gpuVram)
 }
 
-// RandomSelectNodes is a paid mutator transaction binding the contract method 0x7fdb9db3.
+// RandomSelectNodes is a paid mutator transaction binding the contract method 0x7ae90e98.
 //
-// Solidity: function randomSelectNodes(uint256 k, uint256 vramLimit, bool useSameGPU, bytes32 seed) returns(address[])
-func (_Node *NodeTransactorSession) RandomSelectNodes(k *big.Int, vramLimit *big.Int, useSameGPU bool, seed [32]byte) (*types.Transaction, error) {
-	return _Node.Contract.RandomSelectNodes(&_Node.TransactOpts, k, vramLimit, useSameGPU, seed)
+// Solidity: function randomSelectNodes(uint256 k, uint256 vramLimit, bool useSameGPU, bytes32 seed, string gpuName, uint256 gpuVram) returns(address[])
+func (_Node *NodeTransactorSession) RandomSelectNodes(k *big.Int, vramLimit *big.Int, useSameGPU bool, seed [32]byte, gpuName string, gpuVram *big.Int) (*types.Transaction, error) {
+	return _Node.Contract.RandomSelectNodes(&_Node.TransactOpts, k, vramLimit, useSameGPU, seed, gpuName, gpuVram)
 }
 
 // RenounceOwnership is a paid mutator transaction binding the contract method 0x715018a6.
