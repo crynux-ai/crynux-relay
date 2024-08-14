@@ -58,7 +58,7 @@ func GetResult(ctx *gin.Context, in *GetResultInputWithSignature) error {
 	appConfig := config.GetConfig()
 
 	var fileExt string
-	if task.TaskType == models.TaskTypeSD || task.TaskType == models.TaskTypeSDFT {
+	if task.TaskType == models.TaskTypeSD || task.TaskType == models.TaskTypeSDFTLora {
 		fileExt = ".png"
 	} else {
 		fileExt = ".json"
@@ -85,7 +85,7 @@ func GetResult(ctx *gin.Context, in *GetResultInputWithSignature) error {
 }
 
 type GetResultCheckpointInput struct {
-	TaskId   uint64 `path:"task_id" json:"task_id" description:"Task id" validate:"required"`
+	TaskId uint64 `path:"task_id" json:"task_id" description:"Task id" validate:"required"`
 }
 
 type GetResultCheckpointInputWithSignature struct {

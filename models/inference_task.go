@@ -1,10 +1,11 @@
 package models
 
 import (
+	"strconv"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"gorm.io/gorm"
-	"strconv"
 )
 
 type TaskStatus int
@@ -22,7 +23,7 @@ type ChainTaskType int
 const (
 	TaskTypeSD ChainTaskType = iota
 	TaskTypeLLM
-	TaskTypeSDFT
+	TaskTypeSDFTLora
 )
 
 type InferenceTask struct {

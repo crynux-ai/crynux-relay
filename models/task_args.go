@@ -12,12 +12,15 @@ import (
 
 var sdInferenceTaskSchema *jsonschema.Schema
 var gptInferenceTaskSchema *jsonschema.Schema
+var sdFinetuneLoraTaskSchema *jsonschema.Schema
 
 func ValidateTaskArgsJsonStr(jsonStr string, taskType ChainTaskType) (validationError, err error) {
 	if taskType == TaskTypeSD {
 		return validateSDTaskArgs(jsonStr)
-	} else {
+	} else if taskType == TaskTypeLLM {
 		return validateGPTTaskArgs(jsonStr)
+	} else {
+		return validateSDFinetuneLoraTaskArgs(jsonStr)
 	}
 }
 
@@ -65,6 +68,28 @@ func validateGPTTaskArgs(jsonStr string) (validationError, err error) {
 	}
 
 	return gptInferenceTaskSchema.Validate(v), nil
+}
+
+func validateSDFinetuneLoraTaskArgs(jsonStr string) (validationError, err error) {
+	if sdFinetuneLoraTaskSchema == nil {
+		schemaJson := config.GetConfig().TaskSchema.StableDiffusionFinetuneLora
+
+		if !isValidUrl(schemaJson) {
+			return nil, errors.New("invalid URL for task json schema")
+		}
+
+		sdFinetuneLoraTaskSchema, err = jsonschema.Compile(schemaJson)
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var v interface{}
+	if err := json.Unmarshal([]byte(jsonStr), &v); err != nil {
+		return nil, err
+	}
+	return sdFinetuneLoraTaskSchema.Validate(v), nil
 }
 
 func isValidUrl(toTest string) bool {

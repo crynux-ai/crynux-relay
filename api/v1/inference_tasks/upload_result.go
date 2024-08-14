@@ -129,7 +129,7 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 
 	fileNum := 0
 	var fileExt string
-	if task.TaskType == models.TaskTypeSD || task.TaskType == models.TaskTypeSDFT{
+	if task.TaskType == models.TaskTypeSD || task.TaskType == models.TaskTypeSDFTLora {
 		fileExt = ".png"
 	} else {
 		fileExt = ".json"
@@ -145,7 +145,7 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 	}
 
 	// store checkpoint of finetune type task
-	if task.TaskType == models.TaskTypeSDFT {
+	if task.TaskType == models.TaskTypeSDFTLora {
 		checkpointFiles, ok := form.File["checkpoint"]
 		if !ok {
 			return nil, response.NewValidationErrorResponse("checkpoint", "Checkpoint not uploaded")
