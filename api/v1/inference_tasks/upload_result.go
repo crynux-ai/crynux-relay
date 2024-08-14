@@ -89,7 +89,7 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 		}
 
 		var hash []byte
-		if task.TaskType == models.TaskTypeSD {
+		if task.TaskType == models.TaskTypeSD || task.TaskType == models.TaskTypeSDFTLora {
 			hash, err = blockchain.GetPHashForImage(fileObj)
 		} else {
 			hash, err = blockchain.GetHashForGPTResponse(fileObj)
