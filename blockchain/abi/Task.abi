@@ -302,6 +302,16 @@
         "internalType": "uint256",
         "name": "cap",
         "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "gpuName",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "gpuVram",
+        "type": "uint256"
       }
     ],
     "name": "createTask",
@@ -451,6 +461,16 @@
           {
             "internalType": "uint256",
             "name": "totalBalance",
+            "type": "uint256"
+          },
+          {
+            "internalType": "string",
+            "name": "gpuName",
+            "type": "string"
+          },
+          {
+            "internalType": "uint256",
+            "name": "gpuVram",
             "type": "uint256"
           }
         ],
