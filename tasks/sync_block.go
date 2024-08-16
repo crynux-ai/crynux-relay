@@ -158,9 +158,9 @@ func processChannel(syncedBlock *models.SyncedBlock) {
 
 	log.Debugln("new block received: " + strconv.FormatUint(latestBlockNum, 10))
 
-	blocknumCh := make(chan uint64, 100)
-	txHashCh := make(chan common.Hash, 100)
-	txReceiptCh := make(chan *types.Receipt, 100)
+	blocknumCh := make(chan uint64, 10)
+	txHashCh := make(chan common.Hash, 10)
+	txReceiptCh := make(chan *types.Receipt, 10)
 
 	concurrency := 4
 
