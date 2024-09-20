@@ -239,13 +239,14 @@ func processChannel(syncedBlock *models.SyncedBlock) {
 
 		processTxReceipt(txReceiptCh)
 
-		oldNum := syncedBlock.BlockNumber
-
-		syncedBlock.BlockNumber = latestBlockNum
-		if err := config.GetDB().Save(syncedBlock).Error; err != nil {
-			syncedBlock.BlockNumber = oldNum
-			log.Errorln(err)
-			time.Sleep(time.Duration(interval) * time.Second)
+		syncedBlock.BlockNumber = end - 1
+		for {
+			if err := config.GetDB().Save(syncedBlock).Error; err != nil {
+				log.Errorf("save synced block error: %v", err)
+				time.Sleep(time.Second)
+			}
+			log.Debugf("update synced block %d", syncedBlock.BlockNumber)
+			break
 		}
 	}
 
