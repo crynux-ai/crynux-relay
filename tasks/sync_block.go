@@ -24,7 +24,7 @@ func StartSyncBlockWithTerminateChannel(ch <-chan int) {
 	syncedBlock, err := getSyncedBlock()
 
 	if err != nil {
-		log.Errorln("error getting synced block from the database")
+		log.Errorln("SyncedBlocks: error getting synced block from the database")
 		log.Fatal(err)
 	}
 
@@ -47,7 +47,7 @@ func StartSyncBlock() {
 	syncedBlock, err := getSyncedBlock()
 
 	if err != nil {
-		log.Errorln("error getting synced block from the database")
+		log.Errorln("SyncedBlocks: error getting synced block from the database")
 		log.Fatal(err)
 	}
 
@@ -77,15 +77,19 @@ func processBlocknum(client *ethclient.Client, blocknumCh <-chan uint64, txHashC
 		if !ok {
 			break
 		}
-		log.Debugf("processing block %d", blocknum)
-		block, err := client.BlockByNumber(context.Background(), big.NewInt(int64(blocknum)))
-		if err != nil {
-			log.Errorf("get block %d error: %v", blocknum, err)
-			return
-		}
-
-		for _, tx := range block.Transactions() {
-			txHashCh <- tx.Hash()
+		for {
+			log.Debugf("SyncedBlocks: getting block %d", blocknum)
+			block, err := client.BlockByNumber(context.Background(), big.NewInt(int64(blocknum)))
+			if err != nil {
+				log.Errorf("SyncedBlocks: get block %d error: %v", blocknum, err)
+				time.Sleep(1 * time.Second)
+				continue
+			}
+	
+			for _, tx := range block.Transactions() {
+				txHashCh <- tx.Hash()
+			}
+			break
 		}
 	}
 }
@@ -96,13 +100,18 @@ func processTxHash(client *ethclient.Client, txHashCh <-chan common.Hash, txRece
 		if !ok {
 			break
 		}
-
-		receipt, err := client.TransactionReceipt(context.Background(), txHash)
-		if err != nil {
-			log.Errorf("get transaction receipt of tx %s err: %v", txHash.Hex(), err)
-			return
+		
+		for {
+			log.Debugf("SyncedBlocks: getting tx receipt %s", txHash.Hex())
+			receipt, err := client.TransactionReceipt(context.Background(), txHash)
+			if err != nil {
+				log.Errorf("SyncedBlocks: get transaction receipt of tx %s err: %v", txHash.Hex(), err)
+				time.Sleep(time.Second)
+				continue
+			}
+			txReceiptCh <- receipt
+			break
 		}
-		txReceiptCh <- receipt
 	}
 }
 
@@ -112,21 +121,45 @@ func processTxReceipt(txReceiptCh <-chan *types.Receipt) {
 		if !ok {
 			break
 		}
-
-		if err := processTaskPending(receipt); err != nil {
-			log.Errorf("processing task pending error: %v", err)
+		
+		for {
+			log.Debugf("SyncedBlocks: processing task pending of %s", receipt.TxHash.Hex())
+			if err := processTaskPending(receipt); err != nil {
+				log.Errorf("SyncedBlocks: processing task pending error: %v", err)
+				time.Sleep(time.Second)
+				continue
+			}
+			break
 		}
 
-		if err := processTaskStarted(receipt); err != nil {
-			log.Errorf("processing task started error: %v", err)
+		for {
+			log.Debugf("SyncedBlocks: processing task started of %s", receipt.TxHash.Hex())
+			if err := processTaskStarted(receipt); err != nil {
+				log.Errorf("SyncedBlocks: processing task started error: %v", err)
+				time.Sleep(time.Second)
+				continue
+			}
+			break
 		}
 
-		if err := processTaskSuccess(receipt); err != nil {
-			log.Errorf("processing task success error: %v", err)
+		for {
+			log.Debugf("SyncedBlocks: processing task success of %s", receipt.TxHash.Hex())
+			if err := processTaskSuccess(receipt); err != nil {
+				log.Errorf("SyncedBlocks: processing task success error: %v", err)
+				time.Sleep(time.Second)
+				continue
+			}
+			break
 		}
 
-		if err := processTaskAborted(receipt); err != nil {
-			log.Errorf("processing task aborted error: %v", err)
+		for {
+			log.Debugf("SyncedBlocks: processing task aborted of %s", receipt.TxHash.Hex())
+			if err := processTaskAborted(receipt); err != nil {
+				log.Errorf("SyncedBlocks: processing task aborted error: %v", err)
+				time.Sleep(time.Second)
+				continue
+			}
+			break
 		}
 	}
 }
@@ -137,7 +170,7 @@ func processChannel(syncedBlock *models.SyncedBlock) {
 
 	client, err := blockchain.GetRpcClient()
 	if err != nil {
-		log.Errorln("error getting the eth rpc client")
+		log.Errorln("SyncedBlocks: error getting the eth rpc client")
 		log.Errorln(err)
 		time.Sleep(time.Duration(interval) * time.Second)
 		return
@@ -145,7 +178,7 @@ func processChannel(syncedBlock *models.SyncedBlock) {
 
 	latestBlockNum, err := client.BlockNumber(context.Background())
 	if err != nil {
-		log.Errorln("error getting the latest block number")
+		log.Errorln("SyncedBlocks: error getting the latest block number")
 		log.Errorln(err)
 		time.Sleep(time.Duration(interval) * time.Second)
 		return
@@ -156,56 +189,75 @@ func processChannel(syncedBlock *models.SyncedBlock) {
 		return
 	}
 
-	log.Debugln("new block received: " + strconv.FormatUint(latestBlockNum, 10))
+	log.Debugln("SyncedBlocks: new block received: " + strconv.FormatUint(latestBlockNum, 10))
 
-	blocknumCh := make(chan uint64, 100)
-	txHashCh := make(chan common.Hash, 100)
-	txReceiptCh := make(chan *types.Receipt, 100)
+	blocknumCh := make(chan uint64, 10)
+	txHashCh := make(chan common.Hash, 10)
+	txReceiptCh := make(chan *types.Receipt, 10)
 
 	concurrency := 4
+	step := 100
 
-	var blocknumWG sync.WaitGroup
-	for i := 0; i < concurrency; i++ {
-		blocknumWG.Add(1)
+	for start := syncedBlock.BlockNumber + 1; start <= latestBlockNum; start += uint64(step) {
+		end := start + uint64(step)
+		if end > latestBlockNum + 1 {
+			end = latestBlockNum + 1
+		}
+
+		var blocknumWG sync.WaitGroup
+		for i := 0; i < concurrency; i++ {
+			blocknumWG.Add(1)
+			go func ()  {
+				processBlocknum(client, blocknumCh, txHashCh)
+				blocknumWG.Done()
+			}()
+		}
+
 		go func ()  {
-			processBlocknum(client, blocknumCh, txHashCh)
-			blocknumWG.Done()
+			blocknumWG.Wait()
+			close(txHashCh)
+			log.Debug("SyncedBlocks: all blocknums have been processed")
 		}()
-	}
 
-	go func ()  {
-		blocknumWG.Wait()
-		close(txHashCh)
-	}()
+		var txHashWG sync.WaitGroup
+		for i := 0; i < concurrency; i++ {
+			txHashWG.Add(1)
+			go func ()  {
+				processTxHash(client, txHashCh, txReceiptCh)
+				txHashWG.Done()
+			}()
+		}
 
-	var txHashWG sync.WaitGroup
-	for i := 0; i < concurrency; i++ {
-		txHashWG.Add(1)
-		go func ()  {
-			processTxHash(client, txHashCh, txReceiptCh)
-			txHashWG.Done()
+		go func() {
+			txHashWG.Wait()
+			close(txReceiptCh)
+			log.Debug("SyncedBlocks: all tx hashes have been processed")
 		}()
-	}
+		
+		finishCh := make(chan struct{})
+		go func()  {
+			processTxReceipt(txReceiptCh)
+			close(finishCh)
+		}()
 
-	go func() {
-		txHashWG.Wait()
-		close(txReceiptCh)
-	}()
+		for i := start; i < end; i++ {
+			blocknumCh <- i
+		}
+		close(blocknumCh)
 
-	for start := syncedBlock.BlockNumber + 1; start <= latestBlockNum; start += 1 {
-		blocknumCh <- start
-	}
-	close(blocknumCh)
+		<-finishCh
 
-	processTxReceipt(txReceiptCh)
+		log.Debug("SyncedBlocks: all tx receipts have been processed")
 
-	oldNum := syncedBlock.BlockNumber
-
-	syncedBlock.BlockNumber = latestBlockNum
-	if err := config.GetDB().Save(syncedBlock).Error; err != nil {
-		syncedBlock.BlockNumber = oldNum
-		log.Errorln(err)
-		time.Sleep(time.Duration(interval) * time.Second)
+		syncedBlock.BlockNumber = end - 1
+		for {
+			if err := config.GetDB().Save(syncedBlock).Error; err != nil {
+				log.Errorf("SyncedBlocks: save synced block error: %v", err)
+				time.Sleep(time.Second)
+			}
+			log.Debugf("SyncedBlocks: update synced block %d", syncedBlock.BlockNumber)
+			break
+		}
 	}
 
 	time.Sleep(time.Duration(interval) * time.Second)
@@ -223,7 +275,7 @@ func processTaskPending(receipt *types.Receipt) error {
 			continue
 		}
 
-		log.Debugln("Task pending on chain: " +
+		log.Debugln("SyncedBlocks: Task pending on chain: " +
 			taskPending.TaskId.String() +
 			"|" + taskPending.Creator.Hex() +
 			"|" + string(taskPending.TaskHash[:]) +
@@ -272,7 +324,7 @@ func processTaskStarted(receipt *types.Receipt) error {
 			continue
 		}
 
-		log.Debugln("Task created on chain: " +
+		log.Debugln("SyncedBlocks: Task created on chain: " +
 			taskStarted.TaskId.String() +
 			"|" + taskStarted.Creator.Hex() +
 			"|" + string(taskStarted.TaskHash[:]) +
@@ -336,7 +388,7 @@ func processTaskSuccess(receipt *types.Receipt) error {
 			continue
 		}
 
-		log.Debugln("Task success on chain: " +
+		log.Debugln("SyncedBlocks: Task success on chain: " +
 			taskSuccess.TaskId.String() +
 			"|" + string(taskSuccess.Result) +
 			"|" + taskSuccess.ResultNode.Hex())
@@ -394,7 +446,7 @@ func processTaskAborted(receipt *types.Receipt) error {
 			continue
 		}
 
-		log.Debugln("Task aborted on chain: " + taskAborted.TaskId.String())
+		log.Debugln("SyncedBlocks: Task aborted on chain: " + taskAborted.TaskId.String())
 
 		task := &models.InferenceTask{
 			TaskId: taskAborted.TaskId.Uint64(),
