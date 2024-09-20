@@ -233,13 +233,20 @@ func processChannel(syncedBlock *models.SyncedBlock) {
 			close(txReceiptCh)
 			log.Debug("SyncedBlocks: all tx hashes have been processed")
 		}()
+		
+		finishCh := make(chan struct{})
+		go func()  {
+			processTxReceipt(txReceiptCh)
+			close(finishCh)
+		}()
 
 		for i := start; i < end; i++ {
 			blocknumCh <- i
 		}
 		close(blocknumCh)
 
-		processTxReceipt(txReceiptCh)
+		<-finishCh
+
 		log.Debug("SyncedBlocks: all tx receipts have been processed")
 
 		syncedBlock.BlockNumber = end - 1
