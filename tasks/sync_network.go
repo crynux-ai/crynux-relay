@@ -41,8 +41,8 @@ func SyncNetwork() error {
 	}
 
 	nodeNumber := models.NetworkNodeNumber{
-		BusyNodes: busyNodes.Uint64(),
-		AllNodes:  allNodes.Uint64(),
+		BusyNodes:   busyNodes.Uint64(),
+		AllNodes:    allNodes.Uint64(),
 		ActiveNodes: activeNodes.Uint64(),
 	}
 
@@ -93,9 +93,7 @@ func SyncNetwork() error {
 				VRam:      data.VRam,
 				Balance:   models.BigInt{Int: *data.Balance},
 			}
-			if data.Active {
-				totalGFLOPS += models.GetGPUGFLOPS(data.CardModel)
-			}
+			totalGFLOPS += models.GetGPUGFLOPS(data.CardModel)
 			if err := config.GetDB().Model(&nodeData).Where("address = ?", nodeData.Address).Assign(nodeData).FirstOrCreate(&models.NetworkNodeData{}).Error; err != nil {
 				log.Errorln("error updating NetworkNodeData")
 				log.Error(err)
