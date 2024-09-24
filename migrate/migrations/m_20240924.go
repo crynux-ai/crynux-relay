@@ -19,10 +19,10 @@ func M20240924(db *gorm.DB) *gormigrate.Gormigrate {
 			ID: "M20240924",
 			Migrate: func(tx *gorm.DB) error {
 
-				if err := tx.Migrator().CreateIndex(&InferenceTask{}, "created_at"); err != nil {
+				if err := tx.Migrator().CreateIndex(&InferenceTask{}, "CreatedAt"); err != nil {
 					return err
 				}
-				if err := tx.Migrator().CreateIndex(&InferenceTask{}, "updated_at"); err != nil {
+				if err := tx.Migrator().CreateIndex(&InferenceTask{}, "UpdatedAt"); err != nil {
 					return err
 				}
 
@@ -30,10 +30,10 @@ func M20240924(db *gorm.DB) *gormigrate.Gormigrate {
 			},
 			Rollback: func(tx *gorm.DB) error {
 
-				if err := tx.Migrator().DropTable(&InferenceTask{}, "updated_at"); err != nil {
+				if err := tx.Migrator().DropTable(&InferenceTask{}, "UpdatedAt"); err != nil {
 					return err
 				}
-				if err := tx.Migrator().DropTable(&InferenceTask{}, "created_at"); err != nil {
+				if err := tx.Migrator().DropTable(&InferenceTask{}, "CreatedAt"); err != nil {
 					return err
 				}
 
