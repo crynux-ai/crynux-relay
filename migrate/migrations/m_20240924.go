@@ -1,15 +1,19 @@
 package migrations
 
 import (
+	"time"
+
 	"github.com/go-gormigrate/gormigrate/v2"
 	"gorm.io/gorm"
 )
 
 func M20240924(db *gorm.DB) *gormigrate.Gormigrate {
 	type InferenceTask struct {
-		gorm.Model
+		ID        uint      `gorm:"primarykey"`
+		CreatedAt time.Time `gorm:"index"`
+		UpdatedAt time.Time `gorm:"index"`
 	}
-	
+
 	return gormigrate.New(db, gormigrate.DefaultOptions, []*gormigrate.Migration{
 		{
 			ID: "M20240924",
