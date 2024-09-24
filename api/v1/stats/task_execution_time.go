@@ -11,13 +11,13 @@ import (
 )
 
 type GetTaskExecutionTimeHistogramInput struct {
-	TaskType TaskTypeString `query:"task_type" binding:"required,oneof=Image Text All"`
-	Period   TimeUnit       `query:"period" binding:"required,oneof=Hour Day Week"`
+	TaskType TaskTypeString `query:"task_type" validate:"required" enum:"Image,Text,All"`
+	Period   TimeUnit       `query:"period" validate:"required" enum:"Hour,Day,Week"`
 }
 
 type GetTaskExecutionTimeHistogramData struct {
 	ExecutionTimes []int64 `json:"execution_times"`
-	TaskCounts      []int64 `json:"task_count"`
+	TaskCounts     []int64 `json:"task_count"`
 }
 
 type GetTaskExecutionTimeHistogramResponse struct {
@@ -81,7 +81,7 @@ func GetTaskExecutionTimeHistogram(_ *gin.Context, input *GetTaskExecutionTimeHi
 	return &GetTaskExecutionTimeHistogramResponse{
 		Data: &GetTaskExecutionTimeHistogramData{
 			ExecutionTimes: executionTimes,
-			TaskCounts: counts,
+			TaskCounts:     counts,
 		},
 	}, nil
 }

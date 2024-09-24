@@ -11,8 +11,8 @@ import (
 )
 
 type GetTaskSuccessRateLineChartParams struct {
-	TaskType TaskTypeString `query:"task_type" binding:"required,oneof=Image Text All"`
-	Period   TimeUnit       `query:"period" binding:"required,oneof=Hour Day Week"`
+	TaskType TaskTypeString `query:"task_type" validate:"required" enum:"Image,Text,All"`
+	Period   TimeUnit       `query:"period" validate:"required" enum:"Hour,Day,Week"`
 }
 
 type GetTaskSuccessRateLineChartData struct {
