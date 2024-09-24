@@ -30,10 +30,10 @@ func M20240924(db *gorm.DB) *gormigrate.Gormigrate {
 			},
 			Rollback: func(tx *gorm.DB) error {
 
-				if err := tx.Migrator().DropTable(&InferenceTask{}, "UpdatedAt"); err != nil {
+				if err := tx.Migrator().DropIndex(&InferenceTask{}, "UpdatedAt"); err != nil {
 					return err
 				}
-				if err := tx.Migrator().DropTable(&InferenceTask{}, "CreatedAt"); err != nil {
+				if err := tx.Migrator().DropIndex(&InferenceTask{}, "CreatedAt"); err != nil {
 					return err
 				}
 

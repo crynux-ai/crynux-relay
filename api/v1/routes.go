@@ -4,6 +4,7 @@ import (
 	"crynux_relay/api/v1/inference_tasks"
 	"crynux_relay/api/v1/network"
 	"crynux_relay/api/v1/response"
+	"crynux_relay/api/v1/stats"
 	"crynux_relay/api/v1/time"
 	"crynux_relay/api/v1/worker"
 
@@ -82,4 +83,21 @@ func InitRoutes(r *fizz.Fizz) {
 		fizz.Summary("Get worker count of specified version"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(worker.GetWorkerCount, 200))
+
+	statsGroup := v1g.Group("stats", "stats", "task statistics related APIs")
+
+	statsGroup.GET("/line_chat/task_count", []fizz.OperationOption{
+		fizz.Summary("Get line chart data of task count"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(stats.GetTaskCountLineChart, 200))
+
+	statsGroup.GET("/line_chat/task_success_rate", []fizz.OperationOption{
+		fizz.Summary("Get line chart data of task success rate"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(stats.GetTaskSuccessRateLineChart, 200))
+
+	statsGroup.GET("/histogram/task_execution_time", []fizz.OperationOption{
+		fizz.Summary("Get histogram data of task execution time"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(stats.GetTaskExecutionTimeHistogram, 200))
 }
