@@ -112,8 +112,8 @@ func getTaskExecutionTimeCount(start, end time.Time) ([]*models.TaskExecutionTim
 
 	for _, taskType := range taskTypes {
 		rows, err := config.GetDB().Raw(
-			"select s.T * 5 as T, count(s.id) as COUNT from (select t.id, CAST(TIMESTAMPDIFF(SECOND, t.created_at, t.updated_at) / 5 AS UNSIGNED) as T from inference_tasks t where t.created_at >= @start and t.created_at < @end and t.task_type = @taskType and t.status = @taskStatus) s group by T order by T",
-			map[string]interface{}{"start": start, "end": end, "taskType": taskType, "taskStatus": models.InferenceTaskResultsUploaded}).Rows()
+			"select s.T * @binSize as T, count(s.id) as COUNT from (select t.id, CAST(TIMESTAMPDIFF(SECOND, t.created_at, t.updated_at) / @binSize AS UNSIGNED) as T from inference_tasks t where t.created_at >= @start and t.created_at < @end and t.task_type = @taskType and t.status = @taskStatus) s where s.T * @binSize < @timeout group by T order by T",
+			map[string]interface{}{"start": start, "end": end, "taskType": taskType, "taskStatus": models.InferenceTaskResultsUploaded, "binSize": 5, "timeout": 300}).Rows()
 		if err != nil {
 			log.Errorf("Stats: get %d type task execution time error: %v", taskType, err)
 			return nil, err

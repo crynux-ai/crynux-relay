@@ -37,7 +37,8 @@ func GetTaskExecutionTimeHistogram(_ *gin.Context, input *GetTaskExecutionTimeHi
 	}
 
 	var allTaskExecutionTimeCounts []models.TaskExecutionTimeCount
-	stmt := config.GetDB().Model(&models.TaskExecutionTimeCount{}).Where("start >= ?", start)
+	timeout := 300
+	stmt := config.GetDB().Model(&models.TaskExecutionTimeCount{}).Where("start >= ?", start).Where("seconds < ?", timeout)
 	if input.TaskType == ImageTaskType {
 		stmt = stmt.Where("task_type = ?", models.TaskTypeSD)
 	} else if input.TaskType == TextTaskType {
