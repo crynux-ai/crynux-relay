@@ -4,7 +4,6 @@ import (
 	"crynux_relay/api/v1/response"
 	"crynux_relay/config"
 	"crynux_relay/models"
-	"sort"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -36,52 +35,34 @@ func GetTaskExecutionTimeHistogram(_ *gin.Context, input *GetTaskExecutionTimeHi
 		start = now.Truncate(time.Hour).Add(-7 * 24 * time.Hour)
 	}
 
-	var allTaskExecutionTimeCounts []models.TaskExecutionTimeCount
 	timeout := 300
-	stmt := config.GetDB().Model(&models.TaskExecutionTimeCount{}).Where("start >= ?", start).Where("seconds < ?", timeout)
+	subQuery := config.GetDB().Model(&models.TaskExecutionTimeCount{}).Select("seconds, count").Where("start > ?", start).Where("seconds < ?", timeout)
 	if input.TaskType == ImageTaskType {
-		stmt = stmt.Where("task_type = ?", models.TaskTypeSD)
+		subQuery = subQuery.Where("task_type = ?", models.TaskTypeSD)
 	} else if input.TaskType == TextTaskType {
-		stmt = stmt.Where("task_type = ?", models.TaskTypeLLM)
+		subQuery = subQuery.Where("task_type = ?", models.TaskTypeLLM)
 	}
-	stmt = stmt.Order("id")
 
-	offset := 0
-	for {
-		var taskExecutionTimeCounts []models.TaskExecutionTimeCount
-		if err := stmt.Offset(offset).Limit(1000).Find(&taskExecutionTimeCounts).Error; err != nil {
+	rows, err := config.GetDB().Table("(?) as s", subQuery).Select("s.seconds AS seconds", "SUM(s.count) AS count").Group("seconds").Order("seconds").Rows()
+	if err != nil {
+		return nil, response.NewExceptionResponse(err)
+	}
+	defer rows.Close()
+
+	seconds := make([]int64, 0)
+	counts := make([]int64, 0)
+	for rows.Next() {
+		var second, count int64
+		if err := rows.Scan(&second, &count); err != nil {
 			return nil, response.NewExceptionResponse(err)
 		}
-
-		allTaskExecutionTimeCounts = append(allTaskExecutionTimeCounts, taskExecutionTimeCounts...)
-		if len(taskExecutionTimeCounts) < 1000 {
-			break
-		}
-		offset += 1000
-	}
-
-	timeCounts := make(map[int64]int64)
-	for _, taskExecutionTimeCount := range allTaskExecutionTimeCounts {
-		timeCounts[taskExecutionTimeCount.Seconds] += taskExecutionTimeCount.Count
-	}
-
-	executionTimes := make([]int64, 0)
-	for t := range timeCounts {
-		executionTimes = append(executionTimes, t)
-	}
-
-	sort.Slice(executionTimes, func(i, j int) bool {
-		return executionTimes[i] < executionTimes[j]
-	})
-
-	counts := make([]int64, 0)
-	for _, t := range executionTimes {
-		counts = append(counts, timeCounts[t])
+		seconds = append(seconds, second)
+		counts = append(counts, count)
 	}
 
 	return &GetTaskExecutionTimeHistogramResponse{
 		Data: &GetTaskExecutionTimeHistogramData{
-			ExecutionTimes: executionTimes,
+			ExecutionTimes: seconds,
 			TaskCounts:     counts,
 		},
 	}, nil
