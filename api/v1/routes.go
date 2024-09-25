@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"crynux_relay/api/v1/incentive"
 	"crynux_relay/api/v1/inference_tasks"
 	"crynux_relay/api/v1/network"
 	"crynux_relay/api/v1/response"
@@ -100,4 +101,22 @@ func InitRoutes(r *fizz.Fizz) {
 		fizz.Summary("Get histogram data of task execution time"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(stats.GetTaskExecutionTimeHistogram, 200))
+
+	incentiveGroup := v1g.Group("incentive", "incentive", "incentive statistics related APIs")
+
+	incentiveGroup.GET("/incentive/today", []fizz.OperationOption{
+		fizz.Summary("Get today's incentive"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(incentive.GetTodayIncentive, 200))
+
+	incentiveGroup.GET("/incentive/total", []fizz.OperationOption{
+		fizz.Summary("Get today's incentive"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(incentive.GetTotalIncentive, 200))
+
+	incentiveGroup.GET("/incentive/nodes", []fizz.OperationOption{
+		fizz.Summary("Get today's incentive"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(incentive.GetNodeIncentive, 200))
+
 }

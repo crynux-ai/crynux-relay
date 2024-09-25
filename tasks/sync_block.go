@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/params"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
@@ -85,7 +86,7 @@ func processBlocknum(client *ethclient.Client, blocknumCh <-chan uint64, txHashC
 				time.Sleep(1 * time.Second)
 				continue
 			}
-	
+
 			for _, tx := range block.Transactions() {
 				txHashCh <- tx.Hash()
 			}
@@ -100,7 +101,7 @@ func processTxHash(client *ethclient.Client, txHashCh <-chan common.Hash, txRece
 		if !ok {
 			break
 		}
-		
+
 		for {
 			log.Debugf("SyncedBlocks: getting tx receipt %s", txHash.Hex())
 			receipt, err := client.TransactionReceipt(context.Background(), txHash)
@@ -121,7 +122,7 @@ func processTxReceipt(txReceiptCh <-chan *types.Receipt) {
 		if !ok {
 			break
 		}
-		
+
 		for {
 			log.Debugf("SyncedBlocks: processing task pending of %s", receipt.TxHash.Hex())
 			if err := processTaskPending(receipt); err != nil {
@@ -156,6 +157,16 @@ func processTxReceipt(txReceiptCh <-chan *types.Receipt) {
 			log.Debugf("SyncedBlocks: processing task aborted of %s", receipt.TxHash.Hex())
 			if err := processTaskAborted(receipt); err != nil {
 				log.Errorf("SyncedBlocks: processing task aborted error: %v", err)
+				time.Sleep(time.Second)
+				continue
+			}
+			break
+		}
+
+		for {
+			log.Debugf("SyncedBlocks: processing task node success of %s", receipt.TxHash.Hex())
+			if err := processTaskNodeSuccess(receipt); err != nil {
+				log.Errorf("SyncedBlocks: processing task node success error: %v", err)
 				time.Sleep(time.Second)
 				continue
 			}
@@ -200,20 +211,20 @@ func processChannel(syncedBlock *models.SyncedBlock) {
 
 	for start := syncedBlock.BlockNumber + 1; start <= latestBlockNum; start += uint64(step) {
 		end := start + uint64(step)
-		if end > latestBlockNum + 1 {
+		if end > latestBlockNum+1 {
 			end = latestBlockNum + 1
 		}
 
 		var blocknumWG sync.WaitGroup
 		for i := 0; i < concurrency; i++ {
 			blocknumWG.Add(1)
-			go func ()  {
+			go func() {
 				processBlocknum(client, blocknumCh, txHashCh)
 				blocknumWG.Done()
 			}()
 		}
 
-		go func ()  {
+		go func() {
 			blocknumWG.Wait()
 			close(txHashCh)
 			log.Debug("SyncedBlocks: all blocknums have been processed")
@@ -222,7 +233,7 @@ func processChannel(syncedBlock *models.SyncedBlock) {
 		var txHashWG sync.WaitGroup
 		for i := 0; i < concurrency; i++ {
 			txHashWG.Add(1)
-			go func ()  {
+			go func() {
 				processTxHash(client, txHashCh, txReceiptCh)
 				txHashWG.Done()
 			}()
@@ -233,9 +244,9 @@ func processChannel(syncedBlock *models.SyncedBlock) {
 			close(txReceiptCh)
 			log.Debug("SyncedBlocks: all tx hashes have been processed")
 		}()
-		
+
 		finishCh := make(chan struct{})
-		go func()  {
+		go func() {
 			processTxReceipt(txReceiptCh)
 			close(finishCh)
 		}()
@@ -470,5 +481,57 @@ func processTaskAborted(receipt *types.Receipt) error {
 		}
 	}
 
+	return nil
+}
+
+func weiToEther(wei *big.Int) *big.Float {
+	f := new(big.Float)
+	f.SetPrec(236)  //  IEEE 754 octuple-precision binary floating-point format: binary256
+	f.SetMode(big.ToNearestEven)
+	fWei := new(big.Float)
+	fWei.SetPrec(236)  //  IEEE 754 octuple-precision binary floating-point format: binary256
+	fWei.SetMode(big.ToNearestEven)
+	return f.Quo(fWei.SetInt(wei), big.NewFloat(params.Ether))
+}
+
+
+func processTaskNodeSuccess(receipt *types.Receipt) error {
+	taskContractInstance, err := blockchain.GetTaskContractInstance()
+	if err != nil {
+		return err
+	}
+
+	for _, rLog := range receipt.Logs {
+		taskNodeSuccess, err := taskContractInstance.ParseTaskNodeSuccess(*rLog)
+		if err != nil {
+			continue
+		}
+
+		taskID := taskNodeSuccess.TaskId.Uint64()
+		nodeAddress := taskNodeSuccess.NodeAddress.Hex()
+		fee, _ := weiToEther(taskNodeSuccess.Fee).Float64()
+		log.Debugf("SyncedBlocks: Node %s succeeded in task %d", nodeAddress, taskID)
+
+		t := time.Now().UTC().Truncate(24 * time.Hour)
+		nodeIncentive := models.NodeIncentive{Time: t, NodeAddress: nodeAddress}
+		if err := config.GetDB().Model(&nodeIncentive).Where(&nodeIncentive).First(&nodeIncentive).Error; err != nil {
+			if err != gorm.ErrRecordNotFound {
+				return err
+			}
+		}
+		if nodeIncentive.ID > 0 {
+			nodeIncentive.Incentive += fee
+			nodeIncentive.TaskCount += 1
+			if err := config.GetDB().Save(&nodeIncentive).Error; err != nil {
+				return err
+			}
+		} else {
+			nodeIncentive.Incentive = fee
+			nodeIncentive.TaskCount = 1
+			if err := config.GetDB().Create(&nodeIncentive).Error; err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
