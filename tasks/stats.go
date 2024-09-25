@@ -111,8 +111,8 @@ func getTaskExecutionTimeCount(start, end time.Time) ([]*models.TaskExecutionTim
 	taskTypes := []models.ChainTaskType{models.TaskTypeSD, models.TaskTypeLLM}
 	binSize := 5
 	for _, taskType := range taskTypes {
-		subquery := config.GetDB().Model(&models.InferenceTask{}).Select("id, CAST(TIMESTAMPDIFF(SECOND, created_at, updated_at) / ? AS T", binSize).Where("created_at >= ?", start).Where("created_at < ?", end).Where("task_type = ?", taskType).Where("status = ?", models.InferenceTaskResultsUploaded)
-		rows, err := config.GetDB().Table("(?) AS s", subquery).Select("s.T * ? as T, COUNT(s.id) AS count", binSize).Group("T").Order("T").Rows()
+		subquery := config.GetDB().Debug().Table("(inference_tasks) as t").Select("t.id, CAST(TIMESTAMPDIFF(SECOND, t.created_at, t.updated_at) / ? AS T", binSize).Where("t.created_at >= ?", start).Where("t.created_at < ?", end).Where("t.task_type = ?", taskType).Where("t.status = ?", models.InferenceTaskResultsUploaded)
+		rows, err := config.GetDB().Debug().Table("(?) AS s", subquery).Select("s.T * ? as T, COUNT(s.id) AS count", binSize).Group("T").Order("T").Rows()
 		if err != nil {
 			log.Errorf("Stats: get %d type task execution time error: %v", taskType, err)
 			return nil, err
