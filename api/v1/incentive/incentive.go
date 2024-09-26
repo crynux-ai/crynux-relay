@@ -17,11 +17,10 @@ type GetIncentiveOutput struct {
 func GetTodayIncentive(_ *gin.Context) (*GetIncentiveOutput, error) {
 	duration := 24 * time.Hour
 	now := time.Now().UTC()
-	end := now.Truncate(duration)
-	start := end.Add(-duration)
+	start := now.Truncate(duration)
 
 	var incentive float64
-	if err := config.GetDB().Model(&models.NodeIncentive{}).Select("SUM(incentive) as incentive").Where("time >= ?", start).Where("time < ?", end).Scan(&incentive).Error; err != nil {
+	if err := config.GetDB().Model(&models.NodeIncentive{}).Select("SUM(incentive) as incentive").Where("time >= ?", start).Scan(&incentive).Error; err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 

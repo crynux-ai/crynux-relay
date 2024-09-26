@@ -104,17 +104,17 @@ func InitRoutes(r *fizz.Fizz) {
 
 	incentiveGroup := v1g.Group("incentive", "incentive", "incentive statistics related APIs")
 
-	incentiveGroup.GET("/incentive/today", []fizz.OperationOption{
+	incentiveGroup.GET("/today", []fizz.OperationOption{
 		fizz.Summary("Get today's incentive"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(incentive.GetTodayIncentive, 200))
 
-	incentiveGroup.GET("/incentive/total", []fizz.OperationOption{
+	incentiveGroup.GET("/total", []fizz.OperationOption{
 		fizz.Summary("Get today's incentive"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(incentive.GetTotalIncentive, 200))
 
-	incentiveGroup.GET("/incentive/nodes", []fizz.OperationOption{
+	incentiveGroup.GET("/nodes", []fizz.OperationOption{
 		fizz.Summary("Get today's incentive"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(incentive.GetNodeIncentive, 200))
