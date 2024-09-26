@@ -87,12 +87,12 @@ func InitRoutes(r *fizz.Fizz) {
 
 	statsGroup := v1g.Group("stats", "stats", "task statistics related APIs")
 
-	statsGroup.GET("/line_chat/task_count", []fizz.OperationOption{
+	statsGroup.GET("/line_chart/task_count", []fizz.OperationOption{
 		fizz.Summary("Get line chart data of task count"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(stats.GetTaskCountLineChart, 200))
 
-	statsGroup.GET("/line_chat/task_success_rate", []fizz.OperationOption{
+	statsGroup.GET("/line_chart/task_success_rate", []fizz.OperationOption{
 		fizz.Summary("Get line chart data of task success rate"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(stats.GetTaskSuccessRateLineChart, 200))
