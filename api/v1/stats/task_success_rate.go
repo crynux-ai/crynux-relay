@@ -83,7 +83,10 @@ func GetTaskSuccessRateLineChart(_ *gin.Context, input *GetTaskCountLineChartPar
 
 	successRates := make([]float64, 0)
 	for _, timestamp := range timestamps {
-		rate := float64(timestampSuccessCount[timestamp]) / float64(timestampTotalCount[timestamp])
+		var rate float64 = 0
+		if timestampTotalCount[timestamp] > 0 {
+			rate = float64(timestampSuccessCount[timestamp]) / float64(timestampTotalCount[timestamp])
+		}
 		successRates = append(successRates, rate)
 	}
 
