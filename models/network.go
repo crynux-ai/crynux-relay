@@ -13,7 +13,6 @@ type BigInt struct {
 	big.Int
 }
 
-
 func (i *BigInt) Scan(val interface{}) error {
 	var intStr string
 	switch v := val.(type) {
@@ -38,11 +37,10 @@ func (i BigInt) Value() (driver.Value, error) {
 	return i.String(), nil
 }
 
-
 type NetworkNodeNumber struct {
 	gorm.Model
-	AllNodes  uint64 `json:"all_nodes"`
-	BusyNodes uint64 `json:"busy_nodes"`
+	AllNodes    uint64 `json:"all_nodes"`
+	BusyNodes   uint64 `json:"busy_nodes"`
 	ActiveNodes uint64 `json:"active_nodes"`
 }
 
@@ -55,8 +53,9 @@ type NetworkTaskNumber struct {
 
 type NetworkNodeData struct {
 	gorm.Model
-	Address   string   `json:"address" gorm:"index"`
-	CardModel string   `json:"card_model"`
-	VRam      int      `json:"v_ram"`
-	Balance   BigInt   `json:"balance" gorm:"type:string;size:255"`
+	Address   string `json:"address" gorm:"index"`
+	CardModel string `json:"card_model"`
+	VRam      int    `json:"v_ram"`
+	Balance   BigInt `json:"balance" gorm:"type:string;size:255"`
+	QoS       int64  `json:"qos"`
 }

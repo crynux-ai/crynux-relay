@@ -7,7 +7,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	log "github.com/sirupsen/logrus"
-
 )
 
 func GetAllNodesNumber() (busyNodes *big.Int, allNodes *big.Int, activeNodes *big.Int, err error) {
@@ -88,6 +87,7 @@ type NodeData struct {
 	VRam      int      `json:"v_ram"`
 	Balance   *big.Int `json:"balance"`
 	Active    bool     `json:"active"`
+	QoS       int64    `json:"qos"`
 }
 
 func GetAllNodesData(startIndex, endIndex int) ([]NodeData, error) {
@@ -102,6 +102,11 @@ func GetAllNodesData(startIndex, endIndex int) ([]NodeData, error) {
 	}
 
 	nodeContractInstance, err := GetNodeContractInstance()
+	if err != nil {
+		return nil, err
+	}
+
+	qosContractInstance, err := GetQoSContractInstance()
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +130,7 @@ func GetAllNodesData(startIndex, endIndex int) ([]NodeData, error) {
 			Address:   nodeInfo.NodeAddress.Hex(),
 			CardModel: nodeInfo.GPUModel,
 			VRam:      int(nodeInfo.VRAM.Int64()),
-			Balance: big.NewInt(0),
+			Balance:   big.NewInt(0),
 		}
 
 		limiter <- struct{}{}
@@ -158,6 +163,19 @@ func GetAllNodesData(startIndex, endIndex int) ([]NodeData, error) {
 			}
 
 			nodeData[idx].Balance = balance
+
+			qos, err := qosContractInstance.GetTaskScore(&bind.CallOpts{
+				Pending: false,
+				Context: context.Background(),
+			}, nodeAddress)
+			if err != nil {
+				log.Errorf("get qos score error: %v", err)
+				errCh <- err
+				return
+			}
+
+			nodeData[idx].QoS = qos.Int64()
+
 			errCh <- nil
 		}(idx, nodeInfo.NodeAddress)
 	}

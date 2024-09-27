@@ -92,6 +92,7 @@ func SyncNetwork() error {
 				CardModel: data.CardModel,
 				VRam:      data.VRam,
 				Balance:   models.BigInt{Int: *data.Balance},
+				QoS:       data.QoS,
 			}
 			totalGFLOPS += models.GetGPUGFLOPS(data.CardModel)
 			if err := config.GetDB().Model(&nodeData).Where("address = ?", nodeData.Address).Assign(nodeData).FirstOrCreate(&models.NetworkNodeData{}).Error; err != nil {

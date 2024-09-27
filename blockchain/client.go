@@ -25,6 +25,7 @@ var ethRpcClient *ethclient.Client
 var taskContractInstance *bindings.Task
 var nodeContractInstance *bindings.Node
 var netstatsContractInstance *bindings.NetworkStats
+var qosContractInstance *bindings.QOS
 
 func GetRpcClient() (*ethclient.Client, error) {
 	if ethRpcClient == nil {
@@ -244,4 +245,26 @@ func GetNetstatsContractInstance() (*bindings.NetworkStats, error) {
 	}
 
 	return netstatsContractInstance, nil
+}
+
+func GetQoSContractInstance() (*bindings.QOS, error) {
+	if qosContractInstance == nil {
+		appConfig := config.GetConfig()
+		address := common.HexToAddress(appConfig.Blockchain.Contracts.Netstats)
+
+		client, err := GetRpcClient()
+		if err != nil {
+			return nil, err
+		}
+
+		instance, err := bindings.NewQOS(address, client)
+
+		if err != nil {
+			return nil, err
+		}
+
+		qosContractInstance = instance
+	}
+
+	return qosContractInstance, nil
 }

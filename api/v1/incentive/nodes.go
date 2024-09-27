@@ -26,6 +26,8 @@ type NodeIncentive struct {
 	NodeAddress string  `json:"node_address"`
 	Incentive   float64 `json:"incentive"`
 	TaskCount   int64   `json:"task_count"`
+	CardModel   string  `json:"card_model"`
+	QoS         int64   `json:"qos"`
 }
 
 type GetNodeIncentiveData struct {
@@ -62,7 +64,7 @@ func GetNodeIncentive(_ *gin.Context, input *GetNodeIncentiveParams) (*GetNodeIn
 		Where("time >= ?", start).
 		Where("time < ?", end).
 		Group("node_address").
-		Order("incentive").
+		Order("incentive DESC").
 		Offset(0).
 		Limit(size).
 		Rows()
@@ -73,7 +75,8 @@ func GetNodeIncentive(_ *gin.Context, input *GetNodeIncentiveParams) (*GetNodeIn
 
 	defer rows.Close()
 
-	var nodeIncentives []NodeIncentive
+	nodeIncentiveMap := make(map[string]NodeIncentive)
+	var nodeAddresses []string
 	for rows.Next() {
 		var nodeAddress string
 		var incentive float64
@@ -82,11 +85,32 @@ func GetNodeIncentive(_ *gin.Context, input *GetNodeIncentiveParams) (*GetNodeIn
 		if err := rows.Scan(&nodeAddress, &incentive, &task_count); err != nil {
 			return nil, response.NewExceptionResponse(err)
 		}
-		nodeIncentives = append(nodeIncentives, NodeIncentive{
+		nodeIncentive := NodeIncentive{
 			NodeAddress: nodeAddress,
 			Incentive:   incentive,
 			TaskCount:   task_count,
-		})
+		}
+		nodeAddresses = append(nodeAddresses, nodeAddress)
+		nodeIncentiveMap[nodeAddress] = nodeIncentive
+	}
+
+	var nodeDatas []models.NetworkNodeData
+	if err := config.GetDB().Model(&models.NetworkNodeData{}).Where("address IN (?)", nodeAddresses).Find(&nodeDatas).Error; err != nil {
+		return nil, response.NewExceptionResponse(err)
+	}
+
+	for _, nodeData := range nodeDatas {
+		if nodeIncentive, ok := nodeIncentiveMap[nodeData.Address]; ok {
+			nodeIncentive.CardModel = nodeData.Address
+			nodeIncentive.QoS = nodeData.QoS
+		}
+	}
+
+	var nodeIncentives []NodeIncentive
+	for _, address := range nodeAddresses {
+		if nodeIncentive, ok := nodeIncentiveMap[address]; ok {
+			nodeIncentives = append(nodeIncentives, nodeIncentive)
+		}
 	}
 
 	return &GetNodeIncentiveOutput{
