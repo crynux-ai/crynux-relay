@@ -250,7 +250,7 @@ func GetNetstatsContractInstance() (*bindings.NetworkStats, error) {
 func GetQoSContractInstance() (*bindings.QOS, error) {
 	if qosContractInstance == nil {
 		appConfig := config.GetConfig()
-		address := common.HexToAddress(appConfig.Blockchain.Contracts.Netstats)
+		address := common.HexToAddress(appConfig.Blockchain.Contracts.QoS)
 
 		client, err := GetRpcClient()
 		if err != nil {

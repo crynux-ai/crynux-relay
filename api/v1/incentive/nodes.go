@@ -101,7 +101,7 @@ func GetNodeIncentive(_ *gin.Context, input *GetNodeIncentiveParams) (*GetNodeIn
 
 	for _, nodeData := range nodeDatas {
 		if nodeIncentive, ok := nodeIncentiveMap[nodeData.Address]; ok {
-			nodeIncentive.CardModel = nodeData.Address
+			nodeIncentive.CardModel = nodeData.CardModel
 			nodeIncentive.QoS = nodeData.QoS
 
 			nodeIncentiveMap[nodeData.Address] = nodeIncentive
