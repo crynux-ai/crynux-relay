@@ -62,6 +62,7 @@ func GetIncentiveLineChart(_ *gin.Context, input *GetIncentiveLineChartParams) (
 		// 12 months
 		year, month, _ := now.Date()
 		year -= 1
+		month += 1
 		for i := 0; i < 13; i++ {
 			t := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 			times = append(times, t)
