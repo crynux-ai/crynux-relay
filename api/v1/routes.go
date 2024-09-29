@@ -104,10 +104,10 @@ func InitRoutes(r *fizz.Fizz) {
 
 	incentiveGroup := v1g.Group("incentive", "incentive", "incentive statistics related APIs")
 
-	incentiveGroup.GET("/today", []fizz.OperationOption{
-		fizz.Summary("Get today's incentive"),
+	incentiveGroup.GET("/line_chart", []fizz.OperationOption{
+		fizz.Summary("Get line chart data of incentives"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
-	}, tonic.Handler(incentive.GetTodayIncentive, 200))
+	}, tonic.Handler(incentive.GetIncentiveLineChart, 200))
 
 	incentiveGroup.GET("/total", []fizz.OperationOption{
 		fizz.Summary("Get today's incentive"),

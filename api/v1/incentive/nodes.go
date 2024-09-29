@@ -9,14 +9,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type TimeUnit string
-
-const (
-	UnitDay   TimeUnit = "Day"
-	UnitWeek  TimeUnit = "Week"
-	UnitMonth TimeUnit = "Month"
-)
-
 type GetNodeIncentiveParams struct {
 	Period TimeUnit `query:"period" validate:"required" enum:"Day,Week,Month"`
 	Size   int      `query:"size" default:"30"`
