@@ -101,13 +101,12 @@ func InitRoutes(r *fizz.Fizz) {
 		fizz.Summary("Get histogram data of task execution time"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(stats.GetTaskExecutionTimeHistogram, 200))
-
-	incentiveGroup := v1g.Group("incentive", "incentive", "incentive statistics related APIs")
-
-	incentiveGroup.GET("/line_chart", []fizz.OperationOption{
+	statsGroup.GET("/line_chart/incentive", []fizz.OperationOption{
 		fizz.Summary("Get line chart data of incentives"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
-	}, tonic.Handler(incentive.GetIncentiveLineChart, 200))
+	}, tonic.Handler(stats.GetIncentiveLineChart, 200))
+
+	incentiveGroup := v1g.Group("incentive", "incentive", "incentive statistics related APIs")
 
 	incentiveGroup.GET("/total", []fizz.OperationOption{
 		fizz.Summary("Get today's incentive"),

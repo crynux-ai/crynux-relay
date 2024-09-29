@@ -11,7 +11,8 @@ const (
 type TimeUnit string
 
 const (
-	UnitHour TimeUnit = "Hour"
-	UnitDay  TimeUnit = "Day"
-	UnitWeek TimeUnit = "Week"
+	UnitHour  TimeUnit = "Hour"
+	UnitDay   TimeUnit = "Day"
+	UnitWeek  TimeUnit = "Week"
+	UnitMonth TimeUnit = "Month"
 )
