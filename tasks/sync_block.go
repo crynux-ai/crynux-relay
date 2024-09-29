@@ -297,20 +297,12 @@ func processTaskPending(receipt *types.Receipt) error {
 			TaskId: taskPending.TaskId.Uint64(),
 		}
 
-		taskOnChain, err := blockchain.GetTaskById(taskPending.TaskId.Uint64())
-		if err != nil {
-			return err
-		}
-
-		taskFee, _ := weiToEther(taskOnChain.TotalBalance).Float64()
 		attributes := &models.InferenceTask{
-			Creator:   taskPending.Creator.Hex(),
-			TaskHash:  hexutil.Encode(taskPending.TaskHash[:]),
-			DataHash:  hexutil.Encode(taskPending.DataHash[:]),
-			Status:    models.InferenceTaskCreatedOnChain,
-			TaskType:  models.ChainTaskType(taskPending.TaskType.Int64()),
-			VramLimit: taskOnChain.VramLimit.Uint64(),
-			TaskFee:   taskFee,
+			Creator:  taskPending.Creator.Hex(),
+			TaskHash: hexutil.Encode(taskPending.TaskHash[:]),
+			DataHash: hexutil.Encode(taskPending.DataHash[:]),
+			Status:   models.InferenceTaskCreatedOnChain,
+			TaskType: models.ChainTaskType(taskPending.TaskType.Int64()),
 		}
 
 		if err := config.GetDB().Where(query).Attrs(attributes).FirstOrCreate(task).Error; err != nil {
@@ -353,6 +345,18 @@ func processTaskStarted(receipt *types.Receipt) error {
 			if err == gorm.ErrRecordNotFound {
 				continue
 			}
+			return err
+		}
+
+		taskOnChain, err := blockchain.GetTaskById(taskId)
+		if err != nil {
+			return err
+		}
+
+		vramLimit := taskOnChain.VramLimit.Uint64()
+		taskFee, _ := weiToEther(taskOnChain.TotalBalance).Float64()
+
+		if err := config.GetDB().Model(task).Updates(models.InferenceTask{VramLimit: vramLimit, TaskFee: taskFee}).Error; err != nil {
 			return err
 		}
 
