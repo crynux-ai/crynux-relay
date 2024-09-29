@@ -4,6 +4,7 @@ import (
 	"crynux_relay/api/v1/response"
 	"crynux_relay/config"
 	"crynux_relay/models"
+	"database/sql"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -75,11 +76,15 @@ func GetIncentiveLineChart(_ *gin.Context, input *GetIncentiveLineChartParams) (
 		end := times[i + 1]
 		timestamps = append(timestamps, start.Unix())
 
-		var incentive float64
+		var incentive sql.NullFloat64
 		if err := config.GetDB().Model(&models.NodeIncentive{}).Select("SUM(incentive) AS incentive").Where("time >= ?", start).Where("time < ?", end).Scan(&incentive).Error; err != nil {
 			return nil, response.NewExceptionResponse(err)
 		}
-		incentives = append(incentives, incentive)
+		if incentive.Valid {
+			incentives = append(incentives, incentive.Float64)
+		} else {
+			incentives = append(incentives, 0)
+		}
 	}
 
 	return &GetIncentiveLineChartOutput{
