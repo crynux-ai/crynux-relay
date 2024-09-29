@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/params"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
@@ -303,6 +302,7 @@ func processTaskPending(receipt *types.Receipt) error {
 			return err
 		}
 
+		taskFee, _ := weiToEther(taskOnChain.TotalBalance).Float64()
 		attributes := &models.InferenceTask{
 			Creator:   taskPending.Creator.Hex(),
 			TaskHash:  hexutil.Encode(taskPending.TaskHash[:]),
@@ -310,6 +310,7 @@ func processTaskPending(receipt *types.Receipt) error {
 			Status:    models.InferenceTaskCreatedOnChain,
 			TaskType:  models.ChainTaskType(taskPending.TaskType.Int64()),
 			VramLimit: taskOnChain.VramLimit.Uint64(),
+			TaskFee:   taskFee,
 		}
 
 		if err := config.GetDB().Where(query).Attrs(attributes).FirstOrCreate(task).Error; err != nil {
@@ -483,17 +484,6 @@ func processTaskAborted(receipt *types.Receipt) error {
 
 	return nil
 }
-
-func weiToEther(wei *big.Int) *big.Float {
-	f := new(big.Float)
-	f.SetPrec(236)  //  IEEE 754 octuple-precision binary floating-point format: binary256
-	f.SetMode(big.ToNearestEven)
-	fWei := new(big.Float)
-	fWei.SetPrec(236)  //  IEEE 754 octuple-precision binary floating-point format: binary256
-	fWei.SetMode(big.ToNearestEven)
-	return f.Quo(fWei.SetInt(wei), big.NewFloat(params.Ether))
-}
-
 
 func processTaskNodeSuccess(receipt *types.Receipt) error {
 	taskContractInstance, err := blockchain.GetTaskContractInstance()
