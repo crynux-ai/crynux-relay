@@ -32,8 +32,15 @@ func GetTaskFeeHistogram(_ *gin.Context, input *GetTaskFeeHistogramParams) (*Get
 		MinFee float64
 	}
 
+	stmt := config.GetDB().Model(&models.InferenceTask{}).Where("created_at >= ?", start).Where("created_at < ?", end).Where("task_fee NOT NULL").Where("task_fee > ?", 0)
+	if input.TaskType == ImageTaskType {
+		stmt = stmt.Where("task_type = ?", models.TaskTypeSD)
+	} else if input.TaskType == TextTaskType {
+		stmt = stmt.Where("task_type = ?", models.TaskTypeLLM)
+	}
+
 	fee := Fee{}
-	if err := config.GetDB().Model(&models.InferenceTask{}).Select("MAX(task_fee) as max_fee, MIN(task_fee) as min_fee").Where("created_at >= ?", start).Where("created_at < ?", end).Scan(&fee).Error; err != nil {
+	if err := stmt.Select("MAX(task_fee) as max_fee, MIN(task_fee) as min_fee").Scan(&fee).Error; err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 
@@ -43,7 +50,7 @@ func GetTaskFeeHistogram(_ *gin.Context, input *GetTaskFeeHistogramParams) (*Get
 	if fee.MinFee < fee.MaxFee {
 
 		binSize := math.Pow10(int(math.Floor(math.Log10(fee.MaxFee - fee.MinFee))))
-		subquery := config.GetDB().Model(&models.InferenceTask{}).Select("id, CAST((task_fee / ?) AS UNSIGNED) AS f", binSize).Where("created_at >= ?", start).Where("created_at < ?", end)
+		subquery := stmt.Select("id, CAST((task_fee / ?) AS UNSIGNED) AS f", binSize)
 		rows, err := config.GetDB().Table("(?) AS t", subquery).Select("t.f as F, COUNT(t.id) AS count").Group("F").Order("F").Rows()
 		if err != nil {
 			return nil, response.NewExceptionResponse(err)
@@ -73,7 +80,7 @@ func GetTaskFeeHistogram(_ *gin.Context, input *GetTaskFeeHistogramParams) (*Get
 		}
 	} else {
 		var count int64
-		if err := config.GetDB().Model(&models.InferenceTask{}).Select("COUNT(id) AS count").Where("created_at >= ?", start).Where("created_at < ?", end).Scan(&count).Error; err != nil {
+		if err := stmt.Select("COUNT(id) AS count").Scan(&count).Error; err != nil {
 			return nil, response.NewExceptionResponse(err)
 		}
 		taskCounts = append(taskCounts, count)
