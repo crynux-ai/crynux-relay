@@ -32,7 +32,7 @@ func GetTaskFeeHistogram(_ *gin.Context, input *GetTaskFeeHistogramParams) (*Get
 		MinFee float64
 	}
 
-	stmt := config.GetDB().Model(&models.InferenceTask{}).Where("created_at >= ?", start).Where("created_at < ?", end).Where("task_fee NOT NULL").Where("task_fee > ?", 0)
+	stmt := config.GetDB().Model(&models.InferenceTask{}).Where("created_at >= ?", start).Where("created_at < ?", end).Where("task_fee IS NOT NULL").Where("task_fee > ?", 0)
 	if input.TaskType == ImageTaskType {
 		stmt = stmt.Where("task_type = ?", models.TaskTypeSD)
 	} else if input.TaskType == TextTaskType {
