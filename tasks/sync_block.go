@@ -71,7 +71,17 @@ func getSyncedBlock() (*models.SyncedBlock, error) {
 	return syncedBlock, nil
 }
 
-func processBlocknum(client *ethclient.Client, blocknumCh <-chan uint64, txHashCh chan<- common.Hash) {
+type TxHashWithBlock struct {
+	TxHash common.Hash
+	Block  *types.Block
+}
+
+type TxReceiptWithBlock struct {
+	TxReceipt *types.Receipt
+	Block     *types.Block
+}
+
+func processBlocknum(client *ethclient.Client, blocknumCh <-chan uint64, txHashCh chan<- TxHashWithBlock) {
 	for {
 		blocknum, ok := <-blocknumCh
 		if !ok {
@@ -87,16 +97,20 @@ func processBlocknum(client *ethclient.Client, blocknumCh <-chan uint64, txHashC
 			}
 
 			for _, tx := range block.Transactions() {
-				txHashCh <- tx.Hash()
+				txHashCh <- TxHashWithBlock{
+					TxHash: tx.Hash(),
+					Block:  block,
+				}
 			}
 			break
 		}
 	}
 }
 
-func processTxHash(client *ethclient.Client, txHashCh <-chan common.Hash, txReceiptCh chan<- *types.Receipt) {
+func processTxHash(client *ethclient.Client, txHashCh <-chan TxHashWithBlock, txReceiptCh chan<- TxReceiptWithBlock) {
 	for {
-		txHash, ok := <-txHashCh
+		txHashWithBlock, ok := <-txHashCh
+		txHash := txHashWithBlock.TxHash
 		if !ok {
 			break
 		}
@@ -109,15 +123,20 @@ func processTxHash(client *ethclient.Client, txHashCh <-chan common.Hash, txRece
 				time.Sleep(time.Second)
 				continue
 			}
-			txReceiptCh <- receipt
+			txReceiptCh <- TxReceiptWithBlock{
+				TxReceipt: receipt,
+				Block:     txHashWithBlock.Block,
+			}
 			break
 		}
 	}
 }
 
-func processTxReceipt(txReceiptCh <-chan *types.Receipt) {
+func processTxReceipt(txReceiptCh <-chan TxReceiptWithBlock) {
 	for {
-		receipt, ok := <-txReceiptCh
+		receiptWithBlock, ok := <-txReceiptCh
+		receipt := receiptWithBlock.TxReceipt
+		block := receiptWithBlock.Block
 		if !ok {
 			break
 		}
@@ -164,7 +183,7 @@ func processTxReceipt(txReceiptCh <-chan *types.Receipt) {
 
 		for {
 			log.Debugf("SyncedBlocks: processing task node success of %s", receipt.TxHash.Hex())
-			if err := processTaskNodeSuccess(receipt); err != nil {
+			if err := processTaskNodeSuccess(block, receipt); err != nil {
 				log.Errorf("SyncedBlocks: processing task node success error: %v", err)
 				time.Sleep(time.Second)
 				continue
@@ -172,6 +191,57 @@ func processTxReceipt(txReceiptCh <-chan *types.Receipt) {
 			break
 		}
 	}
+}
+
+func syncBlocks(client *ethclient.Client, startBlock, endBlock uint64, concurrency int) {
+	blocknumCh := make(chan uint64, 10)
+	txHashCh := make(chan TxHashWithBlock, 10)
+	txReceiptCh := make(chan TxReceiptWithBlock, 10)
+
+	var blocknumWG sync.WaitGroup
+	for i := 0; i < concurrency; i++ {
+		blocknumWG.Add(1)
+		go func() {
+			processBlocknum(client, blocknumCh, txHashCh)
+			blocknumWG.Done()
+		}()
+	}
+
+	go func() {
+		blocknumWG.Wait()
+		close(txHashCh)
+		log.Debug("SyncedBlocks: all blocknums have been processed")
+	}()
+
+	var txHashWG sync.WaitGroup
+	for i := 0; i < concurrency; i++ {
+		txHashWG.Add(1)
+		go func() {
+			processTxHash(client, txHashCh, txReceiptCh)
+			txHashWG.Done()
+		}()
+	}
+
+	go func() {
+		txHashWG.Wait()
+		close(txReceiptCh)
+		log.Debug("SyncedBlocks: all tx hashes have been processed")
+	}()
+
+	finishCh := make(chan struct{})
+	go func() {
+		processTxReceipt(txReceiptCh)
+		close(finishCh)
+	}()
+
+	for i := startBlock; i < endBlock; i++ {
+		blocknumCh <- i
+	}
+	close(blocknumCh)
+
+	<-finishCh
+
+	log.Debug("SyncedBlocks: all tx receipts have been processed")
 }
 
 func processChannel(syncedBlock *models.SyncedBlock) {
@@ -201,11 +271,6 @@ func processChannel(syncedBlock *models.SyncedBlock) {
 
 	log.Debugln("SyncedBlocks: new block received: " + strconv.FormatUint(latestBlockNum, 10))
 
-	blocknumCh := make(chan uint64, 10)
-	txHashCh := make(chan common.Hash, 10)
-	txReceiptCh := make(chan *types.Receipt, 10)
-
-	concurrency := 4
 	step := 100
 
 	for start := syncedBlock.BlockNumber + 1; start <= latestBlockNum; start += uint64(step) {
@@ -214,50 +279,7 @@ func processChannel(syncedBlock *models.SyncedBlock) {
 			end = latestBlockNum + 1
 		}
 
-		var blocknumWG sync.WaitGroup
-		for i := 0; i < concurrency; i++ {
-			blocknumWG.Add(1)
-			go func() {
-				processBlocknum(client, blocknumCh, txHashCh)
-				blocknumWG.Done()
-			}()
-		}
-
-		go func() {
-			blocknumWG.Wait()
-			close(txHashCh)
-			log.Debug("SyncedBlocks: all blocknums have been processed")
-		}()
-
-		var txHashWG sync.WaitGroup
-		for i := 0; i < concurrency; i++ {
-			txHashWG.Add(1)
-			go func() {
-				processTxHash(client, txHashCh, txReceiptCh)
-				txHashWG.Done()
-			}()
-		}
-
-		go func() {
-			txHashWG.Wait()
-			close(txReceiptCh)
-			log.Debug("SyncedBlocks: all tx hashes have been processed")
-		}()
-
-		finishCh := make(chan struct{})
-		go func() {
-			processTxReceipt(txReceiptCh)
-			close(finishCh)
-		}()
-
-		for i := start; i < end; i++ {
-			blocknumCh <- i
-		}
-		close(blocknumCh)
-
-		<-finishCh
-
-		log.Debug("SyncedBlocks: all tx receipts have been processed")
+		syncBlocks(client, start, end, 4)
 
 		syncedBlock.BlockNumber = end - 1
 		for {
@@ -489,7 +511,7 @@ func processTaskAborted(receipt *types.Receipt) error {
 	return nil
 }
 
-func processTaskNodeSuccess(receipt *types.Receipt) error {
+func processTaskNodeSuccess(block *types.Block, receipt *types.Receipt) error {
 	taskContractInstance, err := blockchain.GetTaskContractInstance()
 	if err != nil {
 		return err
@@ -506,7 +528,7 @@ func processTaskNodeSuccess(receipt *types.Receipt) error {
 		fee, _ := weiToEther(taskNodeSuccess.Fee).Float64()
 		log.Debugf("SyncedBlocks: Node %s succeeded in task %d", nodeAddress, taskID)
 
-		t := time.Now().UTC().Truncate(24 * time.Hour)
+		t := time.Unix(int64(block.Time()), 0).Truncate(24 * time.Hour)
 		nodeIncentive := models.NodeIncentive{Time: t, NodeAddress: nodeAddress}
 		if err := config.GetDB().Model(&nodeIncentive).Where(&nodeIncentive).First(&nodeIncentive).Error; err != nil {
 			if err != gorm.ErrRecordNotFound {
