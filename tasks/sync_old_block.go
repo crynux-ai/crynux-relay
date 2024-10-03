@@ -47,7 +47,7 @@ func syncOldBlocks(client *ethclient.Client, startBlock, endBlock uint64, concur
 	go func() {
 		blocknumWG.Wait()
 		close(txHashCh)
-		log.Debug("SyncedOldBlocks: all blocknums have been processed")
+		log.Debugf("SyncedOldBlocks: all blocknums %d:%d have been processed", startBlock, endBlock)
 	}()
 
 	var txHashWG sync.WaitGroup
@@ -62,7 +62,7 @@ func syncOldBlocks(client *ethclient.Client, startBlock, endBlock uint64, concur
 	go func() {
 		txHashWG.Wait()
 		close(txReceiptCh)
-		log.Debug("SyncedOldBlocks: all tx hashes have been processed")
+		log.Debugf("SyncedOldBlocks: all tx hashes from block %d:%d have been processed", startBlock, endBlock)
 	}()
 
 	finishCh := make(chan struct{})
@@ -78,7 +78,7 @@ func syncOldBlocks(client *ethclient.Client, startBlock, endBlock uint64, concur
 
 	<-finishCh
 
-	log.Debug("SyncedOldBlocks: all tx receipts have been processed")
+	log.Debugf("SyncedOldBlocks: all tx receipts from block %d:%d have been processed", startBlock, endBlock)
 }
 
 func StartSyncOldBlock(startBlock, endBlock uint64) {
