@@ -64,6 +64,24 @@ func GetTaskById(_ *gin.Context, in *GetTaskInputWithSignature) (*TaskResponse, 
 
 	for _, selectedNode := range task.SelectedNodes {
 		if selectedNode.NodeAddress == address {
+			err := config.GetDB().Transaction(func(tx *gorm.DB) error {
+				selectedNode.Status = models.NodeStatusRunning
+				if err := tx.Save(&selectedNode).Error; err != nil {
+					return err
+				}
+				nodeStatusLog := models.SelectedNodeStatusLog{
+					SelectedNode: selectedNode,
+					Status: models.NodeStatusRunning,
+				}
+				if err := tx.Create(&nodeStatusLog).Error; err != nil {
+					return err
+				}
+				return nil
+			})
+			if err != nil {
+				return nil, response.NewExceptionResponse(err)
+			}
+
 			return &TaskResponse{Data: task}, nil
 		}
 	}

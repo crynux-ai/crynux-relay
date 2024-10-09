@@ -147,7 +147,20 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 	// Update task status
 	task.Status = models.InferenceTaskResultsUploaded
 
-	if err := config.GetDB().Save(&task).Error; err != nil {
+	err = config.GetDB().Transaction(func(tx *gorm.DB) error {
+		if err := tx.Save(&task).Error; err != nil {
+			return err
+		}
+		taskStatusLog := models.InferenceTaskStatusLog{
+			InferenceTask: task,
+			Status:        models.InferenceTaskResultsUploaded,
+		}
+		if err := tx.Save(&taskStatusLog).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 

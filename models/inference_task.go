@@ -1,10 +1,11 @@
 package models
 
 import (
+	"strconv"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"gorm.io/gorm"
-	"strconv"
 )
 
 type TaskStatus int
@@ -49,4 +50,11 @@ func (t *InferenceTask) GetTaskHash() (*common.Hash, error) {
 
 func (t *InferenceTask) GetDataHash() (*common.Hash, error) {
 	return nil, nil
+}
+
+type InferenceTaskStatusLog struct {
+	gorm.Model
+	InferenceTaskID uint `gorm:"index"`
+	InferenceTask   InferenceTask
+	Status          TaskStatus
 }

@@ -190,6 +190,27 @@ func processTxReceipt(txReceiptCh <-chan TxReceiptWithBlock) {
 			}
 			break
 		}
+
+		for {
+			log.Debugf("SyncedBlocks: processing task node cancelled of %s", receipt.TxHash.Hex())
+			if err := processTaskNodeCancelled(block, receipt); err != nil {
+				log.Errorf("SyncedBlocks: processing task node cancelled error: %v", err)
+				time.Sleep(time.Second)
+				continue
+			}
+			break
+		}
+
+		for {
+			log.Debugf("SyncedBlocks: processing task node slashed of %s", receipt.TxHash.Hex())
+			if err := processTaskNodeSlashed(block, receipt); err != nil {
+				log.Errorf("SyncedBlocks: processing task node slashed error: %v", err)
+				time.Sleep(time.Second)
+				continue
+			}
+			break
+		}
+
 	}
 }
 
@@ -327,7 +348,20 @@ func processTaskPending(receipt *types.Receipt) error {
 			TaskType: models.ChainTaskType(taskPending.TaskType.Int64()),
 		}
 
-		if err := config.GetDB().Where(query).Attrs(attributes).FirstOrCreate(task).Error; err != nil {
+		err = config.GetDB().Transaction(func(tx *gorm.DB) error {
+			if err := tx.Where(query).Attrs(attributes).FirstOrCreate(task).Error; err != nil {
+				return err
+			}
+			taskStatusLog := models.InferenceTaskStatusLog{
+				InferenceTask: *task,
+				Status:        models.InferenceTaskCreatedOnChain,
+			}
+			if err := tx.Create(&taskStatusLog).Error; err != nil {
+				return err
+			}
+			return nil
+		})
+		if err != nil {
 			return err
 		}
 	}
@@ -357,7 +391,7 @@ func processTaskStarted(receipt *types.Receipt) error {
 			"|" + string(taskStarted.DataHash[:]))
 
 		taskId := taskStarted.TaskId.Uint64()
-		taskStartedEvents[taskId] = append(taskStartedEvents[taskId], models.SelectedNode{NodeAddress: taskStarted.SelectedNode.Hex()})
+		taskStartedEvents[taskId] = append(taskStartedEvents[taskId], models.SelectedNode{NodeAddress: taskStarted.SelectedNode.Hex(), Status: models.NodeStatusPending})
 	}
 
 	for taskId, selectedNodes := range taskStartedEvents {
@@ -387,7 +421,26 @@ func processTaskStarted(receipt *types.Receipt) error {
 			return err
 		}
 		if len(existSelectedNodes) == 0 {
-			if err := config.GetDB().Model(task).Association("SelectedNodes").Append(selectedNodes); err != nil {
+			err := config.GetDB().Transaction(func(tx *gorm.DB) error {
+				if err := tx.Model(task).Association("SelectedNodes").Append(selectedNodes); err != nil {
+					return err
+				}
+
+				var nodeStatusLogs []models.SelectedNodeStatusLog
+				for _, selectedNode := range selectedNodes {
+					nodeStatusLog := models.SelectedNodeStatusLog{
+						SelectedNode: selectedNode,
+						Status:       models.NodeStatusPending,
+					}
+					nodeStatusLogs = append(nodeStatusLogs, nodeStatusLog)
+				}
+
+				if err := tx.Create(&nodeStatusLogs).Error; err != nil {
+					return err
+				}
+				return nil
+			})
+			if err != nil {
 				return err
 			}
 		} else {
@@ -404,7 +457,25 @@ func processTaskStarted(receipt *types.Receipt) error {
 				}
 			}
 
-			if err := config.GetDB().Model(task).Association("SelectedNodes").Append(newSelectedNodes); err != nil {
+			err := config.GetDB().Transaction(func(tx *gorm.DB) error {
+				if err := tx.Model(task).Association("SelectedNodes").Append(newSelectedNodes); err != nil {
+					return err
+				}
+
+				var nodeStatusLogs []models.SelectedNodeStatusLog
+				for _, selectedNode := range newSelectedNodes {
+					nodeStatusLog := models.SelectedNodeStatusLog{
+						SelectedNode: selectedNode,
+						Status:       models.NodeStatusPending,
+					}
+					nodeStatusLogs = append(nodeStatusLogs, nodeStatusLog)
+				}
+				if err := tx.Create(&nodeStatusLogs).Error; err != nil {
+					return err
+				}
+				return nil
+			})
+			if err != nil {
 				return err
 			}
 		}
@@ -464,7 +535,20 @@ func processTaskSuccess(receipt *types.Receipt) error {
 
 		task.Status = models.InferenceTaskPendingResults
 
-		if err := config.GetDB().Save(task).Error; err != nil {
+		err = config.GetDB().Transaction(func(tx *gorm.DB) error {
+			if err := tx.Save(task).Error; err != nil {
+				return err
+			}
+			taskStatusLog := models.InferenceTaskStatusLog{
+				InferenceTask: *task,
+				Status:        models.InferenceTaskPendingResults,
+			}
+			if err := tx.Create(&taskStatusLog).Error; err != nil {
+				return err
+			}
+			return nil
+		})
+		if err != nil {
 			return err
 		}
 	}
@@ -503,7 +587,20 @@ func processTaskAborted(receipt *types.Receipt) error {
 
 		task.Status = models.InferenceTaskAborted
 
-		if err := config.GetDB().Save(task).Error; err != nil {
+		err = config.GetDB().Transaction(func(tx *gorm.DB) error {
+			if err := tx.Save(task).Error; err != nil {
+				return err
+			}
+			taskStatusLog := models.InferenceTaskStatusLog{
+				InferenceTask: *task,
+				Status:        models.InferenceTaskAborted,
+			}
+			if err := tx.Create(&taskStatusLog).Error; err != nil {
+				return err
+			}
+			return nil
+		})
+		if err != nil {
 			return err
 		}
 	}
@@ -547,6 +644,119 @@ func processTaskNodeSuccess(block *types.Block, receipt *types.Receipt) error {
 			if err := config.GetDB().Create(&nodeIncentive).Error; err != nil {
 				return err
 			}
+		}
+
+		task := models.InferenceTask{TaskId: taskID}
+		if err := config.GetDB().Model(&task).Where(&task).Find(&task).Error; err != nil {
+			return err
+		}
+		selectedNode := models.SelectedNode{InferenceTaskID: task.ID, NodeAddress: nodeAddress}
+		if err := config.GetDB().Model(&selectedNode).Where(&selectedNode).Find(&selectedNode).Error; err != nil {
+			return err
+		}
+		if err := config.GetDB().Transaction(func(tx *gorm.DB) error {
+			selectedNode.Status = models.NodeStatusSuccess
+			if err := tx.Save(&selectedNode).Error; err != nil {
+				return err
+			}
+			nodeStatusLog := models.SelectedNodeStatusLog{
+				SelectedNode: selectedNode,
+				Status:       models.NodeStatusSuccess,
+			}
+			if err := tx.Create(&nodeStatusLog).Error; err != nil {
+				return err
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func processTaskNodeCancelled(_ *types.Block, receipt *types.Receipt) error {
+	taskContractInstance, err := blockchain.GetTaskContractInstance()
+	if err != nil {
+		return err
+	}
+
+	for _, rLog := range receipt.Logs {
+		taskNodeSuccess, err := taskContractInstance.ParseTaskNodeCancelled(*rLog)
+		if err != nil {
+			continue
+		}
+
+		taskID := taskNodeSuccess.TaskId.Uint64()
+		nodeAddress := taskNodeSuccess.NodeAddress.Hex()
+		log.Debugf("SyncedBlocks: Node %s cancelled in task %d", nodeAddress, taskID)
+
+		task := models.InferenceTask{TaskId: taskID}
+		if err := config.GetDB().Model(&task).Where(&task).Find(&task).Error; err != nil {
+			return err
+		}
+		selectedNode := models.SelectedNode{InferenceTaskID: task.ID, NodeAddress: nodeAddress}
+		if err := config.GetDB().Model(&selectedNode).Where(&selectedNode).Find(&selectedNode).Error; err != nil {
+			return err
+		}
+		if err := config.GetDB().Transaction(func(tx *gorm.DB) error {
+			selectedNode.Status = models.NodeStatusCancelled
+			if err := tx.Save(&selectedNode).Error; err != nil {
+				return err
+			}
+			nodeStatusLog := models.SelectedNodeStatusLog{
+				SelectedNode: selectedNode,
+				Status:       models.NodeStatusCancelled,
+			}
+			if err := tx.Create(&nodeStatusLog).Error; err != nil {
+				return err
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func processTaskNodeSlashed(_ *types.Block, receipt *types.Receipt) error {
+	taskContractInstance, err := blockchain.GetTaskContractInstance()
+	if err != nil {
+		return err
+	}
+
+	for _, rLog := range receipt.Logs {
+		taskNodeSuccess, err := taskContractInstance.ParseTaskNodeSlashed(*rLog)
+		if err != nil {
+			continue
+		}
+
+		taskID := taskNodeSuccess.TaskId.Uint64()
+		nodeAddress := taskNodeSuccess.NodeAddress.Hex()
+		log.Debugf("SyncedBlocks: Node %s slashed in task %d", nodeAddress, taskID)
+
+		task := models.InferenceTask{TaskId: taskID}
+		if err := config.GetDB().Model(&task).Where(&task).Find(&task).Error; err != nil {
+			return err
+		}
+		selectedNode := models.SelectedNode{InferenceTaskID: task.ID, NodeAddress: nodeAddress}
+		if err := config.GetDB().Model(&selectedNode).Where(&selectedNode).Find(&selectedNode).Error; err != nil {
+			return err
+		}
+		if err := config.GetDB().Transaction(func(tx *gorm.DB) error {
+			selectedNode.Status = models.NodeStatusSlashed
+			if err := tx.Save(&selectedNode).Error; err != nil {
+				return err
+			}
+			nodeStatusLog := models.SelectedNodeStatusLog{
+				SelectedNode: selectedNode,
+				Status:       models.NodeStatusSlashed,
+			}
+			if err := tx.Create(&nodeStatusLog).Error; err != nil {
+				return err
+			}
+			return nil
+		}); err != nil {
+			return err
 		}
 	}
 	return nil
