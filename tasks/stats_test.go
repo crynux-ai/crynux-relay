@@ -14,6 +14,10 @@ func TestStats(t *testing.T) {
 	time.Sleep(5 * time.Minute)
 	ch <- 1
 
+	go tasks.StartStatsTaskUploadResultTimeCountWithTerminateChannel(ch)
+	time.Sleep(5 * time.Minute)
+	ch <- 1
+
 	t.Cleanup(func() {
 		tests.ClearDB()
 	})

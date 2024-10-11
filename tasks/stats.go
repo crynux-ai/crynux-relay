@@ -113,7 +113,7 @@ func getTaskExecutionTimeCount(start, end time.Time) ([]*models.TaskExecutionTim
 	for _, taskType := range taskTypes {
 		subQuery := config.GetDB().Table("inference_task_status_logs AS log").
 			Select("log.id, CAST(TIMESTAMPDIFF(SECOND, MAX(log.created_at), MIN(log.created_at)) / ? AS UNSIGNED) AS time", binSize).
-			InnerJoins("InferenceTask", config.GetDB().Where("inference_tasks.updated_at >= ? AND inference_tasks.updated_at < ? AND inference_tasks.task_type = ? AND inference_tasks.status >= ?", start, end, taskType, models.InferenceTaskPendingResults)).
+			Joins("LEFT JOIN inference_tasks ON inference_tasks.id = log.inference_task_id AND inference_tasks.updated_at >= ? AND inference_tasks.updated_at < ? AND inference_tasks.task_type = ? AND inference_tasks.status >= ?", start, end, taskType, models.InferenceTaskPendingResults).
 			Where("log.status = ? OR log.status = ?", models.InferenceTaskParamsUploaded, models.InferenceTaskPendingResults).
 			Group("log.id")
 		rows, err := config.GetDB().Table("(?) AS s", subQuery).Select("s.time * ? as T, COUNT(s.id) AS count", binSize).Group("T").Order("T").Rows()
@@ -162,8 +162,10 @@ func statsTaskExecutionTimeCount() error {
 		if err != nil {
 			return err
 		}
-		if err := config.GetDB().Create(taskExecutionTimeCounts).Error; err != nil {
-			log.Errorf("Stats: create TaskExecutionTimeCount error: %v", err)
+		if len(taskExecutionTimeCounts) > 0 {
+			if err := config.GetDB().Create(taskExecutionTimeCounts).Error; err != nil {
+				log.Errorf("Stats: create TaskExecutionTimeCount error: %v", err)
+			}
 		}
 		log.Infof("Stats: stats TaskExecutionTimeCount success: %s", end.Format(time.RFC3339))
 		start = end
@@ -203,7 +205,7 @@ func getTaskUploadResultTimeCount(start, end time.Time) ([]*models.TaskUploadRes
 	for _, taskType := range taskTypes {
 		subQuery := config.GetDB().Table("inference_task_status_logs AS log").
 			Select("log.id, CAST(TIMESTAMPDIFF(SECOND, MAX(log.created_at), MIN(log.created_at)) / ? AS UNSIGNED) AS time", binSize).
-			InnerJoins("InferenceTask", config.GetDB().Where("inference_tasks.updated_at >= ? AND inference_tasks.updated_at < ? AND inference_tasks.task_type = ? AND inference_tasks.status = ?", start, end, taskType, models.InferenceTaskResultsUploaded)).
+			Joins("LEFT JOIN inference_tasks ON inference_tasks.id = log.inference_task_id AND inference_tasks.updated_at >= ? AND inference_tasks.updated_at < ? AND inference_tasks.task_type = ? AND inference_tasks.status = ?", start, end, taskType, models.InferenceTaskResultsUploaded).
 			Where("log.status = ? OR log.status = ?", models.InferenceTaskPendingResults, models.InferenceTaskResultsUploaded).
 			Group("log.id")
 		rows, err := config.GetDB().Table("(?) AS s", subQuery).Select("s.time * ? as T, COUNT(s.id) AS count", binSize).Group("T").Order("T").Rows()
@@ -252,8 +254,10 @@ func statsTaskUploadResultTimeCount() error {
 		if err != nil {
 			return err
 		}
-		if err := config.GetDB().Create(taskUploadResultTimeCounts).Error; err != nil {
-			log.Errorf("Stats: create TaskExecutionTimeCount error: %v", err)
+		if len(taskUploadResultTimeCounts) > 0 {
+			if err := config.GetDB().Create(taskUploadResultTimeCounts).Error; err != nil {
+				log.Errorf("Stats: create TaskExecutionTimeCount error: %v", err)
+			}
 		}
 		log.Infof("Stats: stats TaskExecutionTimeCount success: %s", end.Format(time.RFC3339))
 		start = end
