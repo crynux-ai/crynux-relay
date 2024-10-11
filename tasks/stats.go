@@ -111,8 +111,21 @@ func getTaskExecutionTimeCount(start, end time.Time) ([]*models.TaskExecutionTim
 	taskTypes := []models.ChainTaskType{models.TaskTypeSD, models.TaskTypeLLM}
 	binSize := 5
 	for _, taskType := range taskTypes {
-		subquery := config.GetDB().Model(&models.InferenceTask{}).Select("id, CAST(TIMESTAMPDIFF(SECOND, created_at, updated_at) / ? AS UNSIGNED) AS time", binSize).Where("created_at >= ?", start).Where("created_at < ?", end).Where("task_type = ?", taskType).Where("status = ?", models.InferenceTaskResultsUploaded)
-		rows, err := config.GetDB().Table("(?) AS s", subquery).Select("s.time * ? as T, COUNT(s.id) AS count", binSize).Group("T").Order("T").Rows()
+		var inferenceTasks []models.InferenceTask
+		if err := config.GetDB().Model(&models.InferenceTask{}).Where("updated_at >= ?", start).Where("updated_at < ?", end).Where("task_type = ?", taskType).Where("status >= ?", models.InferenceTaskPendingResults).Find(&inferenceTasks).Error; err != nil {
+			log.Errorf("Stats: get %d type task execution time error: %v", taskType, err)
+			return nil, err
+		}
+		var inferenceTaskIDs []uint
+		for _, task := range inferenceTasks {
+			inferenceTaskIDs = append(inferenceTaskIDs, task.ID)
+		}
+
+		subQuery := config.GetDB().Model(&models.InferenceTaskStatusLog{}).
+			Select("id, CAST(TIMESTAMPDIFF(SECOND, MAX(created_at), MIN(created_at)) / ? AS UNSIGNED) AS time", binSize).
+			Where("inference_task_id IN (?) AND (status = ? OR status = ?)", inferenceTaskIDs, models.InferenceTaskParamsUploaded, models.InferenceTaskPendingResults).
+			Group("id")
+		rows, err := config.GetDB().Table("(?) AS s", subQuery).Select("s.time * ? as T, COUNT(s.id) AS count", binSize).Group("T").Order("T").Rows()
 		if err != nil {
 			log.Errorf("Stats: get %d type task execution time error: %v", taskType, err)
 			return nil, err
@@ -186,6 +199,105 @@ func StartStatsTaskExecutionTimeCountWithTerminateChannel(ch <-chan int) {
 			}
 		default:
 			statsTaskExecutionTimeCount()
+		}
+		time.Sleep(5 * time.Minute)
+	}
+}
+
+func getTaskUploadResultTimeCount(start, end time.Time) ([]*models.TaskUploadResultTimeCount, error) {
+	var results []*models.TaskUploadResultTimeCount
+
+	taskTypes := []models.ChainTaskType{models.TaskTypeSD, models.TaskTypeLLM}
+	binSize := 5
+	for _, taskType := range taskTypes {
+		var inferenceTasks []models.InferenceTask
+		if err := config.GetDB().Model(&models.InferenceTask{}).Where("updated_at >= ?", start).Where("updated_at < ?", end).Where("task_type = ?", taskType).Where("status = ?", models.InferenceTaskResultsUploaded).Find(&inferenceTasks).Error; err != nil {
+			log.Errorf("Stats: get %d type task result upload time error: %v", taskType, err)
+			return nil, err
+		}
+		var inferenceTaskIDs []uint
+		for _, task := range inferenceTasks {
+			inferenceTaskIDs = append(inferenceTaskIDs, task.ID)
+		}
+
+		subQuery := config.GetDB().Model(&models.InferenceTaskStatusLog{}).
+			Select("id, CAST(TIMESTAMPDIFF(SECOND, MAX(created_at), MIN(created_at)) / ? AS UNSIGNED) AS time", binSize).
+			Where("inference_task_id IN (?) AND (status = ? OR status = ?)", inferenceTaskIDs, models.InferenceTaskPendingResults, models.InferenceTaskResultsUploaded).
+			Group("id")
+		rows, err := config.GetDB().Table("(?) AS s", subQuery).Select("s.time * ? as T, COUNT(s.id) AS count", binSize).Group("T").Order("T").Rows()
+		if err != nil {
+			log.Errorf("Stats: get %d type task result upload time error: %v", taskType, err)
+			return nil, err
+		}
+		defer rows.Close()
+		var seconds, count int64
+		for rows.Next() {
+			rows.Scan(&seconds, &count)
+			results = append(results, &models.TaskUploadResultTimeCount{
+				Start:    start,
+				End:      end,
+				TaskType: taskType,
+				Seconds:  seconds,
+				Count:    count,
+			})
+		}
+	}
+	return results, nil
+}
+
+func statsTaskUploadResultTimeCount() error {
+	taskUploadResultTimeCount := models.TaskUploadResultTimeCount{}
+
+	if err := config.GetDB().Model(&models.TaskUploadResultTimeCount{}).Last(&taskUploadResultTimeCount).Error; err != nil {
+		if err != gorm.ErrRecordNotFound {
+			log.Errorf("Stats: get last TaskUploadResultTimeCount error: %v", err)
+		}
+	}
+	var start time.Time
+	if taskUploadResultTimeCount.ID > 0 {
+		start = taskUploadResultTimeCount.End
+	} else {
+		start = initStartTime
+	}
+
+	for {
+		end := start.Add(statsDuration)
+		if end.Sub(time.Now().UTC()) > 0 {
+			break
+		}
+
+		taskUploadResultTimeCounts, err := getTaskUploadResultTimeCount(start, end)
+		if err != nil {
+			return err
+		}
+		if err := config.GetDB().Create(taskUploadResultTimeCounts).Error; err != nil {
+			log.Errorf("Stats: create TaskExecutionTimeCount error: %v", err)
+		}
+		log.Infof("Stats: stats TaskExecutionTimeCount success: %s", end.Format(time.RFC3339))
+		start = end
+	}
+
+	return nil
+}
+
+func StartStatsTaskUploadResultTimeCount() {
+	for {
+		statsTaskUploadResultTimeCount()
+		time.Sleep(5 * time.Minute)
+	}
+}
+
+func StartStatsTaskUploadResultTimeCountWithTerminateChannel(ch <-chan int) {
+	for {
+		select {
+		case stop := <-ch:
+			if stop == 1 {
+				return
+			} else {
+				statsTaskUploadResultTimeCount()
+			}
+		default:
+			statsTaskUploadResultTimeCount()
 		}
 		time.Sleep(5 * time.Minute)
 	}

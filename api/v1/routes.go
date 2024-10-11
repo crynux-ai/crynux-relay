@@ -101,6 +101,11 @@ func InitRoutes(r *fizz.Fizz) {
 		fizz.Summary("Get histogram data of task execution time"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(stats.GetTaskExecutionTimeHistogram, 200))
+	statsGroup.GET("/histogram/task_upload_result_time", []fizz.OperationOption{
+		fizz.Summary("Get histogram data of task upload result time"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(stats.GetTaskUploadResultTimeHistogram, 200))
+
 	statsGroup.GET("/line_chart/incentive", []fizz.OperationOption{
 		fizz.Summary("Get line chart data of incentives"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
@@ -113,12 +118,12 @@ func InitRoutes(r *fizz.Fizz) {
 	incentiveGroup := v1g.Group("incentive", "incentive", "incentive statistics related APIs")
 
 	incentiveGroup.GET("/total", []fizz.OperationOption{
-		fizz.Summary("Get today's incentive"),
+		fizz.Summary("Get today's total incentive"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(incentive.GetTotalIncentive, 200))
 
 	incentiveGroup.GET("/nodes", []fizz.OperationOption{
-		fizz.Summary("Get today's incentive"),
+		fizz.Summary("Get nodes with top K incentive"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(incentive.GetNodeIncentive, 200))
 
