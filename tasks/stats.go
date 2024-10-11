@@ -111,20 +111,11 @@ func getTaskExecutionTimeCount(start, end time.Time) ([]*models.TaskExecutionTim
 	taskTypes := []models.ChainTaskType{models.TaskTypeSD, models.TaskTypeLLM}
 	binSize := 5
 	for _, taskType := range taskTypes {
-		var inferenceTasks []models.InferenceTask
-		if err := config.GetDB().Model(&models.InferenceTask{}).Where("updated_at >= ?", start).Where("updated_at < ?", end).Where("task_type = ?", taskType).Where("status >= ?", models.InferenceTaskPendingResults).Find(&inferenceTasks).Error; err != nil {
-			log.Errorf("Stats: get %d type task execution time error: %v", taskType, err)
-			return nil, err
-		}
-		var inferenceTaskIDs []uint
-		for _, task := range inferenceTasks {
-			inferenceTaskIDs = append(inferenceTaskIDs, task.ID)
-		}
-
-		subQuery := config.GetDB().Model(&models.InferenceTaskStatusLog{}).
-			Select("id, CAST(TIMESTAMPDIFF(SECOND, MAX(created_at), MIN(created_at)) / ? AS UNSIGNED) AS time", binSize).
-			Where("inference_task_id IN (?) AND (status = ? OR status = ?)", inferenceTaskIDs, models.InferenceTaskParamsUploaded, models.InferenceTaskPendingResults).
-			Group("id")
+		subQuery := config.GetDB().Table("inference_task_status_logs AS log").
+			Select("log.id, CAST(TIMESTAMPDIFF(SECOND, MAX(log.created_at), MIN(log.created_at)) / ? AS UNSIGNED) AS time", binSize).
+			InnerJoins("InferenceTask", config.GetDB().Where("inference_tasks.updated_at >= ? AND inference_tasks.updated_at < ? AND inference_tasks.task_type = ? AND inference_tasks.status >= ?", start, end, taskType, models.InferenceTaskPendingResults)).
+			Where("log.status = ? OR log.status = ?", models.InferenceTaskParamsUploaded, models.InferenceTaskPendingResults).
+			Group("log.id")
 		rows, err := config.GetDB().Table("(?) AS s", subQuery).Select("s.time * ? as T, COUNT(s.id) AS count", binSize).Group("T").Order("T").Rows()
 		if err != nil {
 			log.Errorf("Stats: get %d type task execution time error: %v", taskType, err)
@@ -210,20 +201,11 @@ func getTaskUploadResultTimeCount(start, end time.Time) ([]*models.TaskUploadRes
 	taskTypes := []models.ChainTaskType{models.TaskTypeSD, models.TaskTypeLLM}
 	binSize := 5
 	for _, taskType := range taskTypes {
-		var inferenceTasks []models.InferenceTask
-		if err := config.GetDB().Model(&models.InferenceTask{}).Where("updated_at >= ?", start).Where("updated_at < ?", end).Where("task_type = ?", taskType).Where("status = ?", models.InferenceTaskResultsUploaded).Find(&inferenceTasks).Error; err != nil {
-			log.Errorf("Stats: get %d type task result upload time error: %v", taskType, err)
-			return nil, err
-		}
-		var inferenceTaskIDs []uint
-		for _, task := range inferenceTasks {
-			inferenceTaskIDs = append(inferenceTaskIDs, task.ID)
-		}
-
-		subQuery := config.GetDB().Model(&models.InferenceTaskStatusLog{}).
-			Select("id, CAST(TIMESTAMPDIFF(SECOND, MAX(created_at), MIN(created_at)) / ? AS UNSIGNED) AS time", binSize).
-			Where("inference_task_id IN (?) AND (status = ? OR status = ?)", inferenceTaskIDs, models.InferenceTaskPendingResults, models.InferenceTaskResultsUploaded).
-			Group("id")
+		subQuery := config.GetDB().Table("inference_task_status_logs AS log").
+			Select("log.id, CAST(TIMESTAMPDIFF(SECOND, MAX(log.created_at), MIN(log.created_at)) / ? AS UNSIGNED) AS time", binSize).
+			InnerJoins("InferenceTask", config.GetDB().Where("inference_tasks.updated_at >= ? AND inference_tasks.updated_at < ? AND inference_tasks.task_type = ? AND inference_tasks.status = ?", start, end, taskType, models.InferenceTaskResultsUploaded)).
+			Where("log.status = ? OR log.status = ?", models.InferenceTaskPendingResults, models.InferenceTaskResultsUploaded).
+			Group("log.id")
 		rows, err := config.GetDB().Table("(?) AS s", subQuery).Select("s.time * ? as T, COUNT(s.id) AS count", binSize).Group("T").Order("T").Rows()
 		if err != nil {
 			log.Errorf("Stats: get %d type task result upload time error: %v", taskType, err)
