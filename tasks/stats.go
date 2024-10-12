@@ -112,10 +112,10 @@ func getTaskExecutionTimeCount(start, end time.Time) ([]*models.TaskExecutionTim
 	binSize := 5
 	for _, taskType := range taskTypes {
 		subQuery := config.GetDB().Table("inference_task_status_logs AS log").
-			Select("log.id, CAST(TIMESTAMPDIFF(SECOND, MAX(log.created_at), MIN(log.created_at)) / ? AS UNSIGNED) AS time", binSize).
+			Select("log.inference_task_id AS id, CAST(TIMESTAMPDIFF(SECOND, MIN(log.created_at), MAX(log.created_at)) / ? AS UNSIGNED) AS time", binSize).
 			Joins("LEFT JOIN inference_tasks ON inference_tasks.id = log.inference_task_id AND inference_tasks.updated_at >= ? AND inference_tasks.updated_at < ? AND inference_tasks.task_type = ? AND inference_tasks.status >= ?", start, end, taskType, models.InferenceTaskPendingResults).
 			Where("log.status = ? OR log.status = ?", models.InferenceTaskParamsUploaded, models.InferenceTaskPendingResults).
-			Group("log.id")
+			Group("log.inference_task_id")
 		rows, err := config.GetDB().Table("(?) AS s", subQuery).Select("s.time * ? as T, COUNT(s.id) AS count", binSize).Group("T").Order("T").Rows()
 		if err != nil {
 			log.Errorf("Stats: get %d type task execution time error: %v", taskType, err)
@@ -204,10 +204,10 @@ func getTaskUploadResultTimeCount(start, end time.Time) ([]*models.TaskUploadRes
 	binSize := 5
 	for _, taskType := range taskTypes {
 		subQuery := config.GetDB().Table("inference_task_status_logs AS log").
-			Select("log.id, CAST(TIMESTAMPDIFF(SECOND, MAX(log.created_at), MIN(log.created_at)) / ? AS UNSIGNED) AS time", binSize).
+			Select("log.inference_task_id as id, CAST(TIMESTAMPDIFF(SECOND, MIN(log.created_at), MAX(log.created_at)) / ? AS UNSIGNED) AS time", binSize).
 			Joins("LEFT JOIN inference_tasks ON inference_tasks.id = log.inference_task_id AND inference_tasks.updated_at >= ? AND inference_tasks.updated_at < ? AND inference_tasks.task_type = ? AND inference_tasks.status = ?", start, end, taskType, models.InferenceTaskResultsUploaded).
 			Where("log.status = ? OR log.status = ?", models.InferenceTaskPendingResults, models.InferenceTaskResultsUploaded).
-			Group("log.id")
+			Group("log.inference_task_id")
 		rows, err := config.GetDB().Table("(?) AS s", subQuery).Select("s.time * ? as T, COUNT(s.id) AS count", binSize).Group("T").Order("T").Rows()
 		if err != nil {
 			log.Errorf("Stats: get %d type task result upload time error: %v", taskType, err)
