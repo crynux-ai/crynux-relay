@@ -256,10 +256,10 @@ func statsTaskUploadResultTimeCount() error {
 		}
 		if len(taskUploadResultTimeCounts) > 0 {
 			if err := config.GetDB().Create(taskUploadResultTimeCounts).Error; err != nil {
-				log.Errorf("Stats: create TaskExecutionTimeCount error: %v", err)
+				log.Errorf("Stats: create TaskUploadResultTimeCount error: %v", err)
 			}
 		}
-		log.Infof("Stats: stats TaskExecutionTimeCount success: %s", end.Format(time.RFC3339))
+		log.Infof("Stats: stats TaskUploadResultTimeCount success: %s", end.Format(time.RFC3339))
 		start = end
 	}
 
