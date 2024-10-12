@@ -586,6 +586,7 @@ func processTaskAborted(receipt *types.Receipt) error {
 		}
 
 		task.Status = models.InferenceTaskAborted
+		task.AbortReason = taskAborted.Reason
 
 		err = config.GetDB().Transaction(func(tx *gorm.DB) error {
 			if err := tx.Save(task).Error; err != nil {

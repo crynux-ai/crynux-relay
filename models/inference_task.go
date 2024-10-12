@@ -36,6 +36,7 @@ type InferenceTask struct {
 	TaskType      ChainTaskType `json:"task_type"`
 	VramLimit     uint64        `json:"vram_limit"`
 	TaskFee       float64       `json:"task_fee"`
+	AbortReason   string        `json:"abort_reason"`
 	SelectedNodes []SelectedNode
 }
 

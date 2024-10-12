@@ -38,7 +38,6 @@ func main() {
 	go tasks.StartStatsTaskCount()
 	go tasks.StartStatsTaskExecutionTimeCount()
 	go tasks.StartStatsTaskUploadResultTimeCount()
-	go tasks.StartSyncOldBlock(12102075, 16911837)
 
 	startServer()
 }
