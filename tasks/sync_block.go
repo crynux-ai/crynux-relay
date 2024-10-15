@@ -412,7 +412,24 @@ func processTaskStarted(receipt *types.Receipt) error {
 		vramLimit := taskOnChain.VramLimit.Uint64()
 		taskFee, _ := weiToEther(taskOnChain.TotalBalance).Float64()
 
-		if err := config.GetDB().Model(task).Updates(models.InferenceTask{VramLimit: vramLimit, TaskFee: taskFee}).Error; err != nil {
+		if err := config.GetDB().Transaction(func(tx *gorm.DB) error {
+			if err := tx.Model(task).Updates(models.InferenceTask{
+				VramLimit: vramLimit,
+				TaskFee: taskFee,
+				Status: models.InferenceTaskStarted,
+			}).Error; err != nil {
+				return err
+			}
+
+			taskStatusLog := models.InferenceTaskStatusLog{
+				InferenceTask: *task,
+				Status: models.InferenceTaskStarted,
+			}
+			if err := tx.Create(&taskStatusLog).Error; err != nil {
+				return err
+			}
+			return nil
+		}); err != nil {
 			return err
 		}
 
@@ -513,7 +530,7 @@ func processTaskSuccess(receipt *types.Receipt) error {
 			return err
 		}
 
-		if task.Status != models.InferenceTaskParamsUploaded {
+		if task.Status != models.InferenceTaskParamsUploaded && task.Status != models.InferenceTaskStarted {
 			continue
 		}
 

@@ -16,6 +16,7 @@ const (
 	InferenceTaskAborted
 	InferenceTaskPendingResults
 	InferenceTaskResultsUploaded
+	InferenceTaskStarted
 )
 
 type ChainTaskType int

@@ -105,6 +105,10 @@ func InitRoutes(r *fizz.Fizz) {
 		fizz.Summary("Get histogram data of task upload result time"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(stats.GetTaskUploadResultTimeHistogram, 200))
+	statsGroup.GET("/histogram/task_waiting_time", []fizz.OperationOption{
+		fizz.Summary("Get histogram data of task waiting time"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(stats.GetTaskWaitingTimeHistogram, 200))
 
 	statsGroup.GET("/line_chart/incentive", []fizz.OperationOption{
 		fizz.Summary("Get line chart data of incentives"),

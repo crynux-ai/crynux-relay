@@ -38,6 +38,7 @@ func main() {
 	go tasks.StartStatsTaskCount()
 	go tasks.StartStatsTaskExecutionTimeCount()
 	go tasks.StartStatsTaskUploadResultTimeCount()
+	go tasks.StartStatsTaskWaitingTimeCount()
 
 	startServer()
 }
