@@ -119,6 +119,11 @@ func InitRoutes(r *fizz.Fizz) {
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(stats.GetTaskFeeHistogram, 200))
 
+	statsGroup.GET("/node_events", []fizz.OperationOption{
+		fizz.Summary("Get node event logs in the recent hour"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(stats.GetNodeEventLogs, 200))
+
 	incentiveGroup := v1g.Group("incentive", "incentive", "incentive statistics related APIs")
 
 	incentiveGroup.GET("/total", []fizz.OperationOption{
