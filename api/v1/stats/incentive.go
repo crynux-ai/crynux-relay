@@ -31,7 +31,7 @@ func GetIncentiveLineChart(_ *gin.Context, input *GetIncentiveLineChartParams) (
 	if input.Period == UnitDay {
 		// 14 days
 		duration := 24 * time.Hour
-		start := now.Truncate(duration).Add(-13 * duration)
+		start := now.Truncate(duration).Add(-14 * duration)
 		for i := 0; i < 15; i++ {
 			times = append(times, start)
 			start = start.Add(duration)
@@ -39,7 +39,7 @@ func GetIncentiveLineChart(_ *gin.Context, input *GetIncentiveLineChartParams) (
 	} else if input.Period == UnitWeek {
 		// 8 weeks
 		duration := 7 * 24 * time.Hour
-		start := now.Truncate(duration).Add(-7 * duration)
+		start := now.Truncate(duration).Add(-8 * duration)
 		for i := 0; i < 9; i++ {
 			times = append(times, start)
 			start = start.Add(duration)
@@ -48,7 +48,6 @@ func GetIncentiveLineChart(_ *gin.Context, input *GetIncentiveLineChartParams) (
 		// 12 months
 		year, month, _ := now.Date()
 		year -= 1
-		month += 1
 		for i := 0; i < 13; i++ {
 			t := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 			times = append(times, t)

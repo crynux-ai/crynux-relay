@@ -30,21 +30,24 @@ func GetTaskSuccessRateLineChart(_ *gin.Context, input *GetTaskCountLineChartPar
 	timestampTotalCount := make(map[int64]int64)
 
 	now := time.Now().UTC()
-	var start time.Time
+	var start, end time.Time
 	var duration time.Duration
 	if input.Period == UnitHour {
 		duration = time.Hour
 		start = now.Truncate(duration).Add(-24 * duration)
+		end = now.Truncate(duration)
 	} else if input.Period == UnitDay {
 		duration = 24 * time.Hour
-		start = now.Add(duration - 1).Truncate(duration).Add(-15 * duration)
+		start = now.Truncate(duration).Add(-15 * duration)
+		end = now.Truncate(duration)
 	} else {
 		duration = 7 * 24 * time.Hour
-		start = now.Add(duration - 1).Truncate(duration).Add(-8 * duration)
+		start = now.Truncate(duration).Add(-8 * duration)
+		end = now.Truncate(duration)
 	}
 
 	var allTaskCounts []models.TaskCount
-	stmt := config.GetDB().Model(&models.TaskCount{}).Where("start >= ?", start)
+	stmt := config.GetDB().Model(&models.TaskCount{}).Where("start >= ?", start).Where("start < ?", end)
 	if input.TaskType == ImageTaskType {
 		stmt = stmt.Where("task_type = ?", models.TaskTypeSD)
 	} else if input.TaskType == TextTaskType {
