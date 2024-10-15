@@ -31,7 +31,7 @@ func GetNodeEventLogs(ctx *gin.Context) error {
 	offset := 0
 	subquery := config.GetDB().Table("selected_nodes").Select("selected_nodes.id AS id, selected_nodes.node_address AS node_address, inference_tasks.task_id AS task_id, inference_tasks.task_args AS task_args").Joins("INNER JOIN inference_tasks ON selected_nodes.inference_task_id = inference_tasks.id AND inference_tasks.task_type = 0")
 	for {
-		rows, err := config.GetDB().Table("selected_node_status_logs").Select("selected_node_status_logs.created_at, selected_node_status_logs.status, s.node_address, s.task_id, s.task_args").Joins("INNER JOIN (?) s ON selected_node_status_logs.selected_node_id = s.id", subquery).Where("selected_node_status_logs.created_at >= ? AND selected_node_status_logs.status != ?", start, models.NodeStatusRunning).Order("selected_node_status_logs.created_at, s.task_id").Offset(offset).Limit(limit).Rows()
+		rows, err := config.GetDB().Table("selected_node_status_logs").Select("selected_node_status_logs.created_at, selected_node_status_logs.status, s.node_address, s.task_id, s.task_args").Joins("INNER JOIN (?) s ON selected_node_status_logs.selected_node_id = s.id", subquery).Where("selected_node_status_logs.created_at >= ? AND selected_node_status_logs.status != ?", start, models.NodeStatusRunning).Order("s.task_id, selected_node_status_logs.created_at").Offset(offset).Limit(limit).Rows()
 		if err != nil {
 			return response.NewExceptionResponse(err)
 		}
