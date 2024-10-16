@@ -52,6 +52,8 @@ func GetNodeEventLogs(ctx *gin.Context) error {
 				taskModel = "SDXL"
 			} else if strings.Contains(taskArgs, "crynux-ai/stable-diffusion-v1-5") {
 				taskModel = "SD1.5"
+			} else if strings.Contains(taskArgs, "crynux-ai/sdxl-turbo") {
+				taskModel = "SDXL-Turbo"
 			}
 			taskModels = append(taskModels, taskModel)
 			count += 1
