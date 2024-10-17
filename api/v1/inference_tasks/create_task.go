@@ -68,7 +68,7 @@ func CreateTask(_ *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 				"Signer not allowed")
 	}
 
-	if len(task.TaskArgs) == 0 {
+	if len(task.TaskArgs) > 0 {
 		return nil,
 			response.NewValidationErrorResponse(
 				"task_id",
