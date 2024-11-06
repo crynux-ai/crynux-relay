@@ -727,11 +727,17 @@ func processTaskNodeSuccess(block *types.Block, receipt *types.Receipt) error {
 		}
 
 		task := models.InferenceTask{TaskId: taskID}
-		if err := config.GetDB().Model(&task).Where(&task).Find(&task).Error; err != nil {
+		if err := config.GetDB().Model(&task).Where(&task).First(&task).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				continue
+			}
 			return err
 		}
 		selectedNode := models.SelectedNode{InferenceTaskID: task.ID, NodeAddress: nodeAddress}
-		if err := config.GetDB().Model(&selectedNode).Where(&selectedNode).Find(&selectedNode).Error; err != nil {
+		if err := config.GetDB().Model(&selectedNode).Where(&selectedNode).First(&selectedNode).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				continue
+			}
 			return err
 		}
 		if err := config.GetDB().Transaction(func(tx *gorm.DB) error {
@@ -771,11 +777,17 @@ func processTaskNodeCancelled(block *types.Block, receipt *types.Receipt) error 
 		log.Debugf("SyncedBlocks: Node cancelled in task %s|%d|%d|%s", nodeAddress, taskID, block.NumberU64(), receipt.TxHash.Hex())
 
 		task := models.InferenceTask{TaskId: taskID}
-		if err := config.GetDB().Model(&task).Where(&task).Find(&task).Error; err != nil {
+		if err := config.GetDB().Model(&task).Where(&task).First(&task).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				continue
+			}
 			return err
 		}
 		selectedNode := models.SelectedNode{InferenceTaskID: task.ID, NodeAddress: nodeAddress}
-		if err := config.GetDB().Model(&selectedNode).Where(&selectedNode).Find(&selectedNode).Error; err != nil {
+		if err := config.GetDB().Model(&selectedNode).Where(&selectedNode).First(&selectedNode).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				continue
+			}
 			return err
 		}
 		if err := config.GetDB().Transaction(func(tx *gorm.DB) error {
@@ -815,11 +827,17 @@ func processTaskNodeSlashed(block *types.Block, receipt *types.Receipt) error {
 		log.Debugf("SyncedBlocks: Node slashed in task %s|%d|%d|%s", nodeAddress, taskID, block.NumberU64(), receipt.TxHash.Hex())
 
 		task := models.InferenceTask{TaskId: taskID}
-		if err := config.GetDB().Model(&task).Where(&task).Find(&task).Error; err != nil {
+		if err := config.GetDB().Model(&task).Where(&task).First(&task).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				continue
+			}
 			return err
 		}
 		selectedNode := models.SelectedNode{InferenceTaskID: task.ID, NodeAddress: nodeAddress}
-		if err := config.GetDB().Model(&selectedNode).Where(&selectedNode).Find(&selectedNode).Error; err != nil {
+		if err := config.GetDB().Model(&selectedNode).Where(&selectedNode).First(&selectedNode).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				continue
+			}
 			return err
 		}
 		if err := config.GetDB().Transaction(func(tx *gorm.DB) error {
