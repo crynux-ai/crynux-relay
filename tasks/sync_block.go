@@ -492,9 +492,7 @@ func processTaskStarted(block *types.Block, receipt *types.Receipt) error {
 
 		var existSelectedNodes []models.SelectedNode
 		if err := config.GetDB().Model(task).Association("SelectedNodes").Find(&existSelectedNodes); err != nil {
-			if err != gorm.ErrEmptySlice {
-				return err
-			}
+			return err
 		}
 		if len(existSelectedNodes) == 0 {
 			err := config.GetDB().Transaction(func(tx *gorm.DB) error {
@@ -533,26 +531,28 @@ func processTaskStarted(block *types.Block, receipt *types.Receipt) error {
 				}
 			}
 
-			err := config.GetDB().Transaction(func(tx *gorm.DB) error {
-				if err := tx.Model(task).Association("SelectedNodes").Append(newSelectedNodes); err != nil {
-					return err
-				}
-
-				var nodeStatusLogs []models.SelectedNodeStatusLog
-				for _, selectedNode := range newSelectedNodes {
-					nodeStatusLog := models.SelectedNodeStatusLog{
-						SelectedNode: selectedNode,
-						Status:       models.NodeStatusPending,
+			if len(newSelectedNodes) > 0 {
+				err := config.GetDB().Transaction(func(tx *gorm.DB) error {
+					if err := tx.Model(task).Association("SelectedNodes").Append(newSelectedNodes); err != nil {
+						return err
 					}
-					nodeStatusLogs = append(nodeStatusLogs, nodeStatusLog)
-				}
-				if err := tx.Create(&nodeStatusLogs).Error; err != nil {
+	
+					var nodeStatusLogs []models.SelectedNodeStatusLog
+					for _, selectedNode := range newSelectedNodes {
+						nodeStatusLog := models.SelectedNodeStatusLog{
+							SelectedNode: selectedNode,
+							Status:       models.NodeStatusPending,
+						}
+						nodeStatusLogs = append(nodeStatusLogs, nodeStatusLog)
+					}
+					if err := tx.Create(&nodeStatusLogs).Error; err != nil {
+						return err
+					}
+					return nil
+				})
+				if err != nil {
 					return err
 				}
-				return nil
-			})
-			if err != nil {
-				return err
 			}
 		}
 
