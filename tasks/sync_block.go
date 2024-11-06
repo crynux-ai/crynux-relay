@@ -492,7 +492,9 @@ func processTaskStarted(block *types.Block, receipt *types.Receipt) error {
 
 		var existSelectedNodes []models.SelectedNode
 		if err := config.GetDB().Model(task).Association("SelectedNodes").Find(&existSelectedNodes); err != nil {
-			return err
+			if err != gorm.ErrEmptySlice {
+				return err
+			}
 		}
 		if len(existSelectedNodes) == 0 {
 			err := config.GetDB().Transaction(func(tx *gorm.DB) error {
