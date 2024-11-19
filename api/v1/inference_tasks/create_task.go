@@ -68,7 +68,7 @@ func CreateTask(_ *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 				"Signer not allowed")
 	}
 
-	if task.Status != models.InferenceTaskCreatedOnChain {
+	if len(task.TaskArgs) > 0 {
 		return nil,
 			response.NewValidationErrorResponse(
 				"task_id",
@@ -77,6 +77,11 @@ func CreateTask(_ *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 
 	task.TaskArgs = in.TaskArgs
 	task.Status = models.InferenceTaskParamsUploaded
+
+	taskStatusLog := models.InferenceTaskStatusLog{
+		InferenceTask: task,
+		Status: models.InferenceTaskParamsUploaded,
+	}
 
 	taskHash, err := task.GetTaskHash()
 	if err != nil {
@@ -89,7 +94,16 @@ func CreateTask(_ *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 				"Task hash mismatch")
 	}
 
-	if err := config.GetDB().Save(&task).Error; err != nil {
+	err = config.GetDB().Transaction(func(tx *gorm.DB) error {
+		if err := tx.Save(&task).Error; err != nil {
+			return err
+		}
+		if err := tx.Create(&taskStatusLog).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 

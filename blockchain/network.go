@@ -3,11 +3,12 @@ package blockchain
 import (
 	"context"
 	"math/big"
+	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	log "github.com/sirupsen/logrus"
-
 )
 
 func GetAllNodesNumber() (busyNodes *big.Int, allNodes *big.Int, activeNodes *big.Int, err error) {
@@ -88,6 +89,7 @@ type NodeData struct {
 	VRam      int      `json:"v_ram"`
 	Balance   *big.Int `json:"balance"`
 	Active    bool     `json:"active"`
+	QoS       int64    `json:"qos"`
 }
 
 func GetAllNodesData(startIndex, endIndex int) ([]NodeData, error) {
@@ -106,6 +108,11 @@ func GetAllNodesData(startIndex, endIndex int) ([]NodeData, error) {
 		return nil, err
 	}
 
+	qosContractInstance, err := GetQoSContractInstance()
+	if err != nil {
+		return nil, err
+	}
+
 	allNodeInfos, err := netstatsInstance.GetAllNodeInfo(&bind.CallOpts{
 		Pending: false,
 		Context: context.Background(),
@@ -116,59 +123,81 @@ func GetAllNodesData(startIndex, endIndex int) ([]NodeData, error) {
 
 	nodeData := make([]NodeData, len(allNodeInfos))
 
-	errCh := make(chan error, len(allNodeInfos))
 	// limit concurrency goroutines count
 	limiter := make(chan struct{}, 4)
+	var wg sync.WaitGroup
 
 	for idx, nodeInfo := range allNodeInfos {
 		nodeData[idx] = NodeData{
 			Address:   nodeInfo.NodeAddress.Hex(),
 			CardModel: nodeInfo.GPUModel,
 			VRam:      int(nodeInfo.VRAM.Int64()),
-			Balance: big.NewInt(0),
+			Balance:   big.NewInt(0),
 		}
 
 		limiter <- struct{}{}
+		wg.Add(1)
 		go func(idx int, nodeAddress common.Address) {
 
 			defer func() {
 				<-limiter
+				wg.Done()
 			}()
+			
+			retryCount := 3
 
-			balance, err := client.BalanceAt(context.Background(), nodeAddress, nil)
-
-			if err != nil {
-				log.Errorf("get wallet balance error: %v", err)
-				errCh <- err
-				return
+			for retryCount > 0 {
+				balance, err := client.BalanceAt(context.Background(), nodeAddress, nil)
+	
+				if err != nil {
+					log.Errorf("get wallet balance error: %v", err)
+					retryCount -= 1
+					time.Sleep(time.Second)
+					continue
+				}
+				nodeData[idx].Balance = balance
+				break
 			}
-
-			status, err := nodeContractInstance.GetNodeStatus(&bind.CallOpts{
-				Pending: false,
-				Context: context.Background(),
-			}, nodeAddress)
-			if err != nil {
-				log.Errorf("get node status error: %v", err)
-				errCh <- err
-				return
+	
+			retryCount = 3
+			for retryCount > 0{
+				status, err := nodeContractInstance.GetNodeStatus(&bind.CallOpts{
+					Pending: false,
+					Context: context.Background(),
+				}, nodeAddress)
+				if err != nil {
+					log.Errorf("get node status error: %v", err)
+					retryCount -= 1
+					time.Sleep(time.Second)
+					continue
+				}
+	
+				if status.Cmp(big.NewInt(0)) != 0 {
+					nodeData[idx].Active = true
+				}
+				break
 			}
-
-			if status.Cmp(big.NewInt(0)) != 0 {
-				nodeData[idx].Active = true
+	
+			retryCount = 3
+			for retryCount > 0 {
+				qos, err := qosContractInstance.GetTaskScore(&bind.CallOpts{
+					Pending: false,
+					Context: context.Background(),
+				}, nodeAddress)
+				if err != nil {
+					log.Errorf("get qos score error: %v", err)
+					retryCount -= 1
+					time.Sleep(time.Second)
+					continue
+				}
+	
+				nodeData[idx].QoS = qos.Int64()
+				break
 			}
-
-			nodeData[idx].Balance = balance
-			errCh <- nil
 		}(idx, nodeInfo.NodeAddress)
 	}
 
-	for i := 0; i < len(allNodeInfos); i++ {
-		err := <-errCh
-		if err != nil {
-			return nil, err
-		}
-	}
-	close(errCh)
+	wg.Wait()
 
 	return nodeData, nil
 }

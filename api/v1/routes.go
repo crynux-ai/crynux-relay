@@ -1,9 +1,11 @@
 package v1
 
 import (
+	"crynux_relay/api/v1/incentive"
 	"crynux_relay/api/v1/inference_tasks"
 	"crynux_relay/api/v1/network"
 	"crynux_relay/api/v1/response"
+	"crynux_relay/api/v1/stats"
 	"crynux_relay/api/v1/time"
 	"crynux_relay/api/v1/worker"
 
@@ -96,4 +98,56 @@ func InitRoutes(r *fizz.Fizz) {
 		fizz.Summary("Get worker count of specified version"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(worker.GetWorkerCount, 200))
+
+	statsGroup := v1g.Group("stats", "stats", "task statistics related APIs")
+
+	statsGroup.GET("/line_chart/task_count", []fizz.OperationOption{
+		fizz.Summary("Get line chart data of task count"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(stats.GetTaskCountLineChart, 200))
+
+	statsGroup.GET("/line_chart/task_success_rate", []fizz.OperationOption{
+		fizz.Summary("Get line chart data of task success rate"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(stats.GetTaskSuccessRateLineChart, 200))
+
+	statsGroup.GET("/histogram/task_execution_time", []fizz.OperationOption{
+		fizz.Summary("Get histogram data of task execution time"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(stats.GetTaskExecutionTimeHistogram, 200))
+	statsGroup.GET("/histogram/task_upload_result_time", []fizz.OperationOption{
+		fizz.Summary("Get histogram data of task upload result time"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(stats.GetTaskUploadResultTimeHistogram, 200))
+	statsGroup.GET("/histogram/task_waiting_time", []fizz.OperationOption{
+		fizz.Summary("Get histogram data of task waiting time"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(stats.GetTaskWaitingTimeHistogram, 200))
+
+	statsGroup.GET("/line_chart/incentive", []fizz.OperationOption{
+		fizz.Summary("Get line chart data of incentives"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(stats.GetIncentiveLineChart, 200))
+	statsGroup.GET("/histogram/task_fee", []fizz.OperationOption{
+		fizz.Summary("Get histogram data of task fee in the path hour"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(stats.GetTaskFeeHistogram, 200))
+
+	statsGroup.GET("/node_events", []fizz.OperationOption{
+		fizz.Summary("Get node event logs in the recent hour"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(stats.GetNodeEventLogs, 200))
+
+	incentiveGroup := v1g.Group("incentive", "incentive", "incentive statistics related APIs")
+
+	incentiveGroup.GET("/total", []fizz.OperationOption{
+		fizz.Summary("Get today's total incentive"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(incentive.GetTotalIncentive, 200))
+
+	incentiveGroup.GET("/nodes", []fizz.OperationOption{
+		fizz.Summary("Get nodes with top K incentive"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(incentive.GetNodeIncentive, 200))
+
 }

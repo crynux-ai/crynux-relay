@@ -16,6 +16,7 @@ const (
 	InferenceTaskAborted
 	InferenceTaskPendingResults
 	InferenceTaskResultsUploaded
+	InferenceTaskStarted
 )
 
 type ChainTaskType int
@@ -36,6 +37,8 @@ type InferenceTask struct {
 	Status        TaskStatus    `json:"status"`
 	TaskType      ChainTaskType `json:"task_type"`
 	VramLimit     uint64        `json:"vram_limit"`
+	TaskFee       float64       `json:"task_fee"`
+	AbortReason   string        `json:"abort_reason"`
 	SelectedNodes []SelectedNode
 }
 
@@ -50,4 +53,11 @@ func (t *InferenceTask) GetTaskHash() (*common.Hash, error) {
 
 func (t *InferenceTask) GetDataHash() (*common.Hash, error) {
 	return nil, nil
+}
+
+type InferenceTaskStatusLog struct {
+	gorm.Model
+	InferenceTaskID uint `gorm:"index"`
+	InferenceTask   InferenceTask
+	Status          TaskStatus
 }

@@ -35,6 +35,10 @@ func main() {
 
 	go tasks.StartSyncNetwork()
 	go tasks.StartSyncBlock()
+	go tasks.StartStatsTaskCount()
+	go tasks.StartStatsTaskExecutionTimeCount()
+	go tasks.StartStatsTaskUploadResultTimeCount()
+	go tasks.StartStatsTaskWaitingTimeCount()
 
 	startServer()
 }
