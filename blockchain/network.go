@@ -172,7 +172,7 @@ func GetAllNodesData(startIndex, endIndex int) ([]NodeData, error) {
 					continue
 				}
 	
-				if status.Cmp(big.NewInt(0)) != 0 {
+				if status > 0 {
 					nodeData[idx].Active = true
 				}
 				break

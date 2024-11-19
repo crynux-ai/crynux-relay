@@ -1,25 +1,23 @@
 package models
 
 import (
-	"strconv"
+	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"gorm.io/gorm"
 )
 
-type TaskStatus int
+type TaskStatus uint8
 
 const (
-	InferenceTaskCreatedOnChain TaskStatus = iota
-	InferenceTaskParamsUploaded
-	InferenceTaskAborted
-	InferenceTaskPendingResults
+	InferenceTaskCreated TaskStatus = iota
+	InferenceTaskParamsUploaded 
 	InferenceTaskResultsUploaded
-	InferenceTaskStarted
+	InferenceTaskEndAborted
+	InferenceTaskEndSuccess
+	InferenceTaskEndInvalidated
 )
 
-type ChainTaskType int
+type ChainTaskType uint8
 
 const (
 	TaskTypeSD ChainTaskType = iota
@@ -27,37 +25,39 @@ const (
 	TaskTypeSDFTLora
 )
 
+type TaskAbortReason uint8
+
+const (
+	TaskAbortReasonNone TaskAbortReason = iota
+	TaskAbortTimeout
+	TaskAbortModelDownloadFailed
+	TaskAbortIncorrectResult
+	TaskAbortTaskFeeTooLow
+)
+
+type TaskError uint8
+
+const (
+	TaskErrorNone TaskError = iota
+	TaskErrorParametersValidationFailed
+)
+
 type InferenceTask struct {
 	gorm.Model
-	TaskArgs      string        `json:"task_args"`
-	TaskId        uint64        `json:"task_id" gorm:"index"`
-	Creator       string        `json:"creator"`
-	TaskHash      string        `json:"task_hash"`
-	DataHash      string        `json:"data_hash"`
-	Status        TaskStatus    `json:"status"`
-	TaskType      ChainTaskType `json:"task_type"`
-	VramLimit     uint64        `json:"vram_limit"`
-	TaskFee       float64       `json:"task_fee"`
-	AbortReason   string        `json:"abort_reason"`
-	SelectedNodes []SelectedNode
-}
-
-func (t *InferenceTask) GetTaskIdAsString() string {
-	return strconv.FormatUint(t.TaskId, 10)
-}
-
-func (t *InferenceTask) GetTaskHash() (*common.Hash, error) {
-	hash := crypto.Keccak256Hash([]byte(t.TaskArgs))
-	return &hash, nil
-}
-
-func (t *InferenceTask) GetDataHash() (*common.Hash, error) {
-	return nil, nil
-}
-
-type InferenceTaskStatusLog struct {
-	gorm.Model
-	InferenceTaskID uint `gorm:"index"`
-	InferenceTask   InferenceTask
-	Status          TaskStatus
+	TaskArgs           string          `json:"task_args"`
+	TaskIDCommitment   string          `json:"task_id_commitment" gorm:"index"`
+	Creator            string          `json:"creator"`
+	Status             TaskStatus      `json:"status"`
+	TaskType           ChainTaskType   `json:"task_type"`
+	MinVRAM            uint64          `json:"min_vram"`
+	RequiredGPU        string          `json:"required_gpu"`
+	RequiredGPUVRAM    uint64          `json:"required_gpu_vram"`
+	TaskFee            float64         `json:"task_fee"`
+	TaskSize           uint64          `json:"task_size"`
+	AbortReason        TaskAbortReason `json:"abort_reason"`
+	TaskError          TaskError       `json:"task_error"`
+	SelectedNode       string          `json:"selected_node"`
+	StartTime          time.Time       `json:"start_time"`
+	FinishTime         time.Time       `json:"finish_time"`
+	ResultUploadedTime time.Time       `json:"result_uploaded_time"`
 }

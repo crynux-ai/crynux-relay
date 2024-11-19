@@ -16,6 +16,28 @@
     "type": "constructor"
   },
   {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      }
+    ],
+    "name": "OwnableInvalidOwner",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      }
+    ],
+    "name": "OwnableUnauthorizedAccount",
+    "type": "error"
+  },
+  {
     "anonymous": false,
     "inputs": [
       {
@@ -124,9 +146,9 @@
       {
         "components": [
           {
-            "internalType": "uint256",
+            "internalType": "enum Node.NodeStatus",
             "name": "status",
-            "type": "uint256"
+            "type": "uint8"
           },
           {
             "internalType": "bytes32",
@@ -154,6 +176,21 @@
             "internalType": "uint256",
             "name": "score",
             "type": "uint256"
+          },
+          {
+            "internalType": "string",
+            "name": "version",
+            "type": "string"
+          },
+          {
+            "internalType": "bytes",
+            "name": "publicKey",
+            "type": "bytes"
+          },
+          {
+            "internalType": "string",
+            "name": "lastModelID",
+            "type": "string"
           }
         ],
         "internalType": "struct Node.NodeInfo",
@@ -175,9 +212,9 @@
     "name": "getNodeStatus",
     "outputs": [
       {
-        "internalType": "uint256",
+        "internalType": "enum Node.NodeStatus",
         "name": "",
-        "type": "uint256"
+        "type": "uint8"
       }
     ],
     "stateMutability": "view",
@@ -213,6 +250,16 @@
         "internalType": "uint256",
         "name": "gpuVram",
         "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "version",
+        "type": "string"
+      },
+      {
+        "internalType": "bytes",
+        "name": "publicKey",
+        "type": "bytes"
       }
     ],
     "name": "join",
@@ -250,42 +297,42 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "k",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "vramLimit",
-        "type": "uint256"
-      },
-      {
-        "internalType": "bool",
-        "name": "useSameGPU",
-        "type": "bool"
-      },
-      {
         "internalType": "bytes32",
         "name": "seed",
         "type": "bytes32"
       },
       {
+        "internalType": "uint256",
+        "name": "minimumVRAM",
+        "type": "uint256"
+      },
+      {
         "internalType": "string",
-        "name": "gpuName",
+        "name": "requiredGPU",
         "type": "string"
       },
       {
         "internalType": "uint256",
-        "name": "gpuVram",
+        "name": "requiredGPUVRAM",
         "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "taskVersion",
+        "type": "string"
+      },
+      {
+        "internalType": "string",
+        "name": "modelID",
+        "type": "string"
       }
     ],
-    "name": "randomSelectNodes",
+    "name": "randomSelectNode",
     "outputs": [
       {
-        "internalType": "address[]",
+        "internalType": "address",
         "name": "",
-        "type": "address[]"
+        "type": "address"
       }
     ],
     "stateMutability": "nonpayable",
@@ -303,30 +350,6 @@
     "name": "resume",
     "outputs": [],
     "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "root",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "k",
-        "type": "uint256"
-      }
-    ],
-    "name": "selectNodesWithRoot",
-    "outputs": [
-      {
-        "internalType": "address[]",
-        "name": "",
-        "type": "address[]"
-      }
-    ],
-    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -377,6 +400,19 @@
       }
     ],
     "name": "updateTaskContractAddress",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "version",
+        "type": "string"
+      }
+    ],
+    "name": "updateVersion",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
