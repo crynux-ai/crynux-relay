@@ -7,6 +7,9 @@ import (
 	"crynux_relay/models"
 	"crynux_relay/utils"
 	"errors"
+	"mime/multipart"
+	"os"
+	"path/filepath"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -16,14 +19,15 @@ import (
 )
 
 type TaskInput struct {
-	TaskArgs         string `json:"task_args" description:"Task arguments" validate:"required"`
-	TaskIDCommitment string `json:"task_id_commitment" description:"Task id commitment" validate:"required"`
+	TaskIDCommitment string                `path:"task_id_commitment" json:"task_id_commitment" description:"Task id commitment" validate:"required"`
+	TaskArgs         string                `form:"task_args" json:"task_args" description:"Task arguments" validate:"required"`
+	CheckpointFile   *multipart.FileHeader `form:"checkpoint" json:"-" description:"Input checkpoint file for task of type sd_finetune"`
 }
 
 type TaskInputWithSignature struct {
 	TaskInput
-	Timestamp int64  `json:"timestamp" description:"Signature timestamp" validate:"required"`
-	Signature string `json:"signature" description:"Signature" validate:"required"`
+	Timestamp int64  `form:"timestamp" json:"timestamp" description:"Signature timestamp" validate:"required"`
+	Signature string `form:"signature" json:"signature" description:"Signature" validate:"required"`
 }
 
 func CreateTask(ctx *gin.Context, in *TaskInputWithSignature) (*TaskResponse, error) {
@@ -42,10 +46,10 @@ func CreateTask(ctx *gin.Context, in *TaskInputWithSignature) (*TaskResponse, er
 
 	bs, err := hexutil.Decode(in.TaskIDCommitment)
 	if err != nil {
-		return nil, response.NewValidationErrorResponse("taskIDCommitment", "Invalid task id commitment")
+		return nil, response.NewValidationErrorResponse("task_id_commitment", "Invalid task id commitment")
 	}
 	if len(bs) != 32 {
-		return nil, response.NewValidationErrorResponse("taskIDCommitment", "Invalid task id commitment")
+		return nil, response.NewValidationErrorResponse("task_id_commitment", "Invalid task id commitment")
 	}
 	taskIDCommitmentBytes := (*[32]byte)(bs)
 
@@ -67,6 +71,10 @@ func CreateTask(ctx *gin.Context, in *TaskInputWithSignature) (*TaskResponse, er
 				"task_id_commitment",
 				"Task not found on the Blockchain")
 	}
+	if models.ChainTaskStatus(chainTask.Status) != models.ChainTaskStarted {
+		return nil, response.NewValidationErrorResponse("task_id_commitment", "Task not started")
+	}
+
 	if address != chainTask.Creator.Hex() {
 		return nil, response.NewValidationErrorResponse("signature", "Signer not allowed")
 	}
@@ -85,8 +93,22 @@ func CreateTask(ctx *gin.Context, in *TaskInputWithSignature) (*TaskResponse, er
 	if err == nil {
 		return nil, response.NewValidationErrorResponse("task_id_commitment", "Task already uploaded")
 	}
-	if err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, response.NewExceptionResponse(err)
+	}
+
+	if in.CheckpointFile != nil {
+		if models.ChainTaskType(chainTask.TaskType) != models.TaskTypeSDFTLora {
+			return nil, response.NewValidationErrorResponse("checkpoint", "Task is not sd_finetune type")
+		}
+		appConfig := config.GetConfig()
+
+		taskDir := filepath.Join(appConfig.DataDir.InferenceTasks, task.TaskIDCommitment, "input")
+		if err = os.MkdirAll(taskDir, 0o711); err != nil {
+			return nil, response.NewExceptionResponse(err)
+		}
+		checkpointFilename := filepath.Join(taskDir, "checkpoint.zip")
+		if err := ctx.SaveUploadedFile(in.CheckpointFile, checkpointFilename); err != nil {
 			return nil, response.NewExceptionResponse(err)
 		}
 	}
@@ -103,6 +125,7 @@ func CreateTask(ctx *gin.Context, in *TaskInputWithSignature) (*TaskResponse, er
 	task.RequiredGPUVRAM = chainTask.RequiredGPUVRAM.Uint64()
 	task.TaskFee = taskFee
 	task.TaskSize = chainTask.TaskSize.Uint64()
+	task.SelectedNode = chainTask.SelectedNode.Hex()
 
 	if err := config.GetDB().Save(&task).Error; err != nil {
 		return nil, response.NewExceptionResponse(err)

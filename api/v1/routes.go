@@ -24,37 +24,33 @@ func InitRoutes(r *fizz.Fizz) {
 
 	tasksGroup := v1g.Group("inference_tasks", "Inference tasks", "Inference tasks related APIs")
 
-	tasksGroup.POST("", []fizz.OperationOption{
+	tasksGroup.POST("/:task_id_commitment", []fizz.OperationOption{
 		fizz.Summary("Create an task"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 		fizz.Response("500", "exception", response.ExceptionResponse{}, nil, nil),
 	}, tonic.Handler(inference_tasks.CreateTask, 200))
 
-	tasksGroup.GET("/:task_id", []fizz.OperationOption{
+	tasksGroup.GET("/:task_id_commitment", []fizz.OperationOption{
 		fizz.Summary("Get a task by task id"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(inference_tasks.GetTaskById, 200))
 
-	tasksGroup.POST("/:task_id/results", []fizz.OperationOption{
+	tasksGroup.POST("/:task_id_commitment/results", []fizz.OperationOption{
 		fizz.Summary("Upload task result"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 		fizz.Response("500", "exception", response.ExceptionResponse{}, nil, nil),
 	}, tonic.Handler(inference_tasks.UploadResult, 200))
 
-	tasksGroup.GET("/:task_id/results/:image_num", []fizz.OperationOption{
+	tasksGroup.GET("/:task_id_commitment/results/:index", []fizz.OperationOption{
 		fizz.Summary("Get the result of the task by node address"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(inference_tasks.GetResult, 200))
-	tasksGroup.GET("/:task_id/results/checkpoint", []fizz.OperationOption{
+	tasksGroup.GET("/:task_id_commitment/results/checkpoint", []fizz.OperationOption{
 		fizz.Summary("Get the result checkpoint of the task by node address"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(inference_tasks.GetResultCheckpoint, 200))
 
-	tasksGroup.POST("/:task_id/checkpoint", []fizz.OperationOption{
-		fizz.Summary("Upload the input checkpoint of the task"),
-		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
-	}, tonic.Handler(inference_tasks.UploadCheckpoint, 200))
-	tasksGroup.GET("/:task_id/checkpoint", []fizz.OperationOption{
+	tasksGroup.GET("/:task_id_commitment/checkpoint", []fizz.OperationOption{
 		fizz.Summary("Get the input checkpoint of the task"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(inference_tasks.GetCheckpoint, 200))

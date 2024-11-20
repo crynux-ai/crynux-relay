@@ -12,7 +12,7 @@ import (
 )
 
 type GetTaskInput struct {
-	TaskId uint64 `path:"task_id" json:"task_id" validate:"required" description:"The task id"`
+	TaskIDCommitment string `path:"task_id_commitment" json:"task_id_commitment" validate:"required" description:"The task id commitment"`
 }
 
 type GetTaskInputWithSignature struct {
@@ -37,7 +37,7 @@ func GetTaskById(_ *gin.Context, in *GetTaskInputWithSignature) (*TaskResponse, 
 
 	var task models.InferenceTask
 
-	if result := config.GetDB().Where(&models.InferenceTask{TaskId: in.TaskId}).Preload("SelectedNodes").First(&task); result.Error != nil {
+	if result := config.GetDB().Where(&models.InferenceTask{TaskIDCommitment: in.TaskIDCommitment}).First(&task); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			validationErr := response.NewValidationErrorResponse("task_id", "Task not found")
 			return nil, validationErr
@@ -50,46 +50,13 @@ func GetTaskById(_ *gin.Context, in *GetTaskInputWithSignature) (*TaskResponse, 
 		return nil, response.NewValidationErrorResponse("task_id", "Task not ready")
 	}
 
-	if task.Status != models.InferenceTaskParamsUploaded && task.Status != models.InferenceTaskStarted {
+	if task.Status != models.InferenceTaskParamsUploaded {
 		return nil, response.NewValidationErrorResponse("task_id", "Task not ready")
 	}
 
-	if len(task.SelectedNodes) < 3 {
-		return nil, response.NewValidationErrorResponse("task_id", "Task not ready")
+	if task.SelectedNode != address && task.Creator != address {
+		return nil, response.NewValidationErrorResponse("signature", "Signer not allowed")
 	}
 
-	if task.Creator == address {
-		return &TaskResponse{Data: task}, nil
-	}
-
-	log.Debugln("signer address: " + address)
-	log.Debugln("selected nodes")
-	log.Debugln(task.SelectedNodes)
-
-	for _, selectedNode := range task.SelectedNodes {
-		if selectedNode.NodeAddress == address {
-			err := config.GetDB().Transaction(func(tx *gorm.DB) error {
-				selectedNode.Status = models.NodeStatusRunning
-				if err := tx.Save(&selectedNode).Error; err != nil {
-					return err
-				}
-				nodeStatusLog := models.SelectedNodeStatusLog{
-					SelectedNode: selectedNode,
-					Status: models.NodeStatusRunning,
-				}
-				if err := tx.Create(&nodeStatusLog).Error; err != nil {
-					return err
-				}
-				return nil
-			})
-			if err != nil {
-				return nil, response.NewExceptionResponse(err)
-			}
-
-			return &TaskResponse{Data: task}, nil
-		}
-	}
-
-	validationErr := response.NewValidationErrorResponse("signature", "Signer not allowed")
-	return nil, validationErr
+	return &TaskResponse{Data: task}, nil
 }

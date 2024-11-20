@@ -14,8 +14,8 @@ import (
 )
 
 type GetResultInput struct {
-	ImageNum string `path:"image_num" json:"image_num" description:"Image number" validate:"required"`
-	TaskId   uint64 `path:"task_id" json:"task_id" description:"Task id" validate:"required"`
+	Index            string `path:"index" json:"index" description:"Result file index" validate:"required"`
+	TaskIDCommitment string `path:"task_id_commitment" json:"task_id_commitment" description:"Task id commitment" validate:"required"`
 }
 
 type GetResultInputWithSignature struct {
@@ -39,7 +39,7 @@ func GetResult(ctx *gin.Context, in *GetResultInputWithSignature) error {
 
 	var task models.InferenceTask
 
-	if err := config.GetDB().Where(&models.InferenceTask{TaskId: in.TaskId}).First(&task).Error; err != nil {
+	if err := config.GetDB().Where(&models.InferenceTask{TaskIDCommitment: in.TaskIDCommitment}).First(&task).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return response.NewValidationErrorResponse("task_id", "Task not found")
 		} else {
@@ -51,7 +51,7 @@ func GetResult(ctx *gin.Context, in *GetResultInputWithSignature) error {
 		return response.NewValidationErrorResponse("signature", "Signer not allowed")
 	}
 
-	if task.Status != models.InferenceTaskResultsUploaded {
+	if task.Status != models.InferenceTaskEndSuccess {
 		return response.NewValidationErrorResponse("task_id", "Task results not uploaded")
 	}
 
@@ -66,18 +66,18 @@ func GetResult(ctx *gin.Context, in *GetResultInputWithSignature) error {
 
 	resultFile := filepath.Join(
 		appConfig.DataDir.InferenceTasks,
-		task.GetTaskIdAsString(),
+		task.TaskIDCommitment,
 		"results",
-		in.ImageNum+fileExt,
+		in.Index+fileExt,
 	)
 
 	if _, err := os.Stat(resultFile); err != nil {
-		return response.NewValidationErrorResponse("image_num", "File not found")
+		return response.NewValidationErrorResponse("index", "File not found")
 	}
 
 	ctx.Header("Content-Description", "File Transfer")
 	ctx.Header("Content-Transfer-Encoding", "binary")
-	ctx.Header("Content-Disposition", "attachment; filename="+in.ImageNum+fileExt)
+	ctx.Header("Content-Disposition", "attachment; filename="+in.Index+fileExt)
 	ctx.Header("Content-Type", "application/octet-stream")
 	ctx.File(resultFile)
 
@@ -85,7 +85,7 @@ func GetResult(ctx *gin.Context, in *GetResultInputWithSignature) error {
 }
 
 type GetResultCheckpointInput struct {
-	TaskId uint64 `path:"task_id" json:"task_id" description:"Task id" validate:"required"`
+	TaskIDCommitment string `path:"task_id_commitment" json:"task_id_commitment" description:"Task id commitment" validate:"required"`
 }
 
 type GetResultCheckpointInputWithSignature struct {
@@ -108,7 +108,7 @@ func GetResultCheckpoint(ctx *gin.Context, in *GetResultCheckpointInputWithSigna
 
 	var task models.InferenceTask
 
-	if err := config.GetDB().Where(&models.InferenceTask{TaskId: in.TaskId}).First(&task).Error; err != nil {
+	if err := config.GetDB().Where(&models.InferenceTask{TaskIDCommitment: in.TaskIDCommitment}).First(&task).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return response.NewValidationErrorResponse("task_id", "Task not found")
 		} else {
@@ -120,14 +120,14 @@ func GetResultCheckpoint(ctx *gin.Context, in *GetResultCheckpointInputWithSigna
 		return response.NewValidationErrorResponse("signature", "Signer not allowed")
 	}
 
-	if task.Status != models.InferenceTaskResultsUploaded {
+	if task.Status != models.InferenceTaskEndSuccess {
 		return response.NewValidationErrorResponse("task_id", "Task checkpoint not uploaded")
 	}
 
 	appConfig := config.GetConfig()
 	resultFile := filepath.Join(
 		appConfig.DataDir.InferenceTasks,
-		task.GetTaskIdAsString(),
+		task.TaskIDCommitment,
 		"results",
 		"checkpoint.zip",
 	)

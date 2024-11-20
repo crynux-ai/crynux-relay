@@ -6,12 +6,29 @@ import (
 	"gorm.io/gorm"
 )
 
+type ChainTaskStatus uint8
+
+const (
+	ChainTaskQueued ChainTaskStatus = iota
+	ChainTaskStarted
+	ChainTaskParametersUploaded
+	ChainTaskErrorReported
+	ChainTaskScoreReady
+	ChainTaskValidated
+	ChainTaskGroupValidated
+	ChainTaskEndInvalidated
+	ChainTaskEndSuccess
+	ChainTaskEndAborted
+	ChainTaskEndGroupRefund
+	ChainTaskEndGroupSuccess
+)
+
 type TaskStatus uint8
 
 const (
 	InferenceTaskCreated TaskStatus = iota
 	InferenceTaskParamsUploaded 
-	InferenceTaskResultsUploaded
+	InferenceTaskResultsReady
 	InferenceTaskEndAborted
 	InferenceTaskEndSuccess
 	InferenceTaskEndInvalidated
