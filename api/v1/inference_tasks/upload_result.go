@@ -75,7 +75,8 @@ func UploadResult(c *gin.Context, in *ResultInputWithSignature) (*response.Respo
 		return nil, response.NewExceptionResponse(err)
 	}
 
-	if task.Status != models.InferenceTaskParamsUploaded || models.ChainTaskStatus(chainTask.Status) != models.ChainTaskValidated || models.ChainTaskStatus(chainTask.Status) != models.ChainTaskGroupValidated {
+	if task.Status != models.InferenceTaskParamsUploaded ||
+		(models.ChainTaskStatus(chainTask.Status) != models.ChainTaskValidated && models.ChainTaskStatus(chainTask.Status) != models.ChainTaskGroupValidated) {
 		validationErr := response.NewValidationErrorResponse("task_id_commitment", "Task not validated")
 		return nil, validationErr
 	}
