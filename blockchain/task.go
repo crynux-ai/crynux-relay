@@ -4,65 +4,64 @@ import (
 	"context"
 	"crynux_relay/blockchain/bindings"
 	"crynux_relay/config"
-	"crynux_relay/models"
 	"crypto/sha256"
 	"encoding/binary"
-	"errors"
 	"image/png"
 	"io"
-	"math/big"
-	"math/rand"
-	"strconv"
 	"time"
 
 	"github.com/corona10/goimagehash"
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/params"
-	log "github.com/sirupsen/logrus"
 )
 
-func CreateTaskOnChain(task *models.InferenceTask) (string, error) {
+func GetTaskByCommitment(ctx context.Context, taskIDCommitment [32]byte) (*bindings.VSSTaskTaskInfo, error) {
+	taskInstance, err := GetTaskContractInstance()
+	if err != nil {
+		return nil, err
+	}
+
+	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	opts := &bind.CallOpts{
+		Pending: false,
+		Context: callCtx,
+	}
+
+	if err := limiter.Wait(callCtx); err != nil {
+		return nil, err
+	}
+	taskInfo, err := taskInstance.GetTask(opts, taskIDCommitment)
+	if err != nil {
+		return nil, err
+	}
+
+	return &taskInfo, nil
+}
+
+func ReportTaskParamsUploaded(ctx context.Context, taskIDCommitment [32]byte) (string, error) {
+	taskInstance, err := GetTaskContractInstance()
+	if err != nil {
+		return "", err
+	}
 
 	appConfig := config.GetConfig()
+	address := common.HexToAddress(appConfig.Blockchain.Account.Address)
+	privkey := appConfig.Blockchain.Account.PrivateKey
 
-	taskHash, err := task.GetTaskHash()
+	auth, err := GetAuth(ctx, address, privkey)
 	if err != nil {
 		return "", err
 	}
 
-	taskContractAddress := common.HexToAddress(appConfig.Blockchain.Contracts.Task)
-	accountAddress := common.HexToAddress(appConfig.Blockchain.Account.Address)
-	accountPrivateKey := appConfig.Blockchain.Account.PrivateKey
-
-	client, err := GetRpcClient()
-	if err != nil {
+	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	if err := limiter.Wait(callCtx); err != nil {
 		return "", err
 	}
-
-	instance, err := bindings.NewTask(taskContractAddress, client)
-	if err != nil {
-		return "", err
-	}
-
-	auth, err := GetAuth(client, accountAddress, accountPrivateKey)
-	if err != nil {
-		return "", err
-	}
-
-	log.Debugln("create task tx: TaskHash " + common.Bytes2Hex(taskHash[:]))
-
-	dataHash := [32]byte{
-		0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0}
-
-	taskFee := new(big.Int).Mul(big.NewInt(30), big.NewInt(params.Ether))
-	auth.Value = taskFee
-	tx, err := instance.CreateTask(auth, big.NewInt(int64(task.TaskType)), *taskHash, dataHash, big.NewInt(int64(task.VramLimit)), big.NewInt(1), "", big.NewInt(0))
+	auth.Context = callCtx
+	tx, err := taskInstance.ReportTaskParametersUploaded(auth, taskIDCommitment)
 	if err != nil {
 		return "", err
 	}
@@ -70,94 +69,33 @@ func CreateTaskOnChain(task *models.InferenceTask) (string, error) {
 	return tx.Hash().Hex(), nil
 }
 
-func GetTaskCreationResult(txHash string) (*big.Int, error) {
-
-	client, err := GetRpcClient()
-	if err != nil {
-		return nil, err
-	}
-
-	ctx, cancelFn := context.WithTimeout(context.Background(), time.Duration(3)*time.Second)
-	defer cancelFn()
-
-	receipt, err := client.TransactionReceipt(ctx, common.HexToHash(txHash))
-	if err != nil {
-
-		if errors.Is(err, ethereum.NotFound) {
-			// Transaction pending
-			return nil, nil
-		}
-
-		log.Errorln("error getting tx receipt for: " + txHash)
-		return nil, err
-	}
-
-	if receipt.Status == 0 {
-		// Transaction failed
-		// Get reason
-		reason, err := GetErrorMessageForTxHash(receipt.TxHash, receipt.BlockNumber)
-
-		if err != nil {
-			log.Errorln("error getting error message for: " + txHash)
-			return nil, err
-		}
-
-		return nil, errors.New(reason)
-	}
-
-	// Transaction success
-	// Extract taskId from the logs
-	taskContractInstance, err := GetTaskContractInstance()
-	if err != nil {
-		log.Errorln("error get task contract instance: " + receipt.TxHash.Hex())
-		return nil, err
-	}
-
-	// There are 6 events emitted from the CreateTask method
-	// Approval, Transfer, TaskPending, TaskStarted x 3
-	if len(receipt.Logs) < 3 {
-		log.Errorln(receipt.Logs)
-		return nil, errors.New("wrong event logs number:" + strconv.Itoa(len(receipt.Logs)))
-	}
-
-	taskPendingEvent, err := taskContractInstance.ParseTaskPending(*receipt.Logs[2])
-	if err != nil {
-		log.Errorln("error parse task created event: " + receipt.TxHash.Hex())
-		return nil, err
-	}
-
-	taskId := taskPendingEvent.TaskId
-
-	return taskId, nil
-}
-
-func GetTaskResultCommitment(result []byte) (commitment [32]byte, nonce [32]byte) {
-	nonceStr := strconv.Itoa(rand.Int())
-	nonceHash := crypto.Keccak256Hash([]byte(nonceStr))
-	commitmentHash := crypto.Keccak256Hash(result, nonceHash.Bytes())
-	copy(commitment[:], commitmentHash.Bytes())
-	copy(nonce[:], nonceHash.Bytes())
-	return commitment, nonce
-}
-
-func GetTaskById(taskId uint64) (*bindings.TaskTaskInfo, error) {
-
+func ReportTaskResultUploaded(ctx context.Context, taskIDCommitment [32]byte) (string, error) {
 	taskInstance, err := GetTaskContractInstance()
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	opts := &bind.CallOpts{
-		Pending: false,
-		Context: context.Background(),
-	}
+	appConfig := config.GetConfig()
+	address := common.HexToAddress(appConfig.Blockchain.Account.Address)
+	privkey := appConfig.Blockchain.Account.PrivateKey
 
-	taskInfo, err := taskInstance.GetTask(opts, big.NewInt(int64(taskId)))
+	auth, err := GetAuth(ctx, address, privkey)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	return &taskInfo, nil
+	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	if err := limiter.Wait(callCtx); err != nil {
+		return "", err
+	}
+	auth.Context = callCtx
+	tx, err := taskInstance.ReportTaskResultUploaded(auth, taskIDCommitment)
+	if err != nil {
+		return "", err
+	}
+
+	return tx.Hash().Hex(), nil
 }
 
 func GetPHashForImage(reader io.Reader) ([]byte, error) {

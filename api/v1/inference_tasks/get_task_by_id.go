@@ -1,10 +1,12 @@
 package inference_tasks
 
 import (
+	"context"
 	"crynux_relay/api/v1/response"
 	"crynux_relay/config"
 	"crynux_relay/models"
 	"errors"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -21,7 +23,7 @@ type GetTaskInputWithSignature struct {
 	Signature string `query:"signature" json:"signature" description:"Signature" validate:"required"`
 }
 
-func GetTaskById(_ *gin.Context, in *GetTaskInputWithSignature) (*TaskResponse, error) {
+func GetTaskById(c *gin.Context, in *GetTaskInputWithSignature) (*TaskResponse, error) {
 
 	match, address, err := ValidateSignature(in.GetTaskInput, in.Timestamp, in.Signature)
 
@@ -37,7 +39,10 @@ func GetTaskById(_ *gin.Context, in *GetTaskInputWithSignature) (*TaskResponse, 
 
 	var task models.InferenceTask
 
-	if result := config.GetDB().Where(&models.InferenceTask{TaskIDCommitment: in.TaskIDCommitment}).First(&task); result.Error != nil {
+	dbCtx, dbCancel := context.WithTimeout(c.Request.Context(), time.Second)
+	defer dbCancel()
+
+	if result := config.GetDB().WithContext(dbCtx).Where(&models.InferenceTask{TaskIDCommitment: in.TaskIDCommitment}).First(&task); result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			validationErr := response.NewValidationErrorResponse("task_id", "Task not found")
 			return nil, validationErr

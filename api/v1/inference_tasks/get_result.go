@@ -1,12 +1,14 @@
 package inference_tasks
 
 import (
+	"context"
 	"crynux_relay/api/v1/response"
 	"crynux_relay/config"
 	"crynux_relay/models"
 	"errors"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -24,7 +26,7 @@ type GetResultInputWithSignature struct {
 	Signature string `query:"signature" description:"Signature" validate:"required"`
 }
 
-func GetResult(ctx *gin.Context, in *GetResultInputWithSignature) error {
+func GetResult(c *gin.Context, in *GetResultInputWithSignature) error {
 
 	match, address, err := ValidateSignature(in.GetResultInput, in.Timestamp, in.Signature)
 
@@ -39,7 +41,10 @@ func GetResult(ctx *gin.Context, in *GetResultInputWithSignature) error {
 
 	var task models.InferenceTask
 
-	if err := config.GetDB().Where(&models.InferenceTask{TaskIDCommitment: in.TaskIDCommitment}).First(&task).Error; err != nil {
+	dbCtx, dbCancel := context.WithTimeout(c.Request.Context(), time.Second)
+	defer dbCancel()
+
+	if err := config.GetDB().WithContext(dbCtx).Where(&models.InferenceTask{TaskIDCommitment: in.TaskIDCommitment}).First(&task).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return response.NewValidationErrorResponse("task_id", "Task not found")
 		} else {
@@ -75,11 +80,11 @@ func GetResult(ctx *gin.Context, in *GetResultInputWithSignature) error {
 		return response.NewValidationErrorResponse("index", "File not found")
 	}
 
-	ctx.Header("Content-Description", "File Transfer")
-	ctx.Header("Content-Transfer-Encoding", "binary")
-	ctx.Header("Content-Disposition", "attachment; filename="+in.Index+fileExt)
-	ctx.Header("Content-Type", "application/octet-stream")
-	ctx.File(resultFile)
+	c.Header("Content-Description", "File Transfer")
+	c.Header("Content-Transfer-Encoding", "binary")
+	c.Header("Content-Disposition", "attachment; filename="+in.Index+fileExt)
+	c.Header("Content-Type", "application/octet-stream")
+	c.File(resultFile)
 
 	return nil
 }
@@ -94,7 +99,7 @@ type GetResultCheckpointInputWithSignature struct {
 	Signature string `query:"signature" description:"Signature" validate:"required"`
 }
 
-func GetResultCheckpoint(ctx *gin.Context, in *GetResultCheckpointInputWithSignature) error {
+func GetResultCheckpoint(c *gin.Context, in *GetResultCheckpointInputWithSignature) error {
 	match, address, err := ValidateSignature(in.GetResultCheckpointInput, in.Timestamp, in.Signature)
 
 	if err != nil || !match {
@@ -108,7 +113,10 @@ func GetResultCheckpoint(ctx *gin.Context, in *GetResultCheckpointInputWithSigna
 
 	var task models.InferenceTask
 
-	if err := config.GetDB().Where(&models.InferenceTask{TaskIDCommitment: in.TaskIDCommitment}).First(&task).Error; err != nil {
+	dbCtx, dbCancel := context.WithTimeout(c.Request.Context(), time.Second)
+	defer dbCancel()
+
+	if err := config.GetDB().WithContext(dbCtx).Where(&models.InferenceTask{TaskIDCommitment: in.TaskIDCommitment}).First(&task).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return response.NewValidationErrorResponse("task_id", "Task not found")
 		} else {
@@ -136,11 +144,11 @@ func GetResultCheckpoint(ctx *gin.Context, in *GetResultCheckpointInputWithSigna
 		return response.NewValidationErrorResponse("task_id", "Checkpoint file not found")
 	}
 
-	ctx.Header("Content-Description", "File Transfer")
-	ctx.Header("Content-Transfer-Encoding", "binary")
-	ctx.Header("Content-Disposition", "attachment; filename=checkpoint.zip")
-	ctx.Header("Content-Type", "application/octet-stream")
-	ctx.File(resultFile)
+	c.Header("Content-Description", "File Transfer")
+	c.Header("Content-Transfer-Encoding", "binary")
+	c.Header("Content-Disposition", "attachment; filename=checkpoint.zip")
+	c.Header("Content-Type", "application/octet-stream")
+	c.File(resultFile)
 
 	return nil
 

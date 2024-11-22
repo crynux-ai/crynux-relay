@@ -27,7 +27,7 @@ type TaskStatus uint8
 
 const (
 	InferenceTaskCreated TaskStatus = iota
-	InferenceTaskParamsUploaded 
+	InferenceTaskParamsUploaded
 	InferenceTaskResultsReady
 	InferenceTaskEndAborted
 	InferenceTaskEndSuccess
@@ -75,6 +75,7 @@ type InferenceTask struct {
 	TaskError          TaskError       `json:"task_error"`
 	SelectedNode       string          `json:"selected_node"`
 	StartTime          time.Time       `json:"start_time"`
-	FinishTime         time.Time       `json:"finish_time"`
+	ScoreReadyTime     time.Time       `json:"score_ready_time"`
+	ValidatedTime      time.Time       `json:"validated_time"`
 	ResultUploadedTime time.Time       `json:"result_uploaded_time"`
 }

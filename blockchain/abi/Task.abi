@@ -472,12 +472,12 @@
           },
           {
             "internalType": "uint256",
-            "name": "startBlocknum",
+            "name": "startTimestamp",
             "type": "uint256"
           },
           {
             "internalType": "uint256",
-            "name": "finishBlocknum",
+            "name": "scoreReadyTimestamp",
             "type": "uint256"
           }
         ],

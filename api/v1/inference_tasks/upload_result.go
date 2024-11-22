@@ -1,17 +1,19 @@
 package inference_tasks
 
 import (
+	"context"
 	"crynux_relay/api/v1/response"
 	"crynux_relay/blockchain"
 	"crynux_relay/config"
 	"crynux_relay/models"
+	"crynux_relay/utils"
 	"errors"
 	"mime/multipart"
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -30,7 +32,7 @@ type ResultInputWithSignature struct {
 	Signature string `form:"signature" json:"signature" description:"Signature" validate:"required"`
 }
 
-func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Response, error) {
+func UploadResult(c *gin.Context, in *ResultInputWithSignature) (*response.Response, error) {
 
 	match, address, err := ValidateSignature(in.ResultInput, in.Timestamp, in.Signature)
 
@@ -45,7 +47,10 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 
 	var task models.InferenceTask
 
-	if err := config.GetDB().Where(&models.InferenceTask{TaskIDCommitment: in.TaskIDCommitment}).First(&task).Error; err != nil {
+	dbCtx, dbCancel := context.WithTimeout(c.Request.Context(), time.Second)
+	defer dbCancel()
+
+	if err := config.GetDB().WithContext(dbCtx).Where(&models.InferenceTask{TaskIDCommitment: in.TaskIDCommitment}).First(&task).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			validationErr := response.NewValidationErrorResponse("task_id_commitment", "Task not found")
 			return nil, validationErr
@@ -58,24 +63,14 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 		return nil, response.NewValidationErrorResponse("Signature", "Signer not allowed")
 	}
 
-	bs, err := hexutil.Decode(in.TaskIDCommitment)
+	taskIDCommitmentBytes, err := utils.HexStrToCommitment(in.TaskIDCommitment)
 	if err != nil {
 		return nil, response.NewValidationErrorResponse("task_id_commitment", "Invalid task id commitment")
 	}
-	if len(bs) != 32 {
-		return nil, response.NewValidationErrorResponse("task_id_commitment", "Invalid task id commitment")
-	}
-	taskIDCommitmentBytes := (*[32]byte)(bs)
 
-	taskInstance, err := blockchain.GetTaskContractInstance()
-	if err != nil {
-		return nil, response.NewExceptionResponse(err)
-	}
-
-	chainTask, err := taskInstance.GetTask(&bind.CallOpts{
-		Pending: false,
-		Context: ctx.Request.Context(),
-	}, *taskIDCommitmentBytes)
+	chainCtx, chainCancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer chainCancel()
+	chainTask, err := blockchain.GetTaskByCommitment(chainCtx, *taskIDCommitmentBytes)
 	if err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
@@ -141,7 +136,7 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 
 	for i, file := range in.Files {
 		filename := filepath.Join(taskDir, strconv.Itoa(i)+fileExt)
-		if err := ctx.SaveUploadedFile(file, filename); err != nil {
+		if err := c.SaveUploadedFile(file, filename); err != nil {
 			return nil, response.NewExceptionResponse(err)
 		}
 	}
@@ -152,14 +147,18 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 			return nil, response.NewValidationErrorResponse("checkpoint", "Checkpoint not uploaded")
 		}
 		checkpointFilename := filepath.Join(taskDir, "checkpoint.zip")
-		if err := ctx.SaveUploadedFile(in.CheckpointFile, checkpointFilename); err != nil {
+		if err := c.SaveUploadedFile(in.CheckpointFile, checkpointFilename); err != nil {
 			return nil, response.NewExceptionResponse(err)
 		}
 	}
 
 	// Update task status
 	task.Status = models.InferenceTaskResultsReady
-	if err := config.GetDB().Save(&task).Error; err != nil {
+
+	dbCtx1, dbCancel1 := context.WithTimeout(c.Request.Context(), time.Second)
+	defer dbCancel1()
+
+	if err := config.GetDB().WithContext(dbCtx1).Save(&task).Error; err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 

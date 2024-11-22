@@ -1,6 +1,7 @@
 package inference_tasks
 
 import (
+	"context"
 	"crynux_relay/api/v1/response"
 	"crynux_relay/blockchain"
 	"crynux_relay/config"
@@ -10,8 +11,8 @@ import (
 	"mime/multipart"
 	"os"
 	"path/filepath"
+	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -30,7 +31,7 @@ type TaskInputWithSignature struct {
 	Signature string `form:"signature" json:"signature" description:"Signature" validate:"required"`
 }
 
-func CreateTask(ctx *gin.Context, in *TaskInputWithSignature) (*TaskResponse, error) {
+func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, error) {
 
 	match, address, err := ValidateSignature(in.TaskInput, in.Timestamp, in.Signature)
 
@@ -44,24 +45,14 @@ func CreateTask(ctx *gin.Context, in *TaskInputWithSignature) (*TaskResponse, er
 		return nil, validationErr
 	}
 
-	bs, err := hexutil.Decode(in.TaskIDCommitment)
+	taskIDCommitmentBytes, err := utils.HexStrToCommitment(in.TaskIDCommitment)
 	if err != nil {
 		return nil, response.NewValidationErrorResponse("task_id_commitment", "Invalid task id commitment")
 	}
-	if len(bs) != 32 {
-		return nil, response.NewValidationErrorResponse("task_id_commitment", "Invalid task id commitment")
-	}
-	taskIDCommitmentBytes := (*[32]byte)(bs)
 
-	taskInstance, err := blockchain.GetTaskContractInstance()
-	if err != nil {
-		return nil, response.NewExceptionResponse(err)
-	}
-
-	chainTask, err := taskInstance.GetTask(&bind.CallOpts{
-		Pending: false,
-		Context: ctx.Request.Context(),
-	}, *taskIDCommitmentBytes)
+	chainCtx, chainCancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer chainCancel()
+	chainTask, err := blockchain.GetTaskByCommitment(chainCtx, *taskIDCommitmentBytes)
 	if err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
@@ -89,7 +80,10 @@ func CreateTask(ctx *gin.Context, in *TaskInputWithSignature) (*TaskResponse, er
 
 	task := models.InferenceTask{}
 
-	err = config.GetDB().Model(&models.InferenceTask{}).Where("task_id_commitment = ?", in.TaskIDCommitment).First(&task).Error
+	dbCtx1, dbCancel1 := context.WithTimeout(c.Request.Context(), time.Second)
+	defer dbCancel1()
+
+	err = config.GetDB().WithContext(dbCtx1).Model(&models.InferenceTask{}).Where("task_id_commitment = ?", in.TaskIDCommitment).First(&task).Error
 	if err == nil {
 		return nil, response.NewValidationErrorResponse("task_id_commitment", "Task already uploaded")
 	}
@@ -108,7 +102,7 @@ func CreateTask(ctx *gin.Context, in *TaskInputWithSignature) (*TaskResponse, er
 			return nil, response.NewExceptionResponse(err)
 		}
 		checkpointFilename := filepath.Join(taskDir, "checkpoint.zip")
-		if err := ctx.SaveUploadedFile(in.CheckpointFile, checkpointFilename); err != nil {
+		if err := c.SaveUploadedFile(in.CheckpointFile, checkpointFilename); err != nil {
 			return nil, response.NewExceptionResponse(err)
 		}
 	}
@@ -127,7 +121,10 @@ func CreateTask(ctx *gin.Context, in *TaskInputWithSignature) (*TaskResponse, er
 	task.TaskSize = chainTask.TaskSize.Uint64()
 	task.SelectedNode = chainTask.SelectedNode.Hex()
 
-	if err := config.GetDB().Save(&task).Error; err != nil {
+	dbCtx2, dbCancel2 := context.WithTimeout(c.Request.Context(), time.Second)
+	defer dbCancel2()
+
+	if err := config.GetDB().WithContext(dbCtx2).Save(&task).Error; err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 
