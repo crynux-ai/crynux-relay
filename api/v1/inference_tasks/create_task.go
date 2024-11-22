@@ -87,7 +87,7 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 	if err == nil {
 		return nil, response.NewValidationErrorResponse("task_id_commitment", "Task already uploaded")
 	}
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, response.NewExceptionResponse(err)
 	}
 
@@ -120,6 +120,7 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 	task.TaskFee = taskFee
 	task.TaskSize = chainTask.TaskSize.Uint64()
 	task.SelectedNode = chainTask.SelectedNode.Hex()
+	task.CreateTime = time.Unix(chainTask.CreateTimestamp.Int64(), 0)
 
 	dbCtx2, dbCancel2 := context.WithTimeout(c.Request.Context(), time.Second)
 	defer dbCancel2()

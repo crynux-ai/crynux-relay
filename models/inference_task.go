@@ -74,8 +74,14 @@ type InferenceTask struct {
 	AbortReason        TaskAbortReason `json:"abort_reason"`
 	TaskError          TaskError       `json:"task_error"`
 	SelectedNode       string          `json:"selected_node"`
+	// time when task is created (get from blockchain)
+	CreateTime         time.Time       `json:"create_time"`
+	// time when relay report task params are uploaded
 	StartTime          time.Time       `json:"start_time"`
+	// time when task score is ready (get from blockchain)
 	ScoreReadyTime     time.Time       `json:"score_ready_time"`
+	// time when relay find that task score is validated
 	ValidatedTime      time.Time       `json:"validated_time"`
+	// time when relay report task results are uploaded
 	ResultUploadedTime time.Time       `json:"result_uploaded_time"`
 }
