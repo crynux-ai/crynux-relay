@@ -36,10 +36,10 @@ func main() {
 
 	go tasks.ProcessTasks(context.Background())
 	go tasks.StartSyncNetwork()
-	go tasks.StartStatsTaskCount()
-	go tasks.StartStatsTaskExecutionTimeCount()
-	go tasks.StartStatsTaskUploadResultTimeCount()
-	go tasks.StartStatsTaskWaitingTimeCount()
+	go tasks.StartStatsTaskCount(context.Background())
+	go tasks.StartStatsTaskExecutionTimeCount(context.Background())
+	go tasks.StartStatsTaskUploadResultTimeCount(context.Background())
+	go tasks.StartStatsTaskWaitingTimeCount(context.Background())
 
 	startServer()
 }

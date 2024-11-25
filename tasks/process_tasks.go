@@ -147,7 +147,7 @@ func processOneTask(ctx context.Context, task *models.InferenceTask) error {
 				task.ValidatedTime = time.Now().UTC()
 				changed = true
 			} else if chainTaskStatus == models.ChainTaskEndGroupRefund {
-				task.Status = models.InferenceTaskEndSuccess
+				task.Status = models.InferenceTaskEndGroupRefund
 				task.ValidatedTime = time.Now().UTC()
 				changed = true
 			}
