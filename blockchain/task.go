@@ -29,7 +29,7 @@ func GetTaskByCommitment(ctx context.Context, taskIDCommitment [32]byte) (*bindi
 		Context: callCtx,
 	}
 
-	if err := limiter.Wait(callCtx); err != nil {
+	if err := getLimiter().Wait(callCtx); err != nil {
 		return nil, err
 	}
 	taskInfo, err := taskInstance.GetTask(opts, taskIDCommitment)
@@ -57,7 +57,7 @@ func ReportTaskParamsUploaded(ctx context.Context, taskIDCommitment [32]byte) (s
 
 	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	if err := limiter.Wait(callCtx); err != nil {
+	if err := getLimiter().Wait(callCtx); err != nil {
 		return "", err
 	}
 	auth.Context = callCtx
@@ -86,7 +86,7 @@ func ReportTaskResultUploaded(ctx context.Context, taskIDCommitment [32]byte) (s
 
 	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	if err := limiter.Wait(callCtx); err != nil {
+	if err := getLimiter().Wait(callCtx); err != nil {
 		return "", err
 	}
 	auth.Context = callCtx

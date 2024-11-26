@@ -35,7 +35,7 @@ func main() {
 	startDBMigration()
 
 	go tasks.ProcessTasks(context.Background())
-	go tasks.StartSyncNetwork()
+	go tasks.StartSyncNetwork(context.Background())
 	go tasks.StartStatsTaskCount(context.Background())
 	go tasks.StartStatsTaskExecutionTimeCount(context.Background())
 	go tasks.StartStatsTaskUploadResultTimeCount(context.Background())

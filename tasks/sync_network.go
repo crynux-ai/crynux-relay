@@ -1,6 +1,7 @@
 package tasks
 
 import (
+	"context"
 	"crynux_relay/blockchain"
 	"crynux_relay/config"
 	"crynux_relay/models"
@@ -9,33 +10,32 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func StartSyncNetworkWithTerminalChannel(ch <-chan int) {
+func StartSyncNetwork(ctx context.Context) {
+	ticker := time.NewTicker(time.Minute)
+
 	for {
 		select {
-		case stop := <-ch:
-			if stop == 1 {
-				return
-			} else {
-				SyncNetwork()
-			}
-		default:
-			SyncNetwork()
+		case <-ctx.Done():
+			err := ctx.Err()
+			ticker.Stop()
+			log.Errorf("SyncNetwork: stop syncing network due to %v", err)
+			return
+		case <-ticker.C:
+			func() {
+				ctx1, cancel := context.WithTimeout(ctx, time.Minute)
+				defer cancel()
+				if err := SyncNetwork(ctx1); err != nil {
+					log.Errorf("SyncNetwork: sync network error %v", err)
+				}
+			}()
 		}
-		time.Sleep(60 * time.Second)
 	}
 }
 
-func StartSyncNetwork() {
-	for {
-		SyncNetwork()
-		time.Sleep(60 * time.Second)
-	}
-}
-
-func SyncNetwork() error {
-	busyNodes, allNodes, activeNodes, err := blockchain.GetAllNodesNumber()
+func SyncNetwork(ctx context.Context) error {
+	busyNodes, allNodes, activeNodes, err := blockchain.GetAllNodesNumber(ctx)
 	if err != nil {
-		log.Errorln("error getting all nodes number from blockchain")
+		log.Errorln("SyncNetwork: error getting all nodes number from blockchain")
 		log.Error(err)
 		return err
 	}
@@ -46,15 +46,19 @@ func SyncNetwork() error {
 		ActiveNodes: activeNodes.Uint64(),
 	}
 
-	if err := config.GetDB().Model(&nodeNumber).Where("id = ?", 1).Assign(nodeNumber).FirstOrCreate(&models.NetworkNodeNumber{}).Error; err != nil {
-		log.Errorln("error update NetworkNodeNumber")
+	if err := func() error {
+		dbCtx, cancel := context.WithTimeout(ctx, time.Second)
+		defer cancel()
+		return config.GetDB().WithContext(dbCtx).Model(&nodeNumber).Where("id = ?", 1).Assign(nodeNumber).FirstOrCreate(&models.NetworkNodeNumber{}).Error
+	}(); err != nil {
+		log.Errorln("SyncNetwork: error update NetworkNodeNumber")
 		log.Error(err)
 		return err
 	}
 
-	totalTasks, runningTasks, queuedTasks, err := blockchain.GetAllTasksNumber()
+	totalTasks, runningTasks, queuedTasks, err := blockchain.GetAllTasksNumber(ctx)
 	if err != nil {
-		log.Errorln("error getting all tasks number from blockchain")
+		log.Errorln("SyncNetwork: error getting all tasks number from blockchain")
 		log.Error(err)
 		return err
 	}
@@ -65,8 +69,12 @@ func SyncNetwork() error {
 		QueuedTasks:  queuedTasks.Uint64(),
 	}
 
-	if err := config.GetDB().Model(&taskNumber).Where("id = ?", 1).Assign(taskNumber).FirstOrCreate(&models.NetworkTaskNumber{}).Error; err != nil {
-		log.Errorln("error update NetworkNodeNumber")
+	if err := func() error {
+		dbCtx, cancel := context.WithTimeout(ctx, time.Second)
+		defer cancel()
+		return config.GetDB().WithContext(dbCtx).Model(&taskNumber).Where("id = ?", 1).Assign(taskNumber).FirstOrCreate(&models.NetworkTaskNumber{}).Error
+	}(); err != nil {
+		log.Errorln("SyncNetwork: error update NetworkNodeNumber")
 		log.Error(err)
 		return err
 	}
@@ -79,9 +87,9 @@ func SyncNetwork() error {
 			end = int(allNodes.Int64())
 		}
 
-		nodeDatas, err := blockchain.GetAllNodesData(start, end)
+		nodeDatas, err := blockchain.GetAllNodesData(ctx, start, end)
 		if err != nil {
-			log.Errorln("error getting all nodes data from blockchain")
+			log.Errorln("SyncNetwork: error getting all nodes data from blockchain")
 			log.Error(err)
 			return err
 		}
@@ -95,8 +103,12 @@ func SyncNetwork() error {
 				QoS:       data.QoS,
 			}
 			totalGFLOPS += models.GetGPUGFLOPS(data.CardModel)
-			if err := config.GetDB().Model(&nodeData).Where("address = ?", nodeData.Address).Assign(nodeData).FirstOrCreate(&models.NetworkNodeData{}).Error; err != nil {
-				log.Errorln("error updating NetworkNodeData")
+			if err := func() error {
+				dbCtx, cancel := context.WithTimeout(ctx, time.Second)
+				defer cancel()
+				return config.GetDB().WithContext(dbCtx).Model(&nodeData).Where("address = ?", nodeData.Address).Assign(nodeData).FirstOrCreate(&models.NetworkNodeData{}).Error
+			}(); err != nil {
+				log.Errorln("SyncNetwork: error updating NetworkNodeData")
 				log.Error(err)
 				return err
 			}
@@ -104,8 +116,12 @@ func SyncNetwork() error {
 	}
 
 	networkFLOPS := models.NetworkFLOPS{GFLOPS: totalGFLOPS}
-	if err := config.GetDB().Model(&networkFLOPS).Where("id = ?", 1).Assign(networkFLOPS).FirstOrCreate(&models.NetworkFLOPS{}).Error; err != nil {
-		log.Errorln("error updating NetworkFLOPS")
+	if err := func() error {
+		dbCtx, cancel := context.WithTimeout(ctx, time.Second)
+		defer cancel()
+		return config.GetDB().WithContext(dbCtx).Model(&networkFLOPS).Where("id = ?", 1).Assign(networkFLOPS).FirstOrCreate(&models.NetworkFLOPS{}).Error
+	}(); err != nil {
+		log.Errorln("SyncNetwork: error updating NetworkFLOPS")
 		log.Error(err)
 		return err
 	}

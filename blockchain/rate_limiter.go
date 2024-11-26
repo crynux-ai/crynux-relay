@@ -8,7 +8,10 @@ import (
 
 var limiter *rate.Limiter
 
-func init() {
-	appConfig := config.GetConfig()
-	limiter = rate.NewLimiter(rate.Limit(appConfig.Blockchain.RPS), int(appConfig.Blockchain.RPS))
+func getLimiter() *rate.Limiter {
+	if limiter == nil {
+		appConfig := config.GetConfig()
+		limiter = rate.NewLimiter(rate.Limit(appConfig.Blockchain.RPS), int(appConfig.Blockchain.RPS))
+	}
+	return limiter
 }

@@ -42,13 +42,28 @@ func GetRpcClient() (*ethclient.Client, error) {
 	return ethRpcClient, nil
 }
 
+func BalanceAt(ctx context.Context, address common.Address) (*big.Int, error) {
+	client, err := GetRpcClient()
+	if err != nil {
+		return nil, err
+	}
+
+	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	if err := getLimiter().Wait(callCtx); err != nil {
+		return nil, err
+	}
+	return client.BalanceAt(callCtx, address, nil)
+}
+
 func getNonce(ctx context.Context, address common.Address) (uint64, error) {
 	client, err := GetRpcClient()
 	if err != nil {
 		return 0, nil
 	}
 
-	if err := limiter.Wait(ctx); err != nil {
+	if err := getLimiter().Wait(ctx); err != nil {
 		return 0, nil
 	}
 
@@ -69,7 +84,7 @@ func getSuggestGasPrice(ctx context.Context) (*big.Int, error) {
 		return nil, nil
 	}
 
-	if err := limiter.Wait(ctx); err != nil {
+	if err := getLimiter().Wait(ctx); err != nil {
 		return nil, nil
 	}
 	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
@@ -88,7 +103,7 @@ func getChainID(ctx context.Context) (*big.Int, error) {
 		return nil, nil
 	}
 
-	if err := limiter.Wait(ctx); err != nil {
+	if err := getLimiter().Wait(ctx); err != nil {
 		return nil, nil
 	}
 	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
@@ -218,7 +233,7 @@ func SendETH(ctx context.Context, from common.Address, to common.Address, amount
 		return nil, err
 	}
 
-	if err := limiter.Wait(ctx); err != nil {
+	if err := getLimiter().Wait(ctx); err != nil {
 		return nil, err
 	}
 
@@ -239,7 +254,7 @@ func GetErrorMessageFromReceipt(ctx context.Context, receipt *types.Receipt) (st
 		return "", err
 	}
 
-	if err := limiter.Wait(ctx); err != nil {
+	if err := getLimiter().Wait(ctx); err != nil {
 		return "", err
 	}
 
@@ -259,7 +274,7 @@ func GetErrorMessageFromReceipt(ctx context.Context, receipt *types.Receipt) (st
 		Data:     tx.Data(),
 	}
 
-	if err := limiter.Wait(ctx); err != nil {
+	if err := getLimiter().Wait(ctx); err != nil {
 		return "", err
 	}
 

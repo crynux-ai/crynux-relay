@@ -2,6 +2,7 @@ package blockchain
 
 import (
 	"context"
+	"crynux_relay/blockchain/bindings"
 	"math/big"
 	"sync"
 	"time"
@@ -11,73 +12,184 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func GetAllNodesNumber() (busyNodes *big.Int, allNodes *big.Int, activeNodes *big.Int, err error) {
+func GetTotalNodes(ctx context.Context) (*big.Int, error) {
 	netstatsInstance, err := GetNetstatsContractInstance()
 	if err != nil {
-		return big.NewInt(0), big.NewInt(0), big.NewInt(0), err
+		return nil, err
 	}
 
-	allNodes, err = netstatsInstance.TotalNodes(&bind.CallOpts{
+	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	opts := &bind.CallOpts{
 		Pending: false,
-		Context: context.Background(),
-	})
-
-	if err != nil {
-		return big.NewInt(0), big.NewInt(0), big.NewInt(0), err
+		Context: callCtx,
 	}
 
-	busyNodes, err = netstatsInstance.BusyNodes(&bind.CallOpts{
+	if err := getLimiter().Wait(callCtx); err != nil {
+		return nil, err
+	}
+
+	return netstatsInstance.TotalNodes(opts)
+}
+
+func GetBusyNodes(ctx context.Context) (*big.Int, error) {
+	netstatsInstance, err := GetNetstatsContractInstance()
+	if err != nil {
+		return nil, err
+	}
+
+	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	opts := &bind.CallOpts{
 		Pending: false,
-		Context: context.Background(),
-	})
-
-	if err != nil {
-		return big.NewInt(0), big.NewInt(0), big.NewInt(0), err
+		Context: callCtx,
 	}
 
-	activeNodes, err = netstatsInstance.ActiveNodes(&bind.CallOpts{
+	if err := getLimiter().Wait(callCtx); err != nil {
+		return nil, err
+	}
+
+	return netstatsInstance.BusyNodes(opts)
+}
+
+func GetActiveNodes(ctx context.Context) (*big.Int, error) {
+	netstatsInstance, err := GetNetstatsContractInstance()
+	if err != nil {
+		return nil, err
+	}
+
+	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	opts := &bind.CallOpts{
 		Pending: false,
-		Context: context.Background(),
-	})
-
-	if err != nil {
-		return big.NewInt(0), big.NewInt(0), big.NewInt(0), err
+		Context: callCtx,
 	}
 
+	if err := getLimiter().Wait(callCtx); err != nil {
+		return nil, err
+	}
+
+	return netstatsInstance.ActiveNodes(opts)
+}
+
+func GetTotalTasks(ctx context.Context) (*big.Int, error) {
+	netstatsInstance, err := GetNetstatsContractInstance()
+	if err != nil {
+		return nil, err
+	}
+
+	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	opts := &bind.CallOpts{
+		Pending: false,
+		Context: callCtx,
+	}
+
+	if err := getLimiter().Wait(callCtx); err != nil {
+		return nil, err
+	}
+
+	return netstatsInstance.TotalTasks(opts)
+}
+
+func GetRunningTasks(ctx context.Context) (*big.Int, error) {
+	netstatsInstance, err := GetNetstatsContractInstance()
+	if err != nil {
+		return nil, err
+	}
+
+	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	opts := &bind.CallOpts{
+		Pending: false,
+		Context: callCtx,
+	}
+
+	if err := getLimiter().Wait(callCtx); err != nil {
+		return nil, err
+	}
+
+	return netstatsInstance.RunningTasks(opts)
+}
+
+func GetQueuedTasks(ctx context.Context) (*big.Int, error) {
+	netstatsInstance, err := GetNetstatsContractInstance()
+	if err != nil {
+		return nil, err
+	}
+
+	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	opts := &bind.CallOpts{
+		Pending: false,
+		Context: callCtx,
+	}
+
+	if err := getLimiter().Wait(callCtx); err != nil {
+		return nil, err
+	}
+
+	return netstatsInstance.QueuedTasks(opts)
+}
+
+func GetAllNodeInfo(ctx context.Context, offset, length *big.Int) ([]bindings.NetworkStatsNodeInfo, error) {
+	netstatsInstance, err := GetNetstatsContractInstance()
+	if err != nil {
+		return nil, err
+	}
+
+	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	opts := &bind.CallOpts{
+		Pending: false,
+		Context: callCtx,
+	}
+
+	if err := getLimiter().Wait(callCtx); err != nil {
+		return nil, err
+	}
+	return netstatsInstance.GetAllNodeInfo(opts, offset, length)
+}
+
+func GetAllNodesNumber(ctx context.Context) (busyNodes *big.Int, allNodes *big.Int, activeNodes *big.Int, err error) {
+	allNodes, err = GetTotalNodes(ctx)
+	if err != nil {
+		return
+	}
+
+	busyNodes, err = GetBusyNodes(ctx)
+	if err != nil {
+		return
+	}
+
+	activeNodes, err = GetActiveNodes(ctx)
+	if err != nil {
+		return
+	}
 	return busyNodes, allNodes, activeNodes, nil
 }
 
-func GetAllTasksNumber() (totalTasks *big.Int, runningTasks *big.Int, queuedTasks *big.Int, err error) {
-	netstatsInstance, err := GetNetstatsContractInstance()
+func GetAllTasksNumber(ctx context.Context) (totalTasks *big.Int, runningTasks *big.Int, queuedTasks *big.Int, err error) {
+	totalTasks, err = GetTotalTasks(ctx)
 	if err != nil {
-		return big.NewInt(0), big.NewInt(0), big.NewInt(0), err
+		return
 	}
 
-	totalTasks, err = netstatsInstance.TotalTasks(&bind.CallOpts{
-		Pending: false,
-		Context: context.Background(),
-	})
-
+	runningTasks, err = GetRunningTasks(ctx)
 	if err != nil {
-		return big.NewInt(0), big.NewInt(0), big.NewInt(0), err
+		return
 	}
 
-	runningTasks, err = netstatsInstance.RunningTasks(&bind.CallOpts{
-		Pending: false,
-		Context: context.Background(),
-	})
-
+	queuedTasks, err = GetQueuedTasks(ctx)
 	if err != nil {
-		return big.NewInt(0), big.NewInt(0), big.NewInt(0), err
-	}
-
-	queuedTasks, err = netstatsInstance.QueuedTasks(&bind.CallOpts{
-		Pending: false,
-		Context: context.Background(),
-	})
-
-	if err != nil {
-		return big.NewInt(0), big.NewInt(0), big.NewInt(0), err
+		return
 	}
 
 	return totalTasks, runningTasks, queuedTasks, nil
@@ -92,39 +204,14 @@ type NodeData struct {
 	QoS       int64    `json:"qos"`
 }
 
-func GetAllNodesData(startIndex, endIndex int) ([]NodeData, error) {
-	client, err := GetRpcClient()
-	if err != nil {
-		return nil, err
-	}
-
-	netstatsInstance, err := GetNetstatsContractInstance()
-	if err != nil {
-		return nil, err
-	}
-
-	nodeContractInstance, err := GetNodeContractInstance()
-	if err != nil {
-		return nil, err
-	}
-
-	qosContractInstance, err := GetQoSContractInstance()
-	if err != nil {
-		return nil, err
-	}
-
-	allNodeInfos, err := netstatsInstance.GetAllNodeInfo(&bind.CallOpts{
-		Pending: false,
-		Context: context.Background(),
-	}, big.NewInt(int64(startIndex)), big.NewInt(int64(endIndex-startIndex)))
+func GetAllNodesData(ctx context.Context, startIndex, endIndex int) ([]NodeData, error) {
+	allNodeInfos, err := GetAllNodeInfo(ctx, big.NewInt(int64(startIndex)), big.NewInt(int64(endIndex-startIndex)))
 	if err != nil {
 		return nil, err
 	}
 
 	nodeData := make([]NodeData, len(allNodeInfos))
 
-	// limit concurrency goroutines count
-	limiter := make(chan struct{}, 4)
 	var wg sync.WaitGroup
 
 	for idx, nodeInfo := range allNodeInfos {
@@ -135,66 +222,34 @@ func GetAllNodesData(startIndex, endIndex int) ([]NodeData, error) {
 			Balance:   big.NewInt(0),
 		}
 
-		limiter <- struct{}{}
 		wg.Add(1)
-		go func(idx int, nodeAddress common.Address) {
+		go func(ctx context.Context, idx int, nodeAddress common.Address) {
 
-			defer func() {
-				<-limiter
-				wg.Done()
-			}()
-			
-			retryCount := 3
+			defer wg.Done()
 
-			for retryCount > 0 {
-				balance, err := client.BalanceAt(context.Background(), nodeAddress, nil)
-	
-				if err != nil {
-					log.Errorf("get wallet balance error: %v", err)
-					retryCount -= 1
-					time.Sleep(time.Second)
-					continue
-				}
-				nodeData[idx].Balance = balance
-				break
+			balance, err := BalanceAt(ctx, nodeAddress)
+			if err != nil {
+				log.Errorf("GetAllNodesData: get wallet balance error: %v", err)
+				return
 			}
-	
-			retryCount = 3
-			for retryCount > 0{
-				status, err := nodeContractInstance.GetNodeStatus(&bind.CallOpts{
-					Pending: false,
-					Context: context.Background(),
-				}, nodeAddress)
-				if err != nil {
-					log.Errorf("get node status error: %v", err)
-					retryCount -= 1
-					time.Sleep(time.Second)
-					continue
-				}
-	
-				if status > 0 {
-					nodeData[idx].Active = true
-				}
-				break
+			nodeData[idx].Balance = balance
+
+			status, err := GetNodeStatus(ctx, nodeAddress)
+			if err != nil {
+				log.Errorf("GetAllNodesData: get node status error: %v", err)
+				return
 			}
-	
-			retryCount = 3
-			for retryCount > 0 {
-				qos, err := qosContractInstance.GetTaskScore(&bind.CallOpts{
-					Pending: false,
-					Context: context.Background(),
-				}, nodeAddress)
-				if err != nil {
-					log.Errorf("get qos score error: %v", err)
-					retryCount -= 1
-					time.Sleep(time.Second)
-					continue
-				}
-	
-				nodeData[idx].QoS = qos.Int64()
-				break
+			if status > 0 {
+				nodeData[idx].Active = true
 			}
-		}(idx, nodeInfo.NodeAddress)
+
+			qos, err := GetTaskScore(ctx, nodeAddress)
+			if err != nil {
+				log.Errorf("GetAllNodesData: get qos score error: %v", err)
+				return
+			}
+			nodeData[idx].QoS = qos.Int64()
+		}(ctx, idx, nodeInfo.NodeAddress)
 	}
 
 	wg.Wait()
