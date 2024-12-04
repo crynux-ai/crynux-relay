@@ -66,7 +66,7 @@ type InferenceTask struct {
 	TaskIDCommitment string          `json:"task_id_commitment" gorm:"index"`
 	Creator          string          `json:"creator"`
 	Status           TaskStatus      `json:"status"`
-	TaskType         ChainTaskType   `json:"task_type"`
+	TaskType         ChainTaskType   `json:"task_type" gorm:"index"`
 	MinVRAM          uint64          `json:"min_vram"`
 	RequiredGPU      string          `json:"required_gpu"`
 	RequiredGPUVRAM  uint64          `json:"required_gpu_vram"`
@@ -77,13 +77,13 @@ type InferenceTask struct {
 	TaskError        TaskError       `json:"task_error"`
 	SelectedNode     string          `json:"selected_node"`
 	// time when task is created (get from blockchain)
-	CreateTime time.Time `json:"create_time" gorm:"null;default:null"`
+	CreateTime time.Time `json:"create_time" gorm:"index;null;default:null"`
 	// time when relay report task params are uploaded
-	StartTime time.Time `json:"start_time" gorm:"null;default:null"`
+	StartTime time.Time `json:"start_time" gorm:"index;null;default:null"`
 	// time when task score is ready (get from blockchain)
-	ScoreReadyTime time.Time `json:"score_ready_time" gorm:"null;default:null"`
+	ScoreReadyTime time.Time `json:"score_ready_time" gorm:"index;null;default:null"`
 	// time when relay find that task score is validated
-	ValidatedTime time.Time `json:"validated_time" gorm:"null;default:null"`
+	ValidatedTime time.Time `json:"validated_time" gorm:"index;null;default:null"`
 	// time when relay report task results are uploaded
-	ResultUploadedTime time.Time `json:"result_uploaded_time" gorm:"null;default:null"`
+	ResultUploadedTime time.Time `json:"result_uploaded_time" gorm:"index;null;default:null"`
 }
