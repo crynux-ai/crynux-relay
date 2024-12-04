@@ -14,7 +14,10 @@ func M20241204(db *gorm.DB) *gormigrate.Gormigrate {
 	type TaskError uint8
 
 	type InferenceTask struct {
-		gorm.Model
+		ID               uint            `gorm:"primarykey"`
+		CreatedAt        time.Time       `gorm:"index"`
+		UpdatedAt        time.Time       `gorm:"index"`
+		DeletedAt        gorm.DeletedAt  `gorm:"index"`
 		TaskArgs         string          `json:"task_args"`
 		TaskIDCommitment string          `json:"task_id_commitment" gorm:"index"`
 		Creator          string          `json:"creator"`
@@ -51,17 +54,14 @@ func M20241204(db *gorm.DB) *gormigrate.Gormigrate {
 				if err := tx.Migrator().CreateTable(&InferenceTask{}); err != nil {
 					return err
 				}
-				if err := tx.Migrator().CreateIndex(&InferenceTask{}, "CreatedAt"); err != nil {
-					return err
-				}
-				if err := tx.Migrator().CreateIndex(&InferenceTask{}, "UpdatedAt"); err != nil {
-					return err
-				}
 
 				return nil
 			},
 			Rollback: func(tx *gorm.DB) error {
 				if err := tx.Migrator().DropTable(&InferenceTask{}); err != nil {
+					return err
+				}
+				if err := tx.Migrator().RenameTable("old_inference_tasks", "inference_tasks"); err != nil {
 					return err
 				}
 				return nil
