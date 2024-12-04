@@ -21,15 +21,15 @@ import (
 )
 
 type ResultInput struct {
-	TaskIDCommitment string                  `path:"task_id_commitment" json:"task_id_commitment" description:"Task id commitment" validate:"required"`
-	Files            []*multipart.FileHeader `form:"files" json:"-" validate:"required" description:"Result files (PNG images for task of type sd and sd_finetune, JSON files for task of type gpt)"`
-	CheckpointFile   *multipart.FileHeader   `form:"checkpoint" json:"-" description:"Result checkpoint file for task of type sd_finetune"`
+	TaskIDCommitment string                  `path:"task_id_commitment" description:"Task id commitment" validate:"required"`
+	Files            []*multipart.FileHeader `form:"files" validate:"required" description:"Result files (PNG images for task of type sd and sd_finetune, JSON files for task of type gpt)"`
+	Checkpoint       *multipart.FileHeader   `form:"checkpoint" description:"Result checkpoint file for task of type sd_finetune"`
 }
 
 type ResultInputWithSignature struct {
 	ResultInput
-	Timestamp int64  `form:"timestamp" json:"timestamp" description:"Signature timestamp" validate:"required"`
-	Signature string `form:"signature" json:"signature" description:"Signature" validate:"required"`
+	Timestamp int64  `form:"timestamp" description:"Signature timestamp" validate:"required"`
+	Signature string `form:"signature" description:"Signature" validate:"required"`
 }
 
 func UploadResult(c *gin.Context, in *ResultInputWithSignature) (*response.Response, error) {
@@ -144,11 +144,11 @@ func UploadResult(c *gin.Context, in *ResultInputWithSignature) (*response.Respo
 
 	// store checkpoint of finetune type task
 	if task.TaskType == models.TaskTypeSDFTLora {
-		if in.CheckpointFile == nil {
+		if in.Checkpoint == nil {
 			return nil, response.NewValidationErrorResponse("checkpoint", "Checkpoint not uploaded")
 		}
 		checkpointFilename := filepath.Join(taskDir, "checkpoint.zip")
-		if err := c.SaveUploadedFile(in.CheckpointFile, checkpointFilename); err != nil {
+		if err := c.SaveUploadedFile(in.Checkpoint, checkpointFilename); err != nil {
 			return nil, response.NewExceptionResponse(err)
 		}
 	}
