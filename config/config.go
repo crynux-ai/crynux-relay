@@ -3,9 +3,11 @@ package config
 import (
 	"crypto/ecdsa"
 	"errors"
+	"os"
+	"strings"
+
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/spf13/viper"
-	"strings"
 )
 
 var appConfig *AppConfig
@@ -84,6 +86,18 @@ func checkBlockchainAccount() error {
 	}
 
 	return nil
+}
+
+func GetPrivateKey(file string) string {
+	b, err := os.ReadFile(file)
+	if err != nil {
+		panic(err)
+	}
+	return strings.TrimSpace(string(b))
+}
+
+func GetTestPrivateKey() string {
+	return ""
 }
 
 func GetConfig() *AppConfig {
