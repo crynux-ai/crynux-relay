@@ -279,9 +279,10 @@ func ProcessTasks(ctx context.Context) {
 						case err := <- c:
 							if err != nil {
 								log.Errorf("ProcessTasks: process task %s error %v, retry", task.TaskIDCommitment, err)
+							} else {
+								log.Infof("ProcessTasks: process task %s successfully", task.TaskIDCommitment)
+								return
 							}
-							log.Infof("ProcessTasks: process task %s successfully", task.TaskIDCommitment)
-							return
 						case <- ctx1.Done():
 							err := ctx1.Err()
 							log.Errorf("ProcessTasks: process task %s timeout %v, finish", task.TaskIDCommitment, err)
