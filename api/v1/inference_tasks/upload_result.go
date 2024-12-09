@@ -21,9 +21,7 @@ import (
 )
 
 type ResultInput struct {
-	TaskIDCommitment string                  `path:"task_id_commitment" description:"Task id commitment" validate:"required"`
-	Files            []*multipart.FileHeader `form:"files" validate:"required" description:"Result files (PNG images for task of type sd and sd_finetune, JSON files for task of type gpt)"`
-	Checkpoint       *multipart.FileHeader   `form:"checkpoint" description:"Result checkpoint file for task of type sd_finetune"`
+	TaskIDCommitment string `path:"task_id_commitment" json:"task_id_commitment" description:"Task id commitment" validate:"required"`
 }
 
 type ResultInputWithSignature struct {
@@ -83,7 +81,16 @@ func UploadResult(c *gin.Context, in *ResultInputWithSignature) (*response.Respo
 	// Check whether the images are correct
 	var uploadedScoreBytes []byte
 
-	for _, file := range in.Files {
+	form, err := c.MultipartForm()
+	if err != nil {
+		return nil, response.NewExceptionResponse(err)
+	}
+	files, ok := form.File["files"]
+	if !ok {
+		return nil, response.NewValidationErrorResponse("files", "Files is empty")
+	}
+
+	for _, file := range files {
 
 		fileObj, err := file.Open()
 
@@ -135,7 +142,7 @@ func UploadResult(c *gin.Context, in *ResultInputWithSignature) (*response.Respo
 		fileExt = ".json"
 	}
 
-	for i, file := range in.Files {
+	for i, file := range files {
 		filename := filepath.Join(taskDir, strconv.Itoa(i)+fileExt)
 		if err := c.SaveUploadedFile(file, filename); err != nil {
 			return nil, response.NewExceptionResponse(err)
@@ -144,11 +151,17 @@ func UploadResult(c *gin.Context, in *ResultInputWithSignature) (*response.Respo
 
 	// store checkpoint of finetune type task
 	if task.TaskType == models.TaskTypeSDFTLora {
-		if in.Checkpoint == nil {
+		var checkpoint *multipart.FileHeader
+		if checkpoints, ok := form.File["checkpoint"]; !ok {
 			return nil, response.NewValidationErrorResponse("checkpoint", "Checkpoint not uploaded")
+		} else {
+			if len(checkpoints) != 1 {
+				return nil, response.NewValidationErrorResponse("checkpoint", "More than one checkpoint file")
+			}
+			checkpoint = checkpoints[0]
 		}
 		checkpointFilename := filepath.Join(taskDir, "checkpoint.zip")
-		if err := c.SaveUploadedFile(in.Checkpoint, checkpointFilename); err != nil {
+		if err := c.SaveUploadedFile(checkpoint, checkpointFilename); err != nil {
 			return nil, response.NewExceptionResponse(err)
 		}
 	}

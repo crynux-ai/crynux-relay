@@ -20,9 +20,8 @@ import (
 )
 
 type TaskInput struct {
-	TaskIDCommitment string                `path:"task_id_commitment" description:"Task id commitment" validate:"required"`
-	TaskArgs         string                `form:"task_args" description:"Task arguments" validate:"required"`
-	Checkpoint       *multipart.FileHeader `form:"checkpoint" description:"Input checkpoint file for task of type sd_finetune"`
+	TaskIDCommitment string `path:"task_id_commitment" json:"task_id_commitment" description:"Task id commitment" validate:"required"`
+	TaskArgs         string `form:"task_args" json:"task_args" description:"Task arguments" validate:"required"`
 }
 
 type TaskInputWithSignature struct {
@@ -91,21 +90,33 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 		return nil, response.NewExceptionResponse(err)
 	}
 
-	if in.Checkpoint != nil {
-		if models.ChainTaskType(chainTask.TaskType) != models.TaskTypeSDFTLora {
-			return nil, response.NewValidationErrorResponse("checkpoint", "Task is not sd_finetune type")
+	if models.ChainTaskType(chainTask.TaskType) == models.TaskTypeSDFTLora {
+		form, err := c.MultipartForm()
+		if err != nil {
+			return nil, response.NewExceptionResponse(err)
 		}
+		var checkpoint *multipart.FileHeader
+		if files, ok := form.File["checkpoint"]; !ok {
+			return nil, response.NewValidationErrorResponse("checkpoint", "Checkpoint not uploaded")
+		} else {
+			if len(files) != 1 {
+				return nil, response.NewValidationErrorResponse("checkpoint", "More than one checkpoint file")
+			}
+			checkpoint = files[0]
+		}
+		
 		appConfig := config.GetConfig()
-
+	
 		taskDir := filepath.Join(appConfig.DataDir.InferenceTasks, task.TaskIDCommitment, "input")
 		if err = os.MkdirAll(taskDir, 0o711); err != nil {
 			return nil, response.NewExceptionResponse(err)
 		}
 		checkpointFilename := filepath.Join(taskDir, "checkpoint.zip")
-		if err := c.SaveUploadedFile(in.Checkpoint, checkpointFilename); err != nil {
+		if err := c.SaveUploadedFile(checkpoint, checkpointFilename); err != nil {
 			return nil, response.NewExceptionResponse(err)
 		}
 	}
+
 
 	taskFee, _ := utils.WeiToEther(chainTask.TaskFee).Float64()
 
