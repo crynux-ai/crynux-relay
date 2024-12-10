@@ -7,6 +7,7 @@ import (
 	"crynux_relay/config"
 	"crynux_relay/models"
 	"crynux_relay/utils"
+	"database/sql"
 	"errors"
 	"mime/multipart"
 	"os"
@@ -77,12 +78,7 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 		return nil, response.NewValidationErrorResponse("task_args", validationErr.Error())
 	}
 
-	task := models.InferenceTask{}
-
-	dbCtx1, dbCancel1 := context.WithTimeout(c.Request.Context(), time.Second)
-	defer dbCancel1()
-
-	err = config.GetDB().WithContext(dbCtx1).Model(&models.InferenceTask{}).Where("task_id_commitment = ?", in.TaskIDCommitment).First(&task).Error
+	_, err = models.GetTaskByIDCommitment(c.Request.Context(), in.TaskIDCommitment)
 	if err == nil {
 		return nil, response.NewValidationErrorResponse("task_id_commitment", "Task already uploaded")
 	}
@@ -107,7 +103,7 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 		
 		appConfig := config.GetConfig()
 	
-		taskDir := filepath.Join(appConfig.DataDir.InferenceTasks, task.TaskIDCommitment, "input")
+		taskDir := filepath.Join(appConfig.DataDir.InferenceTasks, in.TaskIDCommitment, "input")
 		if err = os.MkdirAll(taskDir, 0o711); err != nil {
 			return nil, response.NewExceptionResponse(err)
 		}
@@ -120,6 +116,7 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 
 	taskFee, _ := utils.WeiToEther(chainTask.TaskFee).Float64()
 
+	task := &models.InferenceTask{}
 	task.TaskArgs = in.TaskArgs
 	task.TaskIDCommitment = in.TaskIDCommitment
 	task.Creator = chainTask.Creator.Hex()
@@ -132,14 +129,14 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 	task.TaskSize = chainTask.TaskSize.Uint64()
 	task.ModelID = chainTask.ModelID
 	task.SelectedNode = chainTask.SelectedNode.Hex()
-	task.CreateTime = time.Unix(chainTask.CreateTimestamp.Int64(), 0)
+	task.CreateTime = sql.NullTime{
+		Time: time.Unix(chainTask.CreateTimestamp.Int64(), 0),
+		Valid: true,
+	}
 
-	dbCtx2, dbCancel2 := context.WithTimeout(c.Request.Context(), time.Second)
-	defer dbCancel2()
-
-	if err := config.GetDB().WithContext(dbCtx2).Save(&task).Error; err != nil {
+	if err := task.Save(c.Request.Context()); err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 
-	return &TaskResponse{Data: task}, nil
+	return &TaskResponse{Data: *task}, nil
 }

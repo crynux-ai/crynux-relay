@@ -43,12 +43,8 @@ func UploadResult(c *gin.Context, in *ResultInputWithSignature) (*response.Respo
 		return nil, validationErr
 	}
 
-	var task models.InferenceTask
-
-	dbCtx, dbCancel := context.WithTimeout(c.Request.Context(), time.Second)
-	defer dbCancel()
-
-	if err := config.GetDB().WithContext(dbCtx).Where(&models.InferenceTask{TaskIDCommitment: in.TaskIDCommitment}).First(&task).Error; err != nil {
+	task, err := models.GetTaskByIDCommitment(c.Request.Context(), in.TaskIDCommitment)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			validationErr := response.NewValidationErrorResponse("task_id_commitment", "Task not found")
 			return nil, validationErr
@@ -167,12 +163,9 @@ func UploadResult(c *gin.Context, in *ResultInputWithSignature) (*response.Respo
 	}
 
 	// Update task status
-	task.Status = models.InferenceTaskResultsReady
+	newTask := &models.InferenceTask{Status: models.InferenceTaskResultsReady}
 
-	dbCtx1, dbCancel1 := context.WithTimeout(c.Request.Context(), time.Second)
-	defer dbCancel1()
-
-	if err := config.GetDB().WithContext(dbCtx1).Save(&task).Error; err != nil {
+	if err := task.Update(c.Request.Context(), newTask); err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 

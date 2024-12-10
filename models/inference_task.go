@@ -1,6 +1,10 @@
 package models
 
 import (
+	"context"
+	"crynux_relay/config"
+	"database/sql"
+	"errors"
 	"time"
 
 	"gorm.io/gorm"
@@ -77,13 +81,52 @@ type InferenceTask struct {
 	TaskError        TaskError       `json:"task_error"`
 	SelectedNode     string          `json:"selected_node"`
 	// time when task is created (get from blockchain)
-	CreateTime time.Time `json:"create_time" gorm:"index;null;default:null"`
+	CreateTime sql.NullTime `json:"create_time" gorm:"index;null;default:null"`
 	// time when relay report task params are uploaded
-	StartTime time.Time `json:"start_time" gorm:"index;null;default:null"`
+	StartTime sql.NullTime `json:"start_time" gorm:"index;null;default:null"`
 	// time when task score is ready (get from blockchain)
-	ScoreReadyTime time.Time `json:"score_ready_time" gorm:"index;null;default:null"`
+	ScoreReadyTime sql.NullTime `json:"score_ready_time" gorm:"index;null;default:null"`
 	// time when relay find that task score is validated
-	ValidatedTime time.Time `json:"validated_time" gorm:"index;null;default:null"`
+	ValidatedTime sql.NullTime `json:"validated_time" gorm:"index;null;default:null"`
 	// time when relay report task results are uploaded
-	ResultUploadedTime time.Time `json:"result_uploaded_time" gorm:"index;null;default:null"`
+	ResultUploadedTime sql.NullTime `json:"result_uploaded_time" gorm:"index;null;default:null"`
+}
+
+func (task *InferenceTask) Save(ctx context.Context) error {
+	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	if err := config.GetDB().WithContext(dbCtx).Save(&task).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+func (task *InferenceTask) Update(ctx context.Context, newTask *InferenceTask) error {
+	if task.ID == 0 {
+		return errors.New("InferenceTask.ID cannot be 0 when update")
+	}
+	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	if err := config.GetDB().WithContext(dbCtx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(task).Updates(newTask).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(task).First(task).Error; err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func GetTaskByIDCommitment(ctx context.Context, taskIDCommitment string) (*InferenceTask, error) {
+	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	task := InferenceTask{TaskIDCommitment: taskIDCommitment}
+	if err := config.GetDB().WithContext(dbCtx).Model(&task).Where(&task).First(&task).Error; err != nil {
+		return nil, err
+	}
+	return &task, nil
 }

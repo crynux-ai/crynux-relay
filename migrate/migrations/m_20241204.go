@@ -1,6 +1,7 @@
 package migrations
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/go-gormigrate/gormigrate/v2"
@@ -33,15 +34,15 @@ func M20241204(db *gorm.DB) *gormigrate.Gormigrate {
 		TaskError        TaskError       `json:"task_error"`
 		SelectedNode     string          `json:"selected_node"`
 		// time when task is created (get from blockchain)
-		CreateTime time.Time `json:"create_time" gorm:"index;null;default:null"`
+		CreateTime sql.NullTime `json:"create_time" gorm:"index;null;default:null"`
 		// time when relay report task params are uploaded
-		StartTime time.Time `json:"start_time" gorm:"index;null;default:null"`
+		StartTime sql.NullTime `json:"start_time" gorm:"index;null;default:null"`
 		// time when task score is ready (get from blockchain)
-		ScoreReadyTime time.Time `json:"score_ready_time" gorm:"index;null;default:null"`
+		ScoreReadyTime sql.NullTime `json:"score_ready_time" gorm:"index;null;default:null"`
 		// time when relay find that task score is validated
-		ValidatedTime time.Time `json:"validated_time" gorm:"index;null;default:null"`
+		ValidatedTime sql.NullTime `json:"validated_time" gorm:"index;null;default:null"`
 		// time when relay report task results are uploaded
-		ResultUploadedTime time.Time `json:"result_uploaded_time" gorm:"index;null;default:null"`
+		ResultUploadedTime sql.NullTime `json:"result_uploaded_time" gorm:"index;null;default:null"`
 	}
 
 	return gormigrate.New(db, gormigrate.DefaultOptions, []*gormigrate.Migration{
