@@ -231,6 +231,7 @@ func processOneTask(ctx context.Context, task *models.InferenceTask) error {
 		if err := task.Update(ctx, newTask); err != nil {
 			return err
 		}
+		log.Infof("ProcessTasks: report task %s params uploaded", task.TaskIDCommitment)
 	}
 
 	// wait task has been validated or end
@@ -251,6 +252,7 @@ func processOneTask(ctx context.Context, task *models.InferenceTask) error {
 	// report task result is uploaded to blockchain
 	if needResult {
 		// wait task result is ready
+		log.Infof("ProcessTasks: task %s is validated", task.TaskIDCommitment)
 		err := func() error {
 			timeCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 			defer cancel()
@@ -259,6 +261,7 @@ func processOneTask(ctx context.Context, task *models.InferenceTask) error {
 		if err != nil {
 			return err
 		}
+		log.Infof("ProcessTasks: task %s result is uploaded", task.TaskIDCommitment)
 		// task result is uploaded
 		if err := reportTaskResultUploaded(ctx, task); err != nil {
 			return err
@@ -275,6 +278,9 @@ func processOneTask(ctx context.Context, task *models.InferenceTask) error {
 		if err := task.Update(ctx, newTask); err != nil {
 			return err
 		}
+		log.Infof("ProcessTasks: report task %s result is uploaded", task.TaskIDCommitment)
+	} else {
+		log.Infof("ProcessTasks: task %s finished with status: %d", task.TaskIDCommitment, task.Status)
 	}
 	return nil
 }
