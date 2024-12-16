@@ -153,7 +153,12 @@ func syncTask(ctx context.Context, task *models.InferenceTask) (*bindings.VSSTas
 		changed = true
 	}
 
-	if chainTaskStatus == models.ChainTaskValidated || chainTaskStatus == models.ChainTaskGroupValidated {
+	if chainTaskStatus == models.ChainTaskParametersUploaded {
+		if task.Status != models.InferenceTaskParamsUploaded {
+			newTask.Status = models.InferenceTaskParamsUploaded
+			changed = true
+		}
+	} else if chainTaskStatus == models.ChainTaskValidated || chainTaskStatus == models.ChainTaskGroupValidated {
 		if !task.ValidatedTime.Valid {
 			newTask.ValidatedTime = sql.NullTime{
 				Time:  time.Now().UTC(),
