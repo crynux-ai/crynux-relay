@@ -51,6 +51,31 @@
     "anonymous": false,
     "inputs": [
       {
+        "indexed": false,
+        "internalType": "address",
+        "name": "nodeAddress",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "modelID",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "enum VSSTask.TaskType",
+        "name": "taskType",
+        "type": "uint8"
+      }
+    ],
+    "name": "DownloadModel",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
         "indexed": true,
         "internalType": "address",
         "name": "previousOwner",
@@ -299,9 +324,9 @@
         "type": "bytes32"
       },
       {
-        "internalType": "string",
-        "name": "modelID",
-        "type": "string"
+        "internalType": "string[]",
+        "name": "modelIDs",
+        "type": "string[]"
       },
       {
         "internalType": "uint256",
@@ -319,9 +344,9 @@
         "type": "uint256"
       },
       {
-        "internalType": "string",
+        "internalType": "uint256[3]",
         "name": "taskVersion",
-        "type": "string"
+        "type": "uint256[3]"
       },
       {
         "internalType": "uint256",
@@ -426,9 +451,9 @@
             "type": "uint256"
           },
           {
-            "internalType": "string",
-            "name": "modelID",
-            "type": "string"
+            "internalType": "string[]",
+            "name": "modelIDs",
+            "type": "string[]"
           },
           {
             "internalType": "uint256",
@@ -446,9 +471,9 @@
             "type": "uint256"
           },
           {
-            "internalType": "string",
+            "internalType": "uint256[3]",
             "name": "taskVersion",
-            "type": "string"
+            "type": "uint256[3]"
           },
           {
             "internalType": "enum VSSTask.TaskAbortReason",

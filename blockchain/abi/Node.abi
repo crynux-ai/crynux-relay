@@ -178,9 +178,9 @@
             "type": "uint256"
           },
           {
-            "internalType": "string",
+            "internalType": "uint256[3]",
             "name": "version",
-            "type": "string"
+            "type": "uint256[3]"
           },
           {
             "internalType": "bytes",
@@ -188,9 +188,14 @@
             "type": "bytes"
           },
           {
-            "internalType": "string",
-            "name": "lastModelID",
-            "type": "string"
+            "internalType": "string[]",
+            "name": "lastModelIDs",
+            "type": "string[]"
+          },
+          {
+            "internalType": "string[]",
+            "name": "localModelIDs",
+            "type": "string[]"
           }
         ],
         "internalType": "struct Node.NodeInfo",
@@ -252,19 +257,48 @@
         "type": "uint256"
       },
       {
-        "internalType": "string",
+        "internalType": "uint256[3]",
         "name": "version",
-        "type": "string"
+        "type": "uint256[3]"
       },
       {
         "internalType": "bytes",
         "name": "publicKey",
         "type": "bytes"
+      },
+      {
+        "internalType": "string[]",
+        "name": "modelIDs",
+        "type": "string[]"
       }
     ],
     "name": "join",
     "outputs": [],
     "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "nodeAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "string",
+        "name": "modelID",
+        "type": "string"
+      }
+    ],
+    "name": "nodeContainsModelID",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -317,17 +351,17 @@
         "type": "uint256"
       },
       {
-        "internalType": "string",
+        "internalType": "uint256[3]",
         "name": "taskVersion",
-        "type": "string"
+        "type": "uint256[3]"
       },
       {
-        "internalType": "string",
-        "name": "modelID",
-        "type": "string"
+        "internalType": "string[]",
+        "name": "modelIDs",
+        "type": "string[]"
       }
     ],
-    "name": "randomSelectNode",
+    "name": "randomSelectAvailableNode",
     "outputs": [
       {
         "internalType": "address",
@@ -339,8 +373,70 @@
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "bytes32",
+        "name": "seed",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "uint256",
+        "name": "minimumVRAM",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "requiredGPU",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "requiredGPUVRAM",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256[3]",
+        "name": "taskVersion",
+        "type": "uint256[3]"
+      },
+      {
+        "internalType": "string",
+        "name": "modelID",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256",
+        "name": "count",
+        "type": "uint256"
+      }
+    ],
+    "name": "randomSelectNodesWithoutModelID",
+    "outputs": [
+      {
+        "internalType": "address[]",
+        "name": "",
+        "type": "address[]"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "renounceOwnership",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "modelID",
+        "type": "string"
+      }
+    ],
+    "name": "reportModelDownloaded",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -407,9 +503,9 @@
   {
     "inputs": [
       {
-        "internalType": "string",
+        "internalType": "uint256[3]",
         "name": "version",
-        "type": "string"
+        "type": "uint256[3]"
       }
     ],
     "name": "updateVersion",

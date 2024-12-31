@@ -116,14 +116,14 @@
         "type": "uint256"
       },
       {
-        "internalType": "string",
+        "internalType": "uint256[3]",
         "name": "version",
-        "type": "string"
+        "type": "uint256[3]"
       },
       {
-        "internalType": "string",
-        "name": "lastModelID",
-        "type": "string"
+        "internalType": "string[]",
+        "name": "lastModelIDs",
+        "type": "string[]"
       }
     ],
     "name": "popTask",
@@ -155,9 +155,9 @@
         "type": "uint256"
       },
       {
-        "internalType": "string",
-        "name": "modelID",
-        "type": "string"
+        "internalType": "string[]",
+        "name": "modelIDs",
+        "type": "string[]"
       },
       {
         "internalType": "uint256",
@@ -175,9 +175,9 @@
         "type": "uint256"
       },
       {
-        "internalType": "string",
+        "internalType": "uint256[3]",
         "name": "taskVersion",
-        "type": "string"
+        "type": "uint256[3]"
       }
     ],
     "name": "pushTask",

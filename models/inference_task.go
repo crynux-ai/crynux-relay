@@ -4,7 +4,11 @@ import (
 	"context"
 	"crynux_relay/config"
 	"database/sql"
+	"database/sql/driver"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -64,6 +68,38 @@ const (
 	TaskErrorParametersValidationFailed
 )
 
+type StringArray []string
+
+
+func (arr *StringArray) Scan(val interface{}) error {
+	var arrString string
+	switch v := val.(type) {
+	case string:
+		arrString = v
+	case []byte:
+		arrString = string(v)
+	case nil:
+		return nil
+	default:
+		return errors.New(fmt.Sprint("Unable to parse value to StringArray: ", val))
+	}
+	*arr = strings.Split(arrString, ";")
+	return nil
+}
+
+func (arr StringArray) Value() (driver.Value, error) {
+	res := strings.Join(arr, ";")
+	return res, nil
+}
+
+func (arr StringArray) MarshalJSON() ([]byte, error) {
+	return json.Marshal([]string(arr))
+}
+
+func (arr *StringArray) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, (*[]string)(arr))
+}
+
 type InferenceTask struct {
 	gorm.Model
 	TaskArgs         string          `json:"task_args"`
@@ -76,7 +112,7 @@ type InferenceTask struct {
 	RequiredGPUVRAM  uint64          `json:"required_gpu_vram"`
 	TaskFee          float64         `json:"task_fee"`
 	TaskSize         uint64          `json:"task_size"`
-	ModelID          string          `json:"model_id"`
+	ModelIDs         StringArray     `json:"model_id" gorm:"type:text"`
 	AbortReason      TaskAbortReason `json:"abort_reason"`
 	TaskError        TaskError       `json:"task_error"`
 	SelectedNode     string          `json:"selected_node"`

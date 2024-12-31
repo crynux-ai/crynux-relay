@@ -127,7 +127,7 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 	task.RequiredGPUVRAM = chainTask.RequiredGPUVRAM.Uint64()
 	task.TaskFee = taskFee
 	task.TaskSize = chainTask.TaskSize.Uint64()
-	task.ModelID = chainTask.ModelID
+	task.ModelIDs = models.StringArray(chainTask.ModelIDs)
 	task.SelectedNode = chainTask.SelectedNode.Hex()
 	task.CreateTime = sql.NullTime{
 		Time: time.Unix(chainTask.CreateTimestamp.Int64(), 0),
