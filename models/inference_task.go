@@ -112,7 +112,7 @@ type InferenceTask struct {
 	RequiredGPUVRAM  uint64          `json:"required_gpu_vram"`
 	TaskFee          float64         `json:"task_fee"`
 	TaskSize         uint64          `json:"task_size"`
-	ModelIDs         StringArray     `json:"model_id" gorm:"type:text"`
+	ModelIDs         StringArray     `json:"model_ids" gorm:"type:text"`
 	AbortReason      TaskAbortReason `json:"abort_reason"`
 	TaskError        TaskError       `json:"task_error"`
 	SelectedNode     string          `json:"selected_node"`
