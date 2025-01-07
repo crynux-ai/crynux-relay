@@ -64,6 +64,9 @@ func startDBMigration() {
 
 	if err := migrate.Migrate(); err != nil {
 		log.Errorln(err.Error())
+		if err = migrate.Rollback(); err != nil {
+			log.Errorln(err.Error())
+		}
 		os.Exit(1)
 	}
 
