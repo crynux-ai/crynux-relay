@@ -1,4 +1,4 @@
-package tasks
+package utils
 
 import (
 	"math/big"
@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 )
 
-func weiToEther(wei *big.Int) *big.Float {
+func WeiToEther(wei *big.Int) *big.Float {
 	f := new(big.Float)
 	f.SetPrec(236)  //  IEEE 754 octuple-precision binary floating-point format: binary256
 	f.SetMode(big.ToNearestEven)

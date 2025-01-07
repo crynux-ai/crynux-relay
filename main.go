@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crynux_relay/api"
 	"crynux_relay/config"
 	"crynux_relay/migrate"
@@ -33,12 +34,12 @@ func main() {
 
 	startDBMigration()
 
-	go tasks.StartSyncNetwork()
-	go tasks.StartSyncBlock()
-	go tasks.StartStatsTaskCount()
-	go tasks.StartStatsTaskExecutionTimeCount()
-	go tasks.StartStatsTaskUploadResultTimeCount()
-	go tasks.StartStatsTaskWaitingTimeCount()
+	go tasks.ProcessTasks(context.Background())
+	go tasks.StartSyncNetwork(context.Background())
+	go tasks.StartStatsTaskCount(context.Background())
+	go tasks.StartStatsTaskExecutionTimeCount(context.Background())
+	go tasks.StartStatsTaskUploadResultTimeCount(context.Background())
+	go tasks.StartStatsTaskWaitingTimeCount(context.Background())
 
 	startServer()
 }
@@ -63,6 +64,9 @@ func startDBMigration() {
 
 	if err := migrate.Migrate(); err != nil {
 		log.Errorln(err.Error())
+		if err = migrate.Rollback(); err != nil {
+			log.Errorln(err.Error())
+		}
 		os.Exit(1)
 	}
 

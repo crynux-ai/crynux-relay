@@ -1,14 +1,18 @@
 package inference_tasks
 
 import (
+	"context"
 	"crynux_relay/api/v1/response"
 	"crynux_relay/blockchain"
 	"crynux_relay/config"
 	"crynux_relay/models"
+	"crynux_relay/utils"
 	"errors"
+	"mime/multipart"
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gin-gonic/gin"
@@ -17,16 +21,16 @@ import (
 )
 
 type ResultInput struct {
-	TaskId uint64 `path:"task_id" json:"task_id" description:"Task id" validate:"required"`
+	TaskIDCommitment string `path:"task_id_commitment" json:"task_id_commitment" description:"Task id commitment" validate:"required"`
 }
 
 type ResultInputWithSignature struct {
 	ResultInput
-	Timestamp int64  `form:"timestamp" json:"timestamp" description:"Signature timestamp" validate:"required"`
-	Signature string `form:"signature" json:"signature" description:"Signature" validate:"required"`
+	Timestamp int64  `form:"timestamp" description:"Signature timestamp" validate:"required"`
+	Signature string `form:"signature" description:"Signature" validate:"required"`
 }
 
-func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Response, error) {
+func UploadResult(c *gin.Context, in *ResultInputWithSignature) (*response.Response, error) {
 
 	match, address, err := ValidateSignature(in.ResultInput, in.Timestamp, in.Signature)
 
@@ -39,46 +43,48 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 		return nil, validationErr
 	}
 
-	var task models.InferenceTask
-
-	if result := config.GetDB().Where(&models.InferenceTask{TaskId: in.TaskId}).First(&task); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			validationErr := response.NewValidationErrorResponse("task_id", "Task not found")
-			return nil, validationErr
-		} else {
-			return nil, response.NewExceptionResponse(result.Error)
-		}
-	}
-
-	if task.Status != models.InferenceTaskPendingResults {
-		validationErr := response.NewValidationErrorResponse("task_id", "Task not success")
-		return nil, validationErr
-	}
-
-	resultNode := &models.SelectedNode{
-		InferenceTaskID:  task.ID,
-		IsResultSelected: true,
-	}
-
-	if err := config.GetDB().Where(resultNode).First(resultNode).Error; err != nil {
-
+	task, err := models.GetTaskByIDCommitment(c.Request.Context(), in.TaskIDCommitment)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, response.NewValidationErrorResponse("task_id", "Task not ready")
+			validationErr := response.NewValidationErrorResponse("task_id_commitment", "Task not found")
+			return nil, validationErr
 		} else {
 			return nil, response.NewExceptionResponse(err)
 		}
 	}
 
-	if resultNode.NodeAddress != address {
-		validationErr := response.NewValidationErrorResponse("signature", "Signer not allowed")
-		return nil, validationErr
+	if task.SelectedNode != address {
+		return nil, response.NewValidationErrorResponse("Signature", "Signer not allowed")
 	}
 
-	form, _ := ctx.MultipartForm()
-	files := form.File["images"]
+	taskIDCommitmentBytes, err := utils.HexStrToCommitment(in.TaskIDCommitment)
+	if err != nil {
+		return nil, response.NewValidationErrorResponse("task_id_commitment", "Invalid task id commitment")
+	}
 
+	chainCtx, chainCancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer chainCancel()
+	chainTask, err := blockchain.GetTaskByCommitment(chainCtx, *taskIDCommitmentBytes)
+	if err != nil {
+		return nil, response.NewExceptionResponse(err)
+	}
+
+	if task.Status != models.InferenceTaskParamsUploaded ||
+		(models.ChainTaskStatus(chainTask.Status) != models.ChainTaskValidated && models.ChainTaskStatus(chainTask.Status) != models.ChainTaskGroupValidated) {
+		validationErr := response.NewValidationErrorResponse("task_id_commitment", "Task not validated")
+		return nil, validationErr
+	}
 	// Check whether the images are correct
-	var resultHashBytes []byte
+	var uploadedScoreBytes []byte
+
+	form, err := c.MultipartForm()
+	if err != nil {
+		return nil, response.NewExceptionResponse(err)
+	}
+	files, ok := form.File["files"]
+	if !ok {
+		return nil, response.NewValidationErrorResponse("files", "Files is empty")
+	}
 
 	for _, file := range files {
 
@@ -99,7 +105,7 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 			return nil, response.NewExceptionResponse(err)
 		}
 
-		resultHashBytes = append(resultHashBytes, hash...)
+		uploadedScoreBytes = append(uploadedScoreBytes, hash...)
 
 		err = fileObj.Close()
 		if err != nil {
@@ -107,27 +113,24 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 		}
 	}
 
-	uploadedResult := hexutil.Encode(resultHashBytes)
+	uploadedScore := hexutil.Encode(uploadedScoreBytes)
+	chainScore := hexutil.Encode(chainTask.Score)
 
-	log.Debugln("image compare: result from the blockchain: " + resultNode.Result)
-	log.Debugln("image compare: result from the uploaded file: " + uploadedResult)
+	log.Debugln("image compare: result from the blockchain: " + chainScore)
+	log.Debugln("image compare: result from the uploaded file: " + uploadedScore)
 
-	if resultNode.Result != uploadedResult {
-		validationErr := response.NewValidationErrorResponse("images", "Wrong images uploaded")
+	if chainScore != uploadedScore {
+		validationErr := response.NewValidationErrorResponse("files", "Wrong result files uploaded")
 		return nil, validationErr
 	}
 
 	appConfig := config.GetConfig()
 
-	taskWorkspace := appConfig.DataDir.InferenceTasks
-	taskIdStr := task.GetTaskIdAsString()
-
-	taskDir := filepath.Join(taskWorkspace, taskIdStr, "results")
-	if err = os.MkdirAll(taskDir, os.ModePerm); err != nil {
+	taskDir := filepath.Join(appConfig.DataDir.InferenceTasks, task.TaskIDCommitment, "results")
+	if err = os.MkdirAll(taskDir, 0o711); err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 
-	fileNum := 0
 	var fileExt string
 	if task.TaskType == models.TaskTypeSD || task.TaskType == models.TaskTypeSDFTLora {
 		fileExt = ".png"
@@ -135,48 +138,34 @@ func UploadResult(ctx *gin.Context, in *ResultInputWithSignature) (*response.Res
 		fileExt = ".json"
 	}
 
-	for _, file := range files {
-		filename := filepath.Join(taskDir, strconv.Itoa(fileNum)+fileExt)
-		if err := ctx.SaveUploadedFile(file, filename); err != nil {
+	for i, file := range files {
+		filename := filepath.Join(taskDir, strconv.Itoa(i)+fileExt)
+		if err := c.SaveUploadedFile(file, filename); err != nil {
 			return nil, response.NewExceptionResponse(err)
 		}
-
-		fileNum += 1
 	}
 
 	// store checkpoint of finetune type task
 	if task.TaskType == models.TaskTypeSDFTLora {
-		checkpointFiles, ok := form.File["checkpoint"]
-		if !ok {
+		var checkpoint *multipart.FileHeader
+		if checkpoints, ok := form.File["checkpoint"]; !ok {
 			return nil, response.NewValidationErrorResponse("checkpoint", "Checkpoint not uploaded")
+		} else {
+			if len(checkpoints) != 1 {
+				return nil, response.NewValidationErrorResponse("checkpoint", "More than one checkpoint file")
+			}
+			checkpoint = checkpoints[0]
 		}
-		if len(checkpointFiles) != 1 {
-			return nil, response.NewValidationErrorResponse("checkpoint", "Too many checkpoint files")
-		}
-		checkpointFile := checkpointFiles[0]
 		checkpointFilename := filepath.Join(taskDir, "checkpoint.zip")
-		if err := ctx.SaveUploadedFile(checkpointFile, checkpointFilename); err != nil {
+		if err := c.SaveUploadedFile(checkpoint, checkpointFilename); err != nil {
 			return nil, response.NewExceptionResponse(err)
 		}
 	}
 
 	// Update task status
-	task.Status = models.InferenceTaskResultsUploaded
+	newTask := &models.InferenceTask{Status: models.InferenceTaskResultsReady}
 
-	err = config.GetDB().Transaction(func(tx *gorm.DB) error {
-		if err := tx.Save(&task).Error; err != nil {
-			return err
-		}
-		taskStatusLog := models.InferenceTaskStatusLog{
-			InferenceTask: task,
-			Status:        models.InferenceTaskResultsUploaded,
-		}
-		if err := tx.Save(&taskStatusLog).Error; err != nil {
-			return err
-		}
-		return nil
-	})
-	if err != nil {
+	if err := task.Update(c.Request.Context(), newTask); err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 

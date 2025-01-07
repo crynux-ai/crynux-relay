@@ -8,6 +8,17 @@ import (
 )
 
 func M20241009(db *gorm.DB) *gormigrate.Gormigrate {
+	type NodeStatus int
+
+	type SelectedNode struct {
+		gorm.Model
+		InferenceTaskID  uint `gorm:"index"`
+		NodeAddress      string
+		Result           string
+		IsResultSelected bool
+		Status           NodeStatus
+	}
+
 	type InferenceTaskStatusLog struct {
 		gorm.Model
 		InferenceTaskID uint `gorm:"index"`
@@ -18,12 +29,8 @@ func M20241009(db *gorm.DB) *gormigrate.Gormigrate {
 	type SelectedNodeStatusLog struct {
 		gorm.Model
 		SelectedNodeID uint `gorm:"index"`
-		SelectedNode   models.SelectedNode
-		Status         models.NodeStatus 
-	}
-
-	type SelectedNode struct {
-		Status models.NodeStatus
+		SelectedNode   SelectedNode
+		Status         NodeStatus
 	}
 
 	return gormigrate.New(db, gormigrate.DefaultOptions, []*gormigrate.Migration{

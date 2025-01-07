@@ -32,29 +32,28 @@ type AppConfig struct {
 	} `mapstructure:"data_dir"`
 
 	Blockchain struct {
+		RPS           uint64 `mapstructure:"rps"`
 		RpcEndpoint   string `mapstructure:"rpc_endpoint"`
 		StartBlockNum uint64 `mapstructure:"start_block_num"`
 		GasLimit      uint64 `mapstructure:"gas_limit"`
+		GasPrice      uint64 `mapstructure:"gas_price"`
+		ChainID       uint64 `mapstructure:"chain_id"`
 		Account       struct {
-			Address    string `mapstructure:"address"`
-			PrivateKey string `mapstructure:"private_key"`
+			Address        string `mapstructure:"address"`
+			PrivateKey     string `mapstructure:"private_key"`
+			PrivateKeyFile string `mapstructure:"private_key_file"`
 		} `mapstructure:"account"`
 		Contracts struct {
-			Netstats    string `mapstructure:"netstats"`
-			Task        string `mapstructure:"task"`
-			Node        string `mapstructure:"node"`
-			QoS         string `mapstructure:"qos"`
+			Netstats string `mapstructure:"netstats"`
+			Task     string `mapstructure:"task"`
+			Node     string `mapstructure:"node"`
+			QoS      string `mapstructure:"qos"`
 		} `mapstructure:"contracts"`
 	} `mapstructure:"blockchain"`
 
 	TaskSchema struct {
-		StableDiffusionInference string `mapstructure:"stable_diffusion_inference"`
-		GPTInference             string `mapstructure:"gpt_inference"`
-		StableDiffusionFinetuneLora      string `mapstructure:"stable_diffusion_finetune_lora"`
+		StableDiffusionInference    string `mapstructure:"stable_diffusion_inference"`
+		GPTInference                string `mapstructure:"gpt_inference"`
+		StableDiffusionFinetuneLora string `mapstructure:"stable_diffusion_finetune_lora"`
 	} `mapstructure:"task_schema"`
-
-	Test struct {
-		RootAddress    string `mapstructure:"root_address"`
-		RootPrivateKey string `mapstructure:"root_private_key"`
-	} `mapstructure:"test"`
 }
