@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var initStartTime time.Time = time.Date(2024, 7, 29, 0, 0, 0, 0, time.UTC)
+var initStartTime time.Time = time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 var statsDuration time.Duration = time.Hour
 
 func getTaskCounts(ctx context.Context, start, end time.Time) ([]*models.TaskCount, error) {
