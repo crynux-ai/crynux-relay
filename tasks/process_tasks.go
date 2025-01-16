@@ -135,8 +135,16 @@ func syncTask(ctx context.Context, task *models.InferenceTask) (*bindings.VSSTas
 	chainTaskStatus := models.ChainTaskStatus(chainTask.Status)
 	abortReason := models.TaskAbortReason(chainTask.AbortReason)
 	taskError := models.TaskError(chainTask.Error)
+	startTimestamp := chainTask.StartTimestamp.Int64()	
 	scoreReadyTimestamp := chainTask.ScoreReadyTimestamp.Int64()
 
+	if startTimestamp > 0 && !task.StartTime.Valid {
+		newTask.StartTime = sql.NullTime{
+			Time: time.Unix(startTimestamp, 0).UTC(),
+			Valid: true,
+		}
+		changed = true
+	}
 	if scoreReadyTimestamp > 0 && !task.ScoreReadyTime.Valid {
 		newTask.ScoreReadyTime = sql.NullTime{
 			Time:  time.Unix(scoreReadyTimestamp, 0).UTC(),
@@ -227,10 +235,6 @@ func processOneTask(ctx context.Context, task *models.InferenceTask) error {
 
 		newTask := &models.InferenceTask{
 			Status: models.InferenceTaskParamsUploaded,
-			StartTime: sql.NullTime{
-				Time:  time.Now().UTC(),
-				Valid: true,
-			},
 		}
 
 		if err := task.Update(ctx, newTask); err != nil {
