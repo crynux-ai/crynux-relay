@@ -71,7 +71,7 @@ func M20241204(db *gorm.DB) *gormigrate.Gormigrate {
 		SelectedNode     string          `json:"selected_node"`
 		// time when task is created (get from blockchain)
 		CreateTime sql.NullTime `json:"create_time" gorm:"index;null;default:null"`
-		// time when relay report task params are uploaded
+		// time when task is started (get from blockchain)
 		StartTime sql.NullTime `json:"start_time" gorm:"index;null;default:null"`
 		// time when task score is ready (get from blockchain)
 		ScoreReadyTime sql.NullTime `json:"score_ready_time" gorm:"index;null;default:null"`
