@@ -17,7 +17,7 @@ var statsDuration time.Duration = time.Hour
 func getTaskCounts(ctx context.Context, start, end time.Time) ([]*models.TaskCount, error) {
 	var results []*models.TaskCount
 
-	taskTypes := []models.ChainTaskType{models.TaskTypeSD, models.TaskTypeLLM}
+	taskTypes := []models.ChainTaskType{models.TaskTypeSD, models.TaskTypeLLM, models.TaskTypeSDFTLora}
 
 	for _, taskType := range taskTypes {
 		var successCount, abortedCount int64
@@ -143,7 +143,7 @@ func StartStatsTaskCount(ctx context.Context) {
 func getTaskExecutionTimeCount(ctx context.Context, start, end time.Time) ([]*models.TaskExecutionTimeCount, error) {
 	var results []*models.TaskExecutionTimeCount
 
-	taskTypes := []models.ChainTaskType{models.TaskTypeSD, models.TaskTypeLLM}
+	taskTypes := []models.ChainTaskType{models.TaskTypeSD, models.TaskTypeLLM, models.TaskTypeSDFTLora}
 	binSize := 5
 	for _, taskType := range taskTypes {
 		rows, err := func() (*sql.Rows, error) {
@@ -151,13 +151,14 @@ func getTaskExecutionTimeCount(ctx context.Context, start, end time.Time) ([]*mo
 			defer cancel()
 
 			subQuery := config.GetDB().Table("inference_tasks").
-				Select("id, CAST(TIMESTAMPDIFF(SECOND, start_time, score_ready_time) / ? AS UNSIGNED) AS time", binSize).
-				Where("updated_at >= ?", start).Where("updated_at < ?", end).
+				Select("id, CAST(TIMESTAMPDIFF(SECOND, start_time, score_ready_time) / ? AS SIGNED) AS time", binSize).
+				Where("created_at >= ?", start).Where("created_at < ?", end).
 				Where("task_type = ?", taskType).
 				Where("score_ready_time IS NOT NULL")
 			return config.GetDB().WithContext(dbCtx).
 				Table("(?) AS s", subQuery).
 				Select("s.time * ? as T, COUNT(s.id) AS count", binSize).
+				Where("s.time >= 0").
 				Group("T").Order("T").Rows()
 		}()
 
@@ -253,20 +254,21 @@ func StartStatsTaskExecutionTimeCount(ctx context.Context) {
 func getTaskUploadResultTimeCount(ctx context.Context, start, end time.Time) ([]*models.TaskUploadResultTimeCount, error) {
 	var results []*models.TaskUploadResultTimeCount
 
-	taskTypes := []models.ChainTaskType{models.TaskTypeSD, models.TaskTypeLLM}
+	taskTypes := []models.ChainTaskType{models.TaskTypeSD, models.TaskTypeLLM, models.TaskTypeSDFTLora}
 	binSize := 5
 	for _, taskType := range taskTypes {
 		rows, err := func() (*sql.Rows, error) {
 			dbCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 			defer cancel()
 			subQuery := config.GetDB().Table("inference_tasks").
-				Select("id, CAST(TIMESTAMPDIFF(SECOND, validated_time, result_uploaded_time) / ? AS UNSIGNED) AS time", binSize).
-				Where("updated_at >= ?", start).Where("updated_at < ?", end).
+				Select("id, CAST(TIMESTAMPDIFF(SECOND, validated_time, result_uploaded_time) / ? AS SIGNED) AS time", binSize).
+				Where("created_at >= ?", start).Where("created_at < ?", end).
 				Where("task_type = ?", taskType).
 				Where("result_uploaded_time IS NOT NULL")
 			return config.GetDB().WithContext(dbCtx).
 				Table("(?) AS s", subQuery).
 				Select("s.time * ? as T, COUNT(s.id) AS count", binSize).
+				Where("s.time >= 0").
 				Group("T").Order("T").Rows()
 		}()
 		if err != nil {
@@ -360,19 +362,20 @@ func StartStatsTaskUploadResultTimeCount(ctx context.Context) {
 func getTaskWaitingTimeCount(ctx context.Context, start, end time.Time) ([]*models.TaskWaitingTimeCount, error) {
 	var results []*models.TaskWaitingTimeCount
 
-	taskTypes := []models.ChainTaskType{models.TaskTypeSD, models.TaskTypeLLM}
+	taskTypes := []models.ChainTaskType{models.TaskTypeSD, models.TaskTypeLLM, models.TaskTypeSDFTLora}
 	binSize := 5
 	for _, taskType := range taskTypes {
 		rows, err := func() (*sql.Rows, error) {
 			dbCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 			defer cancel()
 			subQuery := config.GetDB().Table("inference_tasks").
-				Select("id, CAST(TIMESTAMPDIFF(SECOND, create_time, start_time) / ? AS UNSIGNED) AS time", binSize).
-				Where("updated_at >= ?", start).Where("updated_at < ?", end).
+				Select("id, CAST(TIMESTAMPDIFF(SECOND, create_time, start_time) / ? AS SIGNED) AS time", binSize).
+				Where("created_at >= ?", start).Where("created_at < ?", end).
 				Where("task_type = ?", taskType).
 				Where("start_time IS NOT NULL")
 			return config.GetDB().WithContext(dbCtx).Table("(?) AS s", subQuery).
 				Select("s.time * ? as T, COUNT(s.id) AS count", binSize).
+				Where("s.time >= 0").
 				Group("T").Order("T").Rows()
 		}()
 		if err != nil {
