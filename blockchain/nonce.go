@@ -1,9 +1,9 @@
 package blockchain
 
 import (
-	"container/heap"
 	"context"
-	"math/big"
+	"fmt"
+	"regexp"
 	"strconv"
 	"sync"
 	"time"
@@ -13,66 +13,97 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-type NonceHeap []*big.Int
+var doneTxCount *uint64
+var txMutex sync.Mutex
 
-func (h NonceHeap) Len() int { return len(h) }
-func (h NonceHeap) Less(i, j int) bool {
-	return h[i].Cmp(h[j]) < 0
-}
-func (h NonceHeap) Swap(i, j int) {
-	h[i], h[j] = h[j], h[i]
-}
+var pendingNonceTxs map[uint64]string = make(map[uint64]string)
+var pendingTxNonce map[string]uint64 = make(map[string]uint64)
 
-func (h *NonceHeap) Push(x any) {
-	*h = append(*h, x.(*big.Int))
-}
+var pattern *regexp.Regexp = regexp.MustCompile(`invalid nonce; got (\d+), expected (\d+)`)
 
-func (h *NonceHeap) Pop() any {
-	old := *h
-	n := len(old)
-	x := old[n-1]
-	*h = old[0 : n-1]
-	return x
-}
-
-type NonceKeeper map[common.Address]*NonceHeap
-
-var nonceKeeper NonceKeeper = make(NonceKeeper)
-var nonceMutex sync.Mutex
-
-func getNonce(ctx context.Context, address common.Address) (*big.Int, error) {
-	nonceMutex.Lock()
-	defer nonceMutex.Unlock()
-	if _, ok := nonceKeeper[address]; !ok {
+func getNonce(ctx context.Context, address common.Address) (uint64, error) {
+	if doneTxCount == nil {
 		client, err := GetRpcClient()
 		if err != nil {
-			return nil, nil
+			return 0, err
 		}
 
 		if err := getLimiter().Wait(ctx); err != nil {
-			return nil, nil
+			return 0, err
 		}
 
 		callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
 		nonce, err := client.PendingNonceAt(callCtx, address)
 		if err != nil {
-			return nil, nil
+			return 0, err
 		}
 		log.Debugln("Nonce from blockchain: " + strconv.FormatUint(nonce, 10))
-		h := &NonceHeap{big.NewInt(int64(nonce))}
-		heap.Init(h)
-		nonceKeeper[address] = h
+		doneTxCount = &nonce
 	}
-	nonce := heap.Pop(nonceKeeper[address]).(*big.Int)
-	log.Infof("Nonce: Get nonce: %d", nonce.Uint64())
-	heap.Push(nonceKeeper[address], big.NewInt(0).Add(nonce, big.NewInt(1)))
-	return nonce, nil
+	return (*doneTxCount) + uint64(len(pendingTxNonce)), nil
 }
 
-func restoreNonce(address common.Address, nonce *big.Int) {
-	if nonce != nil {
-		heap.Push(nonceKeeper[address], nonce)
-		log.Infof("Nonce: Restore nonce: %d", nonce.Uint64())
+func isTxPending(txHash string) bool {
+	_, ok := pendingTxNonce[txHash]
+	return ok
+}
+
+func addPendingTx(txHash string, nonce uint64) {
+	if *doneTxCount != nonce {
+		log.Panic(fmt.Sprintf("local nonce changed when add pending tx, local nonce: %d, coming nonce: %d", *doneTxCount, nonce))
 	}
+	pendingTxNonce[txHash] = nonce
+	pendingNonceTxs[nonce] = txHash
+}
+
+func donePendingTx(txHash string) {
+	if _, ok := pendingTxNonce[txHash]; !ok {
+		log.Panic(fmt.Sprintf("tx %s is not pending, cannot be done", txHash))
+	}
+	nonce := pendingTxNonce[txHash]
+	delete(pendingTxNonce, txHash)
+	delete(pendingNonceTxs, nonce)
+	(*doneTxCount)++
+}
+
+func cancelPendingTx(txHash string) {
+	if _, ok := pendingTxNonce[txHash]; !ok {
+		log.Panic(fmt.Sprintf("tx %s is not pending, cannot be cancelled", txHash))
+	}
+	nonce := pendingTxNonce[txHash]
+	delete(pendingTxNonce, txHash)
+	delete(pendingNonceTxs, nonce)
+}
+
+func resetNonce(nonce uint64) {
+	*doneTxCount = nonce
+	pendingCnt := len(pendingNonceTxs)
+	for i := 0; i < pendingCnt; i++ {
+		nextNonce := nonce + uint64(i)
+		if txHash, ok := pendingNonceTxs[nextNonce]; ok {
+			delete(pendingNonceTxs, nextNonce)
+			delete(pendingTxNonce, txHash)
+		}
+	}
+}
+
+func matchNonceError(errStr string) (uint64, bool) {
+	res := pattern.FindStringSubmatch(errStr)
+	if res == nil {
+		return 0, false
+	}
+	nonceStr := res[len(res) - 1]
+	if len(nonceStr) == 0 {
+		return 0, false
+	}
+	nonce, _ := strconv.ParseUint(nonceStr, 10, 64)
+	return nonce, true
+}
+
+func processSendingTxError(err error) error {
+	if nonce, ok := matchNonceError(err.Error()); ok {
+		resetNonce(nonce)
+	}
+	return err
 }

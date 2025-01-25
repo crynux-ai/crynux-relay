@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"image/png"
 	"io"
+	"math/big"
 	"time"
 
 	"github.com/corona10/goimagehash"
@@ -61,19 +62,21 @@ func ReportTaskParamsUploaded(ctx context.Context, taskIDCommitment [32]byte) (s
 		return "", err
 	}
 	auth.Context = callCtx
+	txMutex.Lock()
+	defer txMutex.Unlock()
 	nonce, err := getNonce(callCtx, address)
 	if err != nil {
 		return "", err
 	}
-	defer func() { restoreNonce(address, nonce) }()
 
-	auth.Nonce = nonce
+	auth.Nonce = big.NewInt(int64(nonce))
 	tx, err := taskInstance.ReportTaskParametersUploaded(auth, taskIDCommitment)
 	if err != nil {
+		err = processSendingTxError(err)
 		return "", err
 	}
 
-	nonce = nil
+	addPendingTx(tx.Hash().Hex(), nonce)
 	return tx.Hash().Hex(), nil
 }
 
@@ -98,18 +101,20 @@ func ReportTaskResultUploaded(ctx context.Context, taskIDCommitment [32]byte) (s
 		return "", err
 	}
 	auth.Context = callCtx
+	txMutex.Lock()
+	defer txMutex.Unlock()
 	nonce, err := getNonce(callCtx, address)
 	if err != nil {
 		return "", err
 	}
-	defer func() { restoreNonce(address, nonce) }()
-	auth.Nonce = nonce
+	auth.Nonce = big.NewInt(int64(nonce))
 	tx, err := taskInstance.ReportTaskResultUploaded(auth, taskIDCommitment)
 	if err != nil {
+		err = processSendingTxError(err)
 		return "", err
 	}
 
-	nonce = nil
+	addPendingTx(tx.Hash().Hex(), nonce)
 	return tx.Hash().Hex(), nil
 }
 
