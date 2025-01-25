@@ -30,6 +30,8 @@ var nodeContractInstance *bindings.Node
 var netstatsContractInstance *bindings.NetworkStats
 var qosContractInstance *bindings.QOS
 
+var ErrTxCancelled error = errors.New("tx has been cancelled")
+
 func GetRpcClient() (*ethclient.Client, error) {
 	if ethRpcClient == nil {
 		appConfig := config.GetConfig()
@@ -154,6 +156,9 @@ func WaitTxReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, err
 	}
 
 	for {
+		if !isTxPending(txHash.Hex()) {
+			return nil, ErrTxCancelled
+		}
 		r, err := func() (*types.Receipt, error) {
 			callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 			defer cancel()
@@ -164,8 +169,10 @@ func WaitTxReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, err
 			continue
 		}
 		if err != nil {
+			cancelPendingTx(txHash.Hex())
 			return nil, err
 		}
+		donePendingTx(txHash.Hex())
 		return r, nil
 	}
 }
@@ -177,14 +184,6 @@ func SendETH(ctx context.Context, from common.Address, to common.Address, amount
 	if err != nil {
 		return nil, err
 	}
-
-	nonce, err := getNonce(ctx, from)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		restoreNonce(from, nonce)
-	}()
 
 	gasPrice := big.NewInt(0)
 	if appConfig.Blockchain.GasPrice > 0 {
@@ -207,7 +206,15 @@ func SendETH(ctx context.Context, from common.Address, to common.Address, amount
 	}
 
 	gasLimit := config.GetConfig().Blockchain.GasLimit
-	tx := types.NewTransaction(nonce.Uint64(), to, amount, gasLimit, gasPrice, nil)
+
+	txMutex.Lock()
+	defer txMutex.Unlock()
+	nonce, err := getNonce(ctx, from)
+	if err != nil {
+		return nil, err
+	}
+
+	tx := types.NewTransaction(nonce, to, amount, gasLimit, gasPrice, nil)
 
 	privateKey, err := crypto.HexToECDSA(privateKeyStr)
 	if err != nil {
@@ -227,10 +234,11 @@ func SendETH(ctx context.Context, from common.Address, to common.Address, amount
 	defer cancel()
 	err = client.SendTransaction(callCtx, signedTx)
 	if err != nil {
+		err = processSendingTxError(err)
 		return nil, err
 	}
 
-	nonce = nil
+	addPendingTx(signedTx.Hash().Hex(), nonce)
 	return signedTx, nil
 }
 
