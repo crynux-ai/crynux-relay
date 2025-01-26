@@ -168,6 +168,8 @@ func WaitTxReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, err
 			time.Sleep(time.Second)
 			continue
 		}
+		txMutex.Lock()
+		defer txMutex.Unlock()
 		if err != nil {
 			cancelPendingTx(txHash.Hex())
 			return nil, err
