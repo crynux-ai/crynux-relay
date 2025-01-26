@@ -50,9 +50,6 @@ func isTxPending(txHash string) bool {
 }
 
 func addPendingTx(txHash string, nonce uint64) {
-	if *doneTxCount != nonce {
-		log.Panic(fmt.Sprintf("local nonce changed when add pending tx, local nonce: %d, coming nonce: %d", *doneTxCount, nonce))
-	}
 	pendingTxNonce[txHash] = nonce
 	pendingNonceTxs[nonce] = txHash
 }
