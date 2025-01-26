@@ -150,6 +150,7 @@ func GetAuth(ctx context.Context, address common.Address, privateKeyStr string) 
 }
 
 func WaitTxReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
+	deadline, hasDeadline := ctx.Deadline()
 	client, err := GetRpcClient()
 	if err != nil {
 		return nil, err
@@ -170,8 +171,12 @@ func WaitTxReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, err
 		}
 		txMutex.Lock()
 		defer txMutex.Unlock()
+		if hasDeadline && time.Now().Compare(deadline) >= 0 && err == context.DeadlineExceeded {
+			log.Errorf("wait receipt of tx %s timeout", txHash.Hex())
+			cancelAllPendingTxs()
+			return nil, err
+		}
 		if err != nil {
-			cancelPendingTx(txHash.Hex())
 			return nil, err
 		}
 		donePendingTx(txHash.Hex())

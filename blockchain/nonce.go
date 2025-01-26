@@ -64,25 +64,10 @@ func donePendingTx(txHash string) {
 	(*doneTxCount)++
 }
 
-func cancelPendingTx(txHash string) {
-	if _, ok := pendingTxNonce[txHash]; !ok {
-		log.Panic(fmt.Sprintf("tx %s is not pending, cannot be cancelled", txHash))
-	}
-	nonce := pendingTxNonce[txHash]
-	delete(pendingTxNonce, txHash)
-	delete(pendingNonceTxs, nonce)
-}
-
-func resetNonce(nonce uint64) {
-	*doneTxCount = nonce
-	pendingCnt := len(pendingNonceTxs)
-	for i := 0; i < pendingCnt; i++ {
-		nextNonce := nonce + uint64(i)
-		if txHash, ok := pendingNonceTxs[nextNonce]; ok {
-			delete(pendingNonceTxs, nextNonce)
-			delete(pendingTxNonce, txHash)
-		}
-	}
+func cancelAllPendingTxs() {
+	log.Info("clear local pending txs")
+	pendingTxNonce = map[string]uint64{}
+	pendingNonceTxs = map[uint64]string{}
 }
 
 func matchNonceError(errStr string) (uint64, bool) {
@@ -100,7 +85,10 @@ func matchNonceError(errStr string) (uint64, bool) {
 
 func processSendingTxError(err error) error {
 	if nonce, ok := matchNonceError(err.Error()); ok {
-		resetNonce(nonce)
+		if len(pendingNonceTxs) == 0 {
+			*doneTxCount = nonce
+			log.Infof("Reset nonce to %d", nonce)
+		}
 	}
 	return err
 }
