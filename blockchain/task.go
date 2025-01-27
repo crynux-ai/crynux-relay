@@ -76,7 +76,7 @@ func ReportTaskParamsUploaded(ctx context.Context, taskIDCommitment [32]byte) (s
 		return "", err
 	}
 
-	addPendingTx(tx.Hash().Hex(), nonce)
+	addNonce(nonce)
 	return tx.Hash().Hex(), nil
 }
 
@@ -114,7 +114,7 @@ func ReportTaskResultUploaded(ctx context.Context, taskIDCommitment [32]byte) (s
 		return "", err
 	}
 
-	addPendingTx(tx.Hash().Hex(), nonce)
+	addNonce(nonce)
 	return tx.Hash().Hex(), nil
 }
 

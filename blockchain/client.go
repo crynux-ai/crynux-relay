@@ -157,9 +157,6 @@ func WaitTxReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, err
 	}
 
 	for {
-		if !isTxPending(txHash.Hex()) {
-			return nil, ErrTxCancelled
-		}
 		r, err := func() (*types.Receipt, error) {
 			callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 			defer cancel()
@@ -173,13 +170,11 @@ func WaitTxReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, err
 		defer txMutex.Unlock()
 		if hasDeadline && time.Now().Compare(deadline) >= 0 && err == context.DeadlineExceeded {
 			log.Errorf("wait receipt of tx %s timeout", txHash.Hex())
-			cancelAllPendingTxs()
 			return nil, err
 		}
 		if err != nil {
 			return nil, err
 		}
-		donePendingTx(txHash.Hex())
 		return r, nil
 	}
 }
@@ -245,7 +240,7 @@ func SendETH(ctx context.Context, from common.Address, to common.Address, amount
 		return nil, err
 	}
 
-	addPendingTx(signedTx.Hash().Hex(), nonce)
+	addNonce(nonce)
 	return signedTx, nil
 }
 

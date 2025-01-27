@@ -13,16 +13,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-var doneTxCount *uint64
+var localNonce *uint64
 var txMutex sync.Mutex
-
-var pendingNonceTxs map[uint64]string = make(map[uint64]string)
-var pendingTxNonce map[string]uint64 = make(map[string]uint64)
 
 var pattern *regexp.Regexp = regexp.MustCompile(`invalid nonce; got (\d+), expected (\d+)`)
 
 func getNonce(ctx context.Context, address common.Address) (uint64, error) {
-	if doneTxCount == nil {
+	if localNonce == nil {
 		client, err := GetRpcClient()
 		if err != nil {
 			return 0, err
@@ -39,35 +36,16 @@ func getNonce(ctx context.Context, address common.Address) (uint64, error) {
 			return 0, err
 		}
 		log.Debugln("Nonce from blockchain: " + strconv.FormatUint(nonce, 10))
-		doneTxCount = &nonce
+		localNonce = &nonce
 	}
-	return (*doneTxCount) + uint64(len(pendingTxNonce)), nil
+	return *localNonce, nil
 }
 
-func isTxPending(txHash string) bool {
-	_, ok := pendingTxNonce[txHash]
-	return ok
-}
-
-func addPendingTx(txHash string, nonce uint64) {
-	pendingTxNonce[txHash] = nonce
-	pendingNonceTxs[nonce] = txHash
-}
-
-func donePendingTx(txHash string) {
-	if _, ok := pendingTxNonce[txHash]; !ok {
-		log.Panic(fmt.Sprintf("tx %s is not pending, cannot be done", txHash))
+func addNonce(nonce uint64) {
+	if *localNonce != nonce {
+		log.Panic(fmt.Sprintf("local nonce changed, local nonce: %d, nonce: %d", *localNonce, nonce))
 	}
-	nonce := pendingTxNonce[txHash]
-	delete(pendingTxNonce, txHash)
-	delete(pendingNonceTxs, nonce)
-	(*doneTxCount)++
-}
-
-func cancelAllPendingTxs() {
-	log.Info("clear local pending txs")
-	pendingTxNonce = map[string]uint64{}
-	pendingNonceTxs = map[uint64]string{}
+	(*localNonce)++
 }
 
 func matchNonceError(errStr string) (uint64, bool) {
@@ -75,7 +53,7 @@ func matchNonceError(errStr string) (uint64, bool) {
 	if res == nil {
 		return 0, false
 	}
-	nonceStr := res[len(res) - 1]
+	nonceStr := res[len(res)-1]
 	if len(nonceStr) == 0 {
 		return 0, false
 	}
@@ -85,10 +63,7 @@ func matchNonceError(errStr string) (uint64, bool) {
 
 func processSendingTxError(err error) error {
 	if nonce, ok := matchNonceError(err.Error()); ok {
-		if len(pendingNonceTxs) == 0 {
-			*doneTxCount = nonce
-			log.Infof("Reset nonce to %d", nonce)
-		}
+		*localNonce = nonce
 	}
 	return err
 }
