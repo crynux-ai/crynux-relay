@@ -51,6 +51,9 @@ func ReportTaskParamsUploaded(ctx context.Context, taskIDCommitment [32]byte) (s
 	address := common.HexToAddress(appConfig.Blockchain.Account.Address)
 	privkey := appConfig.Blockchain.Account.PrivateKey
 
+	txMutex.Lock()
+	defer txMutex.Unlock()
+
 	auth, err := GetAuth(ctx, address, privkey)
 	if err != nil {
 		return "", err
@@ -62,8 +65,6 @@ func ReportTaskParamsUploaded(ctx context.Context, taskIDCommitment [32]byte) (s
 		return "", err
 	}
 	auth.Context = callCtx
-	txMutex.Lock()
-	defer txMutex.Unlock()
 	nonce, err := getNonce(callCtx, address)
 	if err != nil {
 		return "", err
@@ -90,6 +91,9 @@ func ReportTaskResultUploaded(ctx context.Context, taskIDCommitment [32]byte) (s
 	address := common.HexToAddress(appConfig.Blockchain.Account.Address)
 	privkey := appConfig.Blockchain.Account.PrivateKey
 
+	txMutex.Lock()
+	defer txMutex.Unlock()
+
 	auth, err := GetAuth(ctx, address, privkey)
 	if err != nil {
 		return "", err
@@ -101,8 +105,6 @@ func ReportTaskResultUploaded(ctx context.Context, taskIDCommitment [32]byte) (s
 		return "", err
 	}
 	auth.Context = callCtx
-	txMutex.Lock()
-	defer txMutex.Unlock()
 	nonce, err := getNonce(callCtx, address)
 	if err != nil {
 		return "", err
