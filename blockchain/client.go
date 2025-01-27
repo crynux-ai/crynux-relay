@@ -166,8 +166,6 @@ func WaitTxReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, err
 			time.Sleep(time.Second)
 			continue
 		}
-		txMutex.Lock()
-		defer txMutex.Unlock()
 		if hasDeadline && time.Now().Compare(deadline) >= 0 && err == context.DeadlineExceeded {
 			log.Errorf("wait receipt of tx %s timeout", txHash.Hex())
 			return nil, err
