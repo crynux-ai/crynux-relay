@@ -17,7 +17,7 @@ import (
 )
 
 func getChainTask(ctx context.Context, taskIDCommitmentBytes [32]byte) (*bindings.VSSTaskTaskInfo, error) {
-	callCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
 	return blockchain.GetTaskByCommitment(callCtx, taskIDCommitmentBytes)
@@ -30,7 +30,7 @@ func reportTaskParamsUploaded(ctx context.Context, task *models.InferenceTask) e
 	}
 
 	txHash, err := func() (string, error) {
-		callCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
 		return blockchain.ReportTaskParamsUploaded(callCtx, *taskIDCommitmentBytes)
 	}()
@@ -64,7 +64,7 @@ func reportTaskResultUploaded(ctx context.Context, task *models.InferenceTask) e
 	}
 
 	txHash, err := func() (string, error) {
-		callCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
 		return blockchain.ReportTaskResultUploaded(callCtx, *taskIDCommitmentBytes)
 	}()
