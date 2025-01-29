@@ -4,11 +4,9 @@ import (
 	"context"
 	"crynux_relay/blockchain/bindings"
 	"math/big"
-	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -212,8 +210,6 @@ func GetAllNodesData(ctx context.Context, startIndex, endIndex int) ([]NodeData,
 
 	nodeData := make([]NodeData, len(allNodeInfos))
 
-	var wg sync.WaitGroup
-
 	for idx, nodeInfo := range allNodeInfos {
 		nodeData[idx] = NodeData{
 			Address:   nodeInfo.NodeAddress.Hex(),
@@ -221,38 +217,29 @@ func GetAllNodesData(ctx context.Context, startIndex, endIndex int) ([]NodeData,
 			VRam:      int(nodeInfo.VRAM.Int64()),
 			Balance:   big.NewInt(0),
 		}
+		balance, err := BalanceAt(ctx, nodeInfo.NodeAddress)
+		if err != nil {
+			log.Errorf("GetAllNodesData: get wallet balance error: %v", err)
+			return nil, err
+		}
+		nodeData[idx].Balance = balance
 
-		wg.Add(1)
-		go func(ctx context.Context, idx int, nodeAddress common.Address) {
+		status, err := GetNodeStatus(ctx, nodeInfo.NodeAddress)
+		if err != nil {
+			log.Errorf("GetAllNodesData: get node status error: %v", err)
+			return nil, err
+		}
+		if status > 0 {
+			nodeData[idx].Active = true
+		}
 
-			defer wg.Done()
-
-			balance, err := BalanceAt(ctx, nodeAddress)
-			if err != nil {
-				log.Errorf("GetAllNodesData: get wallet balance error: %v", err)
-				return
-			}
-			nodeData[idx].Balance = balance
-
-			status, err := GetNodeStatus(ctx, nodeAddress)
-			if err != nil {
-				log.Errorf("GetAllNodesData: get node status error: %v", err)
-				return
-			}
-			if status > 0 {
-				nodeData[idx].Active = true
-			}
-
-			qos, err := GetTaskScore(ctx, nodeAddress)
-			if err != nil {
-				log.Errorf("GetAllNodesData: get qos score error: %v", err)
-				return
-			}
-			nodeData[idx].QoS = qos.Int64()
-		}(ctx, idx, nodeInfo.NodeAddress)
+		qos, err := GetTaskScore(ctx, nodeInfo.NodeAddress)
+		if err != nil {
+			log.Errorf("GetAllNodesData: get qos score error: %v", err)
+			return nil, err
+		}
+		nodeData[idx].QoS = qos.Int64()
 	}
-
-	wg.Wait()
 
 	return nodeData, nil
 }
