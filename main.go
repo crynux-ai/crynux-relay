@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crynux_relay/api"
+	"crynux_relay/blockchain"
 	"crynux_relay/config"
 	"crynux_relay/migrate"
 	"crynux_relay/tasks"
@@ -33,6 +34,10 @@ func main() {
 	}
 
 	startDBMigration()
+
+	if err := blockchain.Init(context.Background()); err != nil {
+		log.Fatalln(err)
+	}
 
 	go tasks.ProcessTasks(context.Background())
 	go tasks.StartSyncNetwork(context.Background())

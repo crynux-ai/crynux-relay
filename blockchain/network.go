@@ -11,10 +11,7 @@ import (
 )
 
 func GetTotalNodes(ctx context.Context) (*big.Int, error) {
-	netstatsInstance, err := GetNetstatsContractInstance()
-	if err != nil {
-		return nil, err
-	}
+	netstatsInstance := GetNetstatsContractInstance()
 
 	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -32,10 +29,7 @@ func GetTotalNodes(ctx context.Context) (*big.Int, error) {
 }
 
 func GetBusyNodes(ctx context.Context) (*big.Int, error) {
-	netstatsInstance, err := GetNetstatsContractInstance()
-	if err != nil {
-		return nil, err
-	}
+	netstatsInstance := GetNetstatsContractInstance()
 
 	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -53,10 +47,7 @@ func GetBusyNodes(ctx context.Context) (*big.Int, error) {
 }
 
 func GetActiveNodes(ctx context.Context) (*big.Int, error) {
-	netstatsInstance, err := GetNetstatsContractInstance()
-	if err != nil {
-		return nil, err
-	}
+	netstatsInstance := GetNetstatsContractInstance()
 
 	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -74,10 +65,7 @@ func GetActiveNodes(ctx context.Context) (*big.Int, error) {
 }
 
 func GetTotalTasks(ctx context.Context) (*big.Int, error) {
-	netstatsInstance, err := GetNetstatsContractInstance()
-	if err != nil {
-		return nil, err
-	}
+	netstatsInstance := GetNetstatsContractInstance()
 
 	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -95,10 +83,7 @@ func GetTotalTasks(ctx context.Context) (*big.Int, error) {
 }
 
 func GetRunningTasks(ctx context.Context) (*big.Int, error) {
-	netstatsInstance, err := GetNetstatsContractInstance()
-	if err != nil {
-		return nil, err
-	}
+	netstatsInstance := GetNetstatsContractInstance()
 
 	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -116,10 +101,7 @@ func GetRunningTasks(ctx context.Context) (*big.Int, error) {
 }
 
 func GetQueuedTasks(ctx context.Context) (*big.Int, error) {
-	netstatsInstance, err := GetNetstatsContractInstance()
-	if err != nil {
-		return nil, err
-	}
+	netstatsInstance := GetNetstatsContractInstance()
 
 	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -137,10 +119,7 @@ func GetQueuedTasks(ctx context.Context) (*big.Int, error) {
 }
 
 func GetAllNodeInfo(ctx context.Context, offset, length *big.Int) ([]bindings.NetworkStatsNodeInfo, error) {
-	netstatsInstance, err := GetNetstatsContractInstance()
-	if err != nil {
-		return nil, err
-	}
+	netstatsInstance := GetNetstatsContractInstance()
 
 	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
