@@ -17,10 +17,7 @@ import (
 )
 
 func GetTaskByCommitment(ctx context.Context, taskIDCommitment [32]byte) (*bindings.VSSTaskTaskInfo, error) {
-	taskInstance, err := GetTaskContractInstance()
-	if err != nil {
-		return nil, err
-	}
+	taskInstance := GetTaskContractInstance()
 
 	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -42,10 +39,7 @@ func GetTaskByCommitment(ctx context.Context, taskIDCommitment [32]byte) (*bindi
 }
 
 func ReportTaskParamsUploaded(ctx context.Context, taskIDCommitment [32]byte) (string, error) {
-	taskInstance, err := GetTaskContractInstance()
-	if err != nil {
-		return "", err
-	}
+	taskInstance := GetTaskContractInstance()
 
 	appConfig := config.GetConfig()
 	address := common.HexToAddress(appConfig.Blockchain.Account.Address)
@@ -82,10 +76,7 @@ func ReportTaskParamsUploaded(ctx context.Context, taskIDCommitment [32]byte) (s
 }
 
 func ReportTaskResultUploaded(ctx context.Context, taskIDCommitment [32]byte) (string, error) {
-	taskInstance, err := GetTaskContractInstance()
-	if err != nil {
-		return "", err
-	}
+	taskInstance := GetTaskContractInstance()
 
 	appConfig := config.GetConfig()
 	address := common.HexToAddress(appConfig.Blockchain.Account.Address)

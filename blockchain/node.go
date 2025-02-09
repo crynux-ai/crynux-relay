@@ -9,10 +9,7 @@ import (
 )
 
 func GetNodeStatus(ctx context.Context, address common.Address) (uint8, error) {
-	nodeContractInstance, err := GetNodeContractInstance()
-	if err != nil {
-		return 0, err
-	}
+	nodeContractInstance := GetNodeContractInstance()
 	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 

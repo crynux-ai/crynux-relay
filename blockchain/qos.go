@@ -10,10 +10,7 @@ import (
 )
 
 func GetTaskScore(ctx context.Context, address common.Address) (*big.Int, error) {
-	qosContractInstance, err := GetQoSContractInstance()
-	if err != nil {
-		return nil, err
-	}
+	qosContractInstance := GetQoSContractInstance()
 	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
