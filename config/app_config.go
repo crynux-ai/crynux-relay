@@ -51,6 +51,10 @@ type AppConfig struct {
 		} `mapstructure:"contracts"`
 	} `mapstructure:"blockchain"`
 
+	Task struct {
+		Timeout uint64 `mapstructure:"timeout"`
+	}
+
 	TaskSchema struct {
 		StableDiffusionInference    string `mapstructure:"stable_diffusion_inference"`
 		GPTInference                string `mapstructure:"gpt_inference"`
