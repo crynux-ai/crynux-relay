@@ -9,6 +9,7 @@ import (
 	"crynux_relay/utils"
 	"database/sql"
 	"errors"
+	mrand "math/rand"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -135,12 +136,12 @@ func syncTask(ctx context.Context, task *models.InferenceTask) (*bindings.VSSTas
 	chainTaskStatus := models.ChainTaskStatus(chainTask.Status)
 	abortReason := models.TaskAbortReason(chainTask.AbortReason)
 	taskError := models.TaskError(chainTask.Error)
-	startTimestamp := chainTask.StartTimestamp.Int64()	
+	startTimestamp := chainTask.StartTimestamp.Int64()
 	scoreReadyTimestamp := chainTask.ScoreReadyTimestamp.Int64()
 
 	if startTimestamp > 0 && !task.StartTime.Valid {
 		newTask.StartTime = sql.NullTime{
-			Time: time.Unix(startTimestamp, 0).UTC(),
+			Time:  time.Unix(startTimestamp, 0).UTC(),
 			Valid: true,
 		}
 		changed = true
@@ -298,7 +299,7 @@ func ProcessTasks(ctx context.Context) {
 	limit := 100
 	lastID := uint(0)
 
-	interval := 1
+	appConfig := config.GetConfig()
 
 	for {
 		tasks, err := func(ctx context.Context) ([]models.InferenceTask, error) {
@@ -322,7 +323,7 @@ func ProcessTasks(ctx context.Context) {
 		}(ctx)
 		if err != nil {
 			log.Errorf("ProcessTasks: cannot get unprocessed tasks: %v", err)
-			time.Sleep(time.Duration(interval) * time.Second)
+			time.Sleep(time.Second)
 			continue
 		}
 
@@ -334,8 +335,9 @@ func ProcessTasks(ctx context.Context) {
 					log.Infof("ProcessTasks: start processing task %s", task.TaskIDCommitment)
 					var ctx1 context.Context
 					var cancel context.CancelFunc
+					duration := time.Duration(appConfig.Task.Timeout) * time.Minute
 					if !task.StartTime.Valid {
-						ctx1, cancel = context.WithTimeout(ctx, 10*time.Minute)
+						ctx1, cancel = context.WithTimeout(ctx, duration)
 					} else {
 						deadline := task.StartTime.Time.Add(10 * time.Minute)
 						ctx1, cancel = context.WithDeadline(ctx, deadline)
@@ -370,6 +372,8 @@ func ProcessTasks(ctx context.Context) {
 						}
 					}
 				}(ctx, task)
+
+				time.Sleep(time.Duration(mrand.Float64()*1000) * time.Millisecond)
 			}
 		}
 
