@@ -67,11 +67,9 @@ func ReportTaskParamsUploaded(ctx context.Context, taskIDCommitment [32]byte) (s
 	auth.Nonce = big.NewInt(int64(nonce))
 	tx, err := taskInstance.ReportTaskParametersUploaded(auth, taskIDCommitment)
 	if err != nil {
-		err = processSendingTxError(err)
 		return "", err
 	}
 
-	addNonce(nonce)
 	return tx.Hash().Hex(), nil
 }
 
@@ -103,11 +101,9 @@ func ReportTaskResultUploaded(ctx context.Context, taskIDCommitment [32]byte) (s
 	auth.Nonce = big.NewInt(int64(nonce))
 	tx, err := taskInstance.ReportTaskResultUploaded(auth, taskIDCommitment)
 	if err != nil {
-		err = processSendingTxError(err)
 		return "", err
 	}
 
-	addNonce(nonce)
 	return tx.Hash().Hex(), nil
 }
 
