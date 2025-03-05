@@ -18,8 +18,5 @@ func GetNodeStatus(ctx context.Context, address common.Address) (uint8, error) {
 		Context: callCtx,
 	}
 
-	if err := getLimiter().Wait(callCtx); err != nil {
-		return 0, err
-	}
 	return nodeContractInstance.GetNodeStatus(opts, address)
 }

@@ -27,9 +27,6 @@ func GetTaskByCommitment(ctx context.Context, taskIDCommitment [32]byte) (*bindi
 		Context: callCtx,
 	}
 
-	if err := getLimiter().Wait(callCtx); err != nil {
-		return nil, err
-	}
 	taskInfo, err := taskInstance.GetTask(opts, taskIDCommitment)
 	if err != nil {
 		return nil, err
