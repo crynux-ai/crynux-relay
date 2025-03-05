@@ -354,6 +354,8 @@ func ProcessTasks(ctx context.Context) {
 						case err := <-c:
 							if err != nil {
 								log.Errorf("ProcessTasks: process task %s error %v, retry", task.TaskIDCommitment, err)
+								duration := time.Duration((mrand.Float64() * 2 + 1) * 1000)
+								time.Sleep(duration * time.Millisecond)
 							} else {
 								log.Infof("ProcessTasks: process task %s successfully", task.TaskIDCommitment)
 								return
@@ -372,8 +374,6 @@ func ProcessTasks(ctx context.Context) {
 						}
 					}
 				}(ctx, task)
-
-				time.Sleep(time.Duration(mrand.Float64()*1000) * time.Millisecond)
 			}
 		}
 
