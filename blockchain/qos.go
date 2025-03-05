@@ -19,8 +19,5 @@ func GetTaskScore(ctx context.Context, address common.Address) (*big.Int, error)
 		Context: callCtx,
 	}
 
-	if err := getLimiter().Wait(callCtx); err != nil {
-		return nil, err
-	}
 	return qosContractInstance.GetTaskScore(opts, address)
 }

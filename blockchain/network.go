@@ -21,10 +21,6 @@ func GetTotalNodes(ctx context.Context) (*big.Int, error) {
 		Context: callCtx,
 	}
 
-	if err := getLimiter().Wait(callCtx); err != nil {
-		return nil, err
-	}
-
 	return netstatsInstance.TotalNodes(opts)
 }
 
@@ -37,10 +33,6 @@ func GetBusyNodes(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
 		Pending: false,
 		Context: callCtx,
-	}
-
-	if err := getLimiter().Wait(callCtx); err != nil {
-		return nil, err
 	}
 
 	return netstatsInstance.BusyNodes(opts)
@@ -57,10 +49,6 @@ func GetActiveNodes(ctx context.Context) (*big.Int, error) {
 		Context: callCtx,
 	}
 
-	if err := getLimiter().Wait(callCtx); err != nil {
-		return nil, err
-	}
-
 	return netstatsInstance.ActiveNodes(opts)
 }
 
@@ -73,10 +61,6 @@ func GetTotalTasks(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
 		Pending: false,
 		Context: callCtx,
-	}
-
-	if err := getLimiter().Wait(callCtx); err != nil {
-		return nil, err
 	}
 
 	return netstatsInstance.TotalTasks(opts)
@@ -93,10 +77,6 @@ func GetRunningTasks(ctx context.Context) (*big.Int, error) {
 		Context: callCtx,
 	}
 
-	if err := getLimiter().Wait(callCtx); err != nil {
-		return nil, err
-	}
-
 	return netstatsInstance.RunningTasks(opts)
 }
 
@@ -109,10 +89,6 @@ func GetQueuedTasks(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
 		Pending: false,
 		Context: callCtx,
-	}
-
-	if err := getLimiter().Wait(callCtx); err != nil {
-		return nil, err
 	}
 
 	return netstatsInstance.QueuedTasks(opts)
@@ -129,9 +105,6 @@ func GetAllNodeInfo(ctx context.Context, offset, length *big.Int) ([]bindings.Ne
 		Context: callCtx,
 	}
 
-	if err := getLimiter().Wait(callCtx); err != nil {
-		return nil, err
-	}
 	return netstatsInstance.GetAllNodeInfo(opts, offset, length)
 }
 
