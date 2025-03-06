@@ -14,39 +14,29 @@ import (
 	"gorm.io/gorm"
 )
 
-type ChainTaskStatus uint8
-
-const (
-	ChainTaskQueued ChainTaskStatus = iota
-	ChainTaskStarted
-	ChainTaskParametersUploaded
-	ChainTaskErrorReported
-	ChainTaskScoreReady
-	ChainTaskValidated
-	ChainTaskGroupValidated
-	ChainTaskEndInvalidated
-	ChainTaskEndSuccess
-	ChainTaskEndAborted
-	ChainTaskEndGroupRefund
-	ChainTaskEndGroupSuccess
-)
+var TaskVersionInvalidError = errors.New("Task version invalid")
 
 type TaskStatus uint8
 
 const (
-	InferenceTaskCreated TaskStatus = iota
-	InferenceTaskParamsUploaded
-	InferenceTaskResultsReady
-	InferenceTaskEndAborted
-	InferenceTaskEndGroupRefund
-	InferenceTaskEndInvalidated
-	InferenceTaskEndSuccess
+	TaskQueued TaskStatus = iota
+	TaskStarted
+	TaskParametersUploaded
+	TaskErrorReported
+	TaskScoreReady
+	TaskValidated
+	TaskGroupValidated
+	TaskEndInvalidated
+	TaskEndSuccess
+	TaskEndAborted
+	TaskEndGroupRefund
+	TaskEndGroupSuccess
 )
 
-type ChainTaskType uint8
+type TaskType uint8
 
 const (
-	TaskTypeSD ChainTaskType = iota
+	TaskTypeSD TaskType = iota
 	TaskTypeLLM
 	TaskTypeSDFTLora
 )
@@ -69,7 +59,6 @@ const (
 )
 
 type StringArray []string
-
 
 func (arr *StringArray) Scan(val interface{}) error {
 	var arrString string
@@ -105,8 +94,12 @@ type InferenceTask struct {
 	TaskArgs         string          `json:"task_args"`
 	TaskIDCommitment string          `json:"task_id_commitment" gorm:"index"`
 	Creator          string          `json:"creator"`
+	SamplingSeed     string          `json:"sampling_seed"`
+	Nonce            string          `json:"nonce"`
 	Status           TaskStatus      `json:"status"`
-	TaskType         ChainTaskType   `json:"task_type" gorm:"index"`
+	TaskType         TaskType        `json:"task_type" gorm:"index"`
+	TaskVersion      string          `json:"task_version"`
+	Timeout          uint64          `json:"timeout"`
 	MinVRAM          uint64          `json:"min_vram"`
 	RequiredGPU      string          `json:"required_gpu"`
 	RequiredGPUVRAM  uint64          `json:"required_gpu_vram"`

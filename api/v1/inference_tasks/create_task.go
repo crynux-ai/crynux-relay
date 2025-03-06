@@ -71,7 +71,7 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 				"task_id_commitment",
 				"Task not found on the Blockchain")
 	}
-	if models.ChainTaskStatus(chainTask.Status) != models.ChainTaskStarted {
+	if models.TaskStatus(chainTask.Status) != models.TaskStarted {
 		return nil, response.NewValidationErrorResponse("task_id_commitment", "Task not started")
 	}
 
@@ -79,7 +79,7 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 		return nil, response.NewValidationErrorResponse("signature", "Signer not allowed")
 	}
 
-	validationErr, err := models.ValidateTaskArgsJsonStr(in.TaskArgs, models.ChainTaskType(chainTask.TaskType))
+	validationErr, err := models.ValidateTaskArgsJsonStr(in.TaskArgs, models.TaskType(chainTask.TaskType))
 	if err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
@@ -95,7 +95,7 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 		return nil, response.NewExceptionResponse(err)
 	}
 
-	if models.ChainTaskType(chainTask.TaskType) == models.TaskTypeSDFTLora {
+	if models.TaskType(chainTask.TaskType) == models.TaskTypeSDFTLora {
 		form, err := c.MultipartForm()
 		if err != nil {
 			return nil, response.NewExceptionResponse(err)
@@ -129,7 +129,7 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 	task.TaskIDCommitment = in.TaskIDCommitment
 	task.Creator = chainTask.Creator.Hex()
 	task.Status = models.InferenceTaskCreated
-	task.TaskType = models.ChainTaskType(chainTask.TaskType)
+	task.TaskType = models.TaskType(chainTask.TaskType)
 	task.MinVRAM = chainTask.MinimumVRAM.Uint64()
 	task.RequiredGPU = chainTask.RequiredGPU
 	task.RequiredGPUVRAM = chainTask.RequiredGPUVRAM.Uint64()
