@@ -1,4 +1,4 @@
-package inference_tasks
+package validate
 
 import (
 	"encoding/hex"

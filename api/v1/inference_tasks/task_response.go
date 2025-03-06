@@ -9,3 +9,8 @@ type TaskResponse struct {
 	response.Response
 	Data models.InferenceTask `json:"data"`
 }
+
+type TasksResponse struct {
+	response.Response
+	Data []models.InferenceTask `json:"data"`
+}

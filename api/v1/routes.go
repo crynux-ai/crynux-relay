@@ -4,6 +4,7 @@ import (
 	"crynux_relay/api/v1/incentive"
 	"crynux_relay/api/v1/inference_tasks"
 	"crynux_relay/api/v1/network"
+	"crynux_relay/api/v1/nodes"
 	"crynux_relay/api/v1/response"
 	"crynux_relay/api/v1/stats"
 	"crynux_relay/api/v1/time"
@@ -54,7 +55,45 @@ func InitRoutes(r *fizz.Fizz) {
 		fizz.Summary("Get the input checkpoint of the task"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(inference_tasks.GetCheckpoint, 200))
+	
+	tasksGroup.POST("/:task_id_commitment/score", []fizz.OperationOption{
+		fizz.Summary("Submit task score"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(inference_tasks.SubmitScore, 200))
+	tasksGroup.POST("/validate", []fizz.OperationOption{
+		fizz.Summary("Validate single task or task group"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(inference_tasks.ValidateTask, 200))
 
+	nodeGroup := v1g.Group("node", "node", "Node APIs")
+	nodeGroup.GET("/node/:address", []fizz.OperationOption{
+		fizz.Summary("Get node info"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(nodes.GetNode, 200))
+	nodeGroup.POST("/node/:address/join", []fizz.OperationOption{
+		fizz.Summary("Node join"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(nodes.NodeJoin, 200))
+	nodeGroup.POST("/node/:address/quit", []fizz.OperationOption{
+		fizz.Summary("Node quit"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(nodes.NodeQuit, 200))
+	nodeGroup.POST("/node/:address/pause", []fizz.OperationOption{
+		fizz.Summary("Node pause"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(nodes.NodePause, 200))
+	nodeGroup.POST("/node/:address/resume", []fizz.OperationOption{
+		fizz.Summary("Node resume"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(nodes.NodeResume, 200))
+	nodeGroup.POST("/node/:address/model/", []fizz.OperationOption{
+		fizz.Summary("Add node's local model id"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(nodes.AddModelID, 200))
+	nodeGroup.POST("/node/:address/version/", []fizz.OperationOption{
+		fizz.Summary("Update node's version"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(nodes.UpdateNodeVersion, 200))
 
 	networkGroup := v1g.Group("network", "network", "Network stats related APIs")
 

@@ -3,6 +3,7 @@ package inference_tasks
 import (
 	"context"
 	"crynux_relay/api/v1/response"
+	"crynux_relay/api/v1/validate"
 	"crynux_relay/blockchain"
 	"crynux_relay/config"
 	"crynux_relay/models"
@@ -21,19 +22,27 @@ import (
 )
 
 type TaskInput struct {
-	TaskIDCommitment string `path:"task_id_commitment" json:"task_id_commitment" description:"Task id commitment" validate:"required"`
-	TaskArgs         string `form:"task_args" json:"task_args" description:"Task arguments" validate:"required"`
+	TaskIDCommitment string               `path:"task_id_commitment" json:"task_id_commitment" description:"Task id commitment" validate:"required"`
+	TaskArgs         string               `json:"task_args" description:"Task arguments" validate:"required"`
+	TaskType         models.ChainTaskType `json:"task_type" description:"Task type" validate:"required"`
+	Nonce            string               `json:"nonce" description:"nonce" validate:"required"`
+	TaskModelIDs     []string             `json:"task_model_ids" description:"task model ids" validate:"required"`
+	MinVram          uint64               `json:"min_vram" description:"min vram" validate:"required"`
+	RequiredGPU      bool                 `json:"required_gpu" description:"required gpu" validate:"required"`
+	RequiredGPUVram  uint64               `json:"required_gpu_vram" description:"required gpu vram" validate:"required"`
+	TaskVersion      string               `json:"task_version" description:"task version" validate:"required"`
+	TaskSize         uint64               `json:"task_size" description:"task size" validate:"required"`
 }
 
 type TaskInputWithSignature struct {
 	TaskInput
-	Timestamp int64  `form:"timestamp" description:"Signature timestamp" validate:"required"`
-	Signature string `form:"signature" description:"Signature" validate:"required"`
+	Timestamp int64  `json:"timestamp" description:"Signature timestamp" validate:"required"`
+	Signature string `json:"signature" description:"Signature" validate:"required"`
 }
 
 func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, error) {
 
-	match, address, err := ValidateSignature(in.TaskInput, in.Timestamp, in.Signature)
+	match, address, err := validate.ValidateSignature(in.TaskInput, in.Timestamp, in.Signature)
 
 	if err != nil || !match {
 
@@ -100,9 +109,9 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 			}
 			checkpoint = files[0]
 		}
-		
+
 		appConfig := config.GetConfig()
-	
+
 		taskDir := filepath.Join(appConfig.DataDir.InferenceTasks, in.TaskIDCommitment, "input")
 		if err = os.MkdirAll(taskDir, 0o711); err != nil {
 			return nil, response.NewExceptionResponse(err)
@@ -112,7 +121,6 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 			return nil, response.NewExceptionResponse(err)
 		}
 	}
-
 
 	taskFee, _ := utils.WeiToEther(chainTask.TaskFee).Float64()
 
@@ -130,7 +138,7 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 	task.ModelIDs = models.StringArray(chainTask.ModelIDs)
 	task.SelectedNode = chainTask.SelectedNode.Hex()
 	task.CreateTime = sql.NullTime{
-		Time: time.Unix(chainTask.CreateTimestamp.Int64(), 0),
+		Time:  time.Unix(chainTask.CreateTimestamp.Int64(), 0),
 		Valid: true,
 	}
 

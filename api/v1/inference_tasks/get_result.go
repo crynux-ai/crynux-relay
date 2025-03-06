@@ -3,6 +3,7 @@ package inference_tasks
 import (
 	"context"
 	"crynux_relay/api/v1/response"
+	"crynux_relay/api/v1/validate"
 	"crynux_relay/config"
 	"crynux_relay/models"
 	"errors"
@@ -28,7 +29,7 @@ type GetResultInputWithSignature struct {
 
 func GetResult(c *gin.Context, in *GetResultInputWithSignature) error {
 
-	match, address, err := ValidateSignature(in.GetResultInput, in.Timestamp, in.Signature)
+	match, address, err := validate.ValidateSignature(in.GetResultInput, in.Timestamp, in.Signature)
 
 	if err != nil || !match {
 
@@ -100,7 +101,7 @@ type GetResultCheckpointInputWithSignature struct {
 }
 
 func GetResultCheckpoint(c *gin.Context, in *GetResultCheckpointInputWithSignature) error {
-	match, address, err := ValidateSignature(in.GetResultCheckpointInput, in.Timestamp, in.Signature)
+	match, address, err := validate.ValidateSignature(in.GetResultCheckpointInput, in.Timestamp, in.Signature)
 
 	if err != nil || !match {
 

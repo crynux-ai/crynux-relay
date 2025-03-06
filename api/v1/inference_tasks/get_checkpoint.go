@@ -3,6 +3,7 @@ package inference_tasks
 import (
 	"context"
 	"crynux_relay/api/v1/response"
+	"crynux_relay/api/v1/validate"
 	"crynux_relay/config"
 	"crynux_relay/models"
 	"errors"
@@ -25,7 +26,7 @@ type GetCheckpointInputWithSignature struct {
 }
 
 func GetCheckpoint(c *gin.Context, in *GetCheckpointInputWithSignature) error {
-	match, address, err := ValidateSignature(in.GetCheckpointInput, in.Timestamp, in.Signature)
+	match, address, err := validate.ValidateSignature(in.GetCheckpointInput, in.Timestamp, in.Signature)
 
 	if err != nil || !match {
 		return response.NewValidationErrorResponse("signature", "Invalid signature")

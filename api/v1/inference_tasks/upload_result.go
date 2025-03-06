@@ -3,6 +3,7 @@ package inference_tasks
 import (
 	"context"
 	"crynux_relay/api/v1/response"
+	"crynux_relay/api/v1/validate"
 	"crynux_relay/blockchain"
 	"crynux_relay/config"
 	"crynux_relay/models"
@@ -32,7 +33,7 @@ type ResultInputWithSignature struct {
 
 func UploadResult(c *gin.Context, in *ResultInputWithSignature) (*response.Response, error) {
 
-	match, address, err := ValidateSignature(in.ResultInput, in.Timestamp, in.Signature)
+	match, address, err := validate.ValidateSignature(in.ResultInput, in.Timestamp, in.Signature)
 
 	if err != nil {
 		return nil, response.NewExceptionResponse(err)

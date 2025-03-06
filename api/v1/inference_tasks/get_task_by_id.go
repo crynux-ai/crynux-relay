@@ -3,6 +3,7 @@ package inference_tasks
 import (
 	"context"
 	"crynux_relay/api/v1/response"
+	"crynux_relay/api/v1/validate"
 	"crynux_relay/config"
 	"crynux_relay/models"
 	"errors"
@@ -25,7 +26,7 @@ type GetTaskInputWithSignature struct {
 
 func GetTaskById(c *gin.Context, in *GetTaskInputWithSignature) (*TaskResponse, error) {
 
-	match, address, err := ValidateSignature(in.GetTaskInput, in.Timestamp, in.Signature)
+	match, address, err := validate.ValidateSignature(in.GetTaskInput, in.Timestamp, in.Signature)
 
 	if err != nil || !match {
 
