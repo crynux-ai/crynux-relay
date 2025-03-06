@@ -133,7 +133,7 @@ func syncTask(ctx context.Context, task *models.InferenceTask) (*bindings.VSSTas
 
 	changed := false
 	newTask := &models.InferenceTask{}
-	chainTaskStatus := models.ChainTaskStatus(chainTask.Status)
+	chainTaskStatus := models.TaskStatus(chainTask.Status)
 	abortReason := models.TaskAbortReason(chainTask.AbortReason)
 	taskError := models.TaskError(chainTask.Error)
 	startTimestamp := chainTask.StartTimestamp.Int64()
@@ -162,12 +162,12 @@ func syncTask(ctx context.Context, task *models.InferenceTask) (*bindings.VSSTas
 		changed = true
 	}
 
-	if chainTaskStatus == models.ChainTaskParametersUploaded {
+	if chainTaskStatus == models.TaskParametersUploaded {
 		if task.Status != models.InferenceTaskParamsUploaded {
 			newTask.Status = models.InferenceTaskParamsUploaded
 			changed = true
 		}
-	} else if chainTaskStatus == models.ChainTaskValidated || chainTaskStatus == models.ChainTaskGroupValidated {
+	} else if chainTaskStatus == models.TaskValidated || chainTaskStatus == models.TaskGroupValidated {
 		if !task.ValidatedTime.Valid {
 			newTask.ValidatedTime = sql.NullTime{
 				Time:  time.Now().UTC(),
@@ -175,7 +175,7 @@ func syncTask(ctx context.Context, task *models.InferenceTask) (*bindings.VSSTas
 			}
 			changed = true
 		}
-	} else if chainTaskStatus == models.ChainTaskEndAborted {
+	} else if chainTaskStatus == models.TaskEndAborted {
 		if task.Status != models.InferenceTaskEndAborted {
 			newTask.Status = models.InferenceTaskEndAborted
 			changed = true
@@ -187,7 +187,7 @@ func syncTask(ctx context.Context, task *models.InferenceTask) (*bindings.VSSTas
 			}
 			changed = true
 		}
-	} else if chainTaskStatus == models.ChainTaskEndInvalidated {
+	} else if chainTaskStatus == models.TaskEndInvalidated {
 		if task.Status != models.InferenceTaskEndInvalidated {
 			newTask.Status = models.InferenceTaskEndInvalidated
 			changed = true
@@ -199,7 +199,7 @@ func syncTask(ctx context.Context, task *models.InferenceTask) (*bindings.VSSTas
 			}
 			changed = true
 		}
-	} else if chainTaskStatus == models.ChainTaskEndGroupRefund {
+	} else if chainTaskStatus == models.TaskEndGroupRefund {
 		if task.Status != models.InferenceTaskEndGroupRefund {
 			newTask.Status = models.InferenceTaskEndGroupRefund
 			changed = true
@@ -251,8 +251,8 @@ func processOneTask(ctx context.Context, task *models.InferenceTask) error {
 		if err != nil {
 			return err
 		}
-		chainTaskStatus := models.ChainTaskStatus(chainTask.Status)
-		needResult = (chainTaskStatus == models.ChainTaskValidated || chainTaskStatus == models.ChainTaskGroupValidated)
+		chainTaskStatus := models.TaskStatus(chainTask.Status)
+		needResult = (chainTaskStatus == models.TaskValidated || chainTaskStatus == models.TaskGroupValidated)
 		if task.Status != models.InferenceTaskParamsUploaded || task.ValidatedTime.Valid {
 			break
 		}
@@ -308,9 +308,9 @@ func ProcessTasks(ctx context.Context) {
 			dbCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 			defer cancel()
 			err := config.GetDB().WithContext(dbCtx).Model(&models.InferenceTask{}).
-				Where("status != ?", models.InferenceTaskEndAborted).
-				Where("status != ?", models.InferenceTaskEndInvalidated).
-				Where("status != ?", models.InferenceTaskEndSuccess).
+				Where("status != ?", models.TaskEndAborted).
+				Where("status != ?", models.TaskEndInvalidated).
+				Where("status != ?", models.TaskEndSuccess).
 				Where("id > ?", lastID).
 				Find(&tasks).
 				Order("id ASC").
@@ -354,7 +354,7 @@ func ProcessTasks(ctx context.Context) {
 						case err := <-c:
 							if err != nil {
 								log.Errorf("ProcessTasks: process task %s error %v, retry", task.TaskIDCommitment, err)
-								duration := time.Duration((mrand.Float64() * 2 + 1) * 1000)
+								duration := time.Duration((mrand.Float64()*2 + 1) * 1000)
 								time.Sleep(duration * time.Millisecond)
 							} else {
 								log.Infof("ProcessTasks: process task %s successfully", task.TaskIDCommitment)
