@@ -161,13 +161,11 @@ func syncTask(ctx context.Context, task *models.InferenceTask) (*bindings.VSSTas
 		newTask.TaskError = taskError
 		changed = true
 	}
-
-	if chainTaskStatus == models.TaskParametersUploaded {
-		if task.Status != models.InferenceTaskParamsUploaded {
-			newTask.Status = models.InferenceTaskParamsUploaded
-			changed = true
-		}
-	} else if chainTaskStatus == models.TaskValidated || chainTaskStatus == models.TaskGroupValidated {
+	if task.Status != chainTaskStatus {
+		task.Status = chainTaskStatus
+		changed = true
+	}
+	if chainTaskStatus == models.TaskValidated || chainTaskStatus == models.TaskGroupValidated {
 		if !task.ValidatedTime.Valid {
 			newTask.ValidatedTime = sql.NullTime{
 				Time:  time.Now().UTC(),
@@ -176,10 +174,6 @@ func syncTask(ctx context.Context, task *models.InferenceTask) (*bindings.VSSTas
 			changed = true
 		}
 	} else if chainTaskStatus == models.TaskEndAborted {
-		if task.Status != models.InferenceTaskEndAborted {
-			newTask.Status = models.InferenceTaskEndAborted
-			changed = true
-		}
 		if !task.ValidatedTime.Valid {
 			newTask.ValidatedTime = sql.NullTime{
 				Time:  time.Now().UTC(),
@@ -188,10 +182,6 @@ func syncTask(ctx context.Context, task *models.InferenceTask) (*bindings.VSSTas
 			changed = true
 		}
 	} else if chainTaskStatus == models.TaskEndInvalidated {
-		if task.Status != models.InferenceTaskEndInvalidated {
-			newTask.Status = models.InferenceTaskEndInvalidated
-			changed = true
-		}
 		if !task.ValidatedTime.Valid {
 			newTask.ValidatedTime = sql.NullTime{
 				Time:  time.Now().UTC(),
@@ -200,10 +190,6 @@ func syncTask(ctx context.Context, task *models.InferenceTask) (*bindings.VSSTas
 			changed = true
 		}
 	} else if chainTaskStatus == models.TaskEndGroupRefund {
-		if task.Status != models.InferenceTaskEndGroupRefund {
-			newTask.Status = models.InferenceTaskEndGroupRefund
-			changed = true
-		}
 		if !task.ValidatedTime.Valid {
 			newTask.ValidatedTime = sql.NullTime{
 				Time:  time.Now().UTC(),
@@ -229,13 +215,13 @@ func processOneTask(ctx context.Context, task *models.InferenceTask) error {
 	}
 
 	// report task params is uploaded to blochchain
-	if task.Status == models.InferenceTaskCreated {
+	if task.Status == models.TaskStarted {
 		if err := reportTaskParamsUploaded(ctx, task); err != nil {
 			return err
 		}
 
 		newTask := &models.InferenceTask{
-			Status: models.InferenceTaskParamsUploaded,
+			Status: models.TaskParametersUploaded,
 		}
 
 		if err := task.Update(ctx, newTask); err != nil {
@@ -253,7 +239,7 @@ func processOneTask(ctx context.Context, task *models.InferenceTask) error {
 		}
 		chainTaskStatus := models.TaskStatus(chainTask.Status)
 		needResult = (chainTaskStatus == models.TaskValidated || chainTaskStatus == models.TaskGroupValidated)
-		if task.Status != models.InferenceTaskParamsUploaded || task.ValidatedTime.Valid {
+		if task.Status != models.TaskParametersUploaded || task.ValidatedTime.Valid {
 			break
 		}
 		time.Sleep(time.Second)
@@ -266,7 +252,7 @@ func processOneTask(ctx context.Context, task *models.InferenceTask) error {
 		err := func() error {
 			timeCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 			defer cancel()
-			return waitTaskStatus(timeCtx, task.TaskIDCommitment, models.InferenceTaskResultsReady)
+			return waitTaskStatus(timeCtx, task.TaskIDCommitment, models.TaskEndSuccess)
 		}()
 		if err != nil {
 			return err
@@ -278,7 +264,7 @@ func processOneTask(ctx context.Context, task *models.InferenceTask) error {
 		}
 
 		newTask := &models.InferenceTask{
-			Status: models.InferenceTaskEndSuccess,
+			Status: models.TaskEndSuccess,
 			ResultUploadedTime: sql.NullTime{
 				Time:  time.Now().UTC(),
 				Valid: true,
@@ -365,7 +351,7 @@ func ProcessTasks(ctx context.Context) {
 							log.Errorf("ProcessTasks: process task %s timeout %v, finish", task.TaskIDCommitment, err)
 							// set task status to aborted to avoid processing it again
 							if err == context.DeadlineExceeded {
-								newTask := &models.InferenceTask{Status: models.InferenceTaskEndAborted}
+								newTask := &models.InferenceTask{Status: models.TaskEndAborted}
 								if err := task.Update(ctx, newTask); err != nil {
 									log.Errorf("ProcessTasks: save task %s error %v", task.TaskIDCommitment, err)
 								}

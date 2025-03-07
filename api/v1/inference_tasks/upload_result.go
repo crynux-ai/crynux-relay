@@ -44,7 +44,7 @@ func UploadResult(c *gin.Context, in *ResultInputWithSignature) (*response.Respo
 		return nil, validationErr
 	}
 
-	task, err := models.GetTaskByIDCommitment(c.Request.Context(), in.TaskIDCommitment)
+	task, err := models.GetTaskByIDCommitment(c.Request.Context(), config.GetDB(), in.TaskIDCommitment)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			validationErr := response.NewValidationErrorResponse("task_id_commitment", "Task not found")
@@ -70,7 +70,7 @@ func UploadResult(c *gin.Context, in *ResultInputWithSignature) (*response.Respo
 		return nil, response.NewExceptionResponse(err)
 	}
 
-	if task.Status != models.InferenceTaskParamsUploaded ||
+	if task.Status != models.TaskParametersUploaded ||
 		(models.TaskStatus(chainTask.Status) != models.TaskValidated && models.TaskStatus(chainTask.Status) != models.TaskGroupValidated) {
 		validationErr := response.NewValidationErrorResponse("task_id_commitment", "Task not validated")
 		return nil, validationErr
@@ -164,9 +164,9 @@ func UploadResult(c *gin.Context, in *ResultInputWithSignature) (*response.Respo
 	}
 
 	// Update task status
-	newTask := &models.InferenceTask{Status: models.InferenceTaskResultsReady}
+	newTask := &models.InferenceTask{Status: models.TaskEndSuccess}
 
-	if err := task.Update(c.Request.Context(), newTask); err != nil {
+	if err := task.Update(c.Request.Context(), config.GetDB(), newTask); err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 

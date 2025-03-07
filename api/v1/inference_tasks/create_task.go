@@ -22,16 +22,16 @@ import (
 )
 
 type TaskInput struct {
-	TaskIDCommitment string               `path:"task_id_commitment" json:"task_id_commitment" description:"Task id commitment" validate:"required"`
-	TaskArgs         string               `json:"task_args" description:"Task arguments" validate:"required"`
-	TaskType         models.ChainTaskType `json:"task_type" description:"Task type" validate:"required"`
-	Nonce            string               `json:"nonce" description:"nonce" validate:"required"`
-	TaskModelIDs     []string             `json:"task_model_ids" description:"task model ids" validate:"required"`
-	MinVram          uint64               `json:"min_vram" description:"min vram" validate:"required"`
-	RequiredGPU      bool                 `json:"required_gpu" description:"required gpu" validate:"required"`
-	RequiredGPUVram  uint64               `json:"required_gpu_vram" description:"required gpu vram" validate:"required"`
-	TaskVersion      string               `json:"task_version" description:"task version" validate:"required"`
-	TaskSize         uint64               `json:"task_size" description:"task size" validate:"required"`
+	TaskIDCommitment string          `path:"task_id_commitment" json:"task_id_commitment" description:"Task id commitment" validate:"required"`
+	TaskArgs         string          `json:"task_args" description:"Task arguments" validate:"required"`
+	TaskType         models.TaskType `json:"task_type" description:"Task type" validate:"required"`
+	Nonce            string          `json:"nonce" description:"nonce" validate:"required"`
+	TaskModelIDs     []string        `json:"task_model_ids" description:"task model ids" validate:"required"`
+	MinVram          uint64          `json:"min_vram" description:"min vram" validate:"required"`
+	RequiredGPU      bool            `json:"required_gpu" description:"required gpu" validate:"required"`
+	RequiredGPUVram  uint64          `json:"required_gpu_vram" description:"required gpu vram" validate:"required"`
+	TaskVersion      string          `json:"task_version" description:"task version" validate:"required"`
+	TaskSize         uint64          `json:"task_size" description:"task size" validate:"required"`
 }
 
 type TaskInputWithSignature struct {
@@ -87,7 +87,7 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 		return nil, response.NewValidationErrorResponse("task_args", validationErr.Error())
 	}
 
-	_, err = models.GetTaskByIDCommitment(c.Request.Context(), in.TaskIDCommitment)
+	_, err = models.GetTaskByIDCommitment(c.Request.Context(), config.GetDB(), in.TaskIDCommitment)
 	if err == nil {
 		return nil, response.NewValidationErrorResponse("task_id_commitment", "Task already uploaded")
 	}
@@ -128,7 +128,7 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 	task.TaskArgs = in.TaskArgs
 	task.TaskIDCommitment = in.TaskIDCommitment
 	task.Creator = chainTask.Creator.Hex()
-	task.Status = models.InferenceTaskCreated
+	task.Status = models.TaskQueued
 	task.TaskType = models.TaskType(chainTask.TaskType)
 	task.MinVRAM = chainTask.MinimumVRAM.Uint64()
 	task.RequiredGPU = chainTask.RequiredGPU
@@ -142,7 +142,7 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 		Valid: true,
 	}
 
-	if err := task.Save(c.Request.Context()); err != nil {
+	if err := task.Save(c.Request.Context(), config.GetDB()); err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 

@@ -28,7 +28,7 @@ func getTaskCounts(ctx context.Context, start, end time.Time) ([]*models.TaskCou
 			if err := config.GetDB().WithContext(dbCtx).Model(&models.InferenceTask{}).
 				Where("created_at >= ?", start).Where("created_at < ?", end).
 				Where("task_type = ?", taskType).
-				Where("(status = ? OR status = ?)", models.InferenceTaskEndAborted, models.InferenceTaskEndInvalidated).
+				Where("(status = ? OR status = ?)", models.TaskEndAborted, models.TaskEndInvalidated).
 				Count(&abortedCount).Error; err != nil {
 				return err
 			}
@@ -45,7 +45,7 @@ func getTaskCounts(ctx context.Context, start, end time.Time) ([]*models.TaskCou
 			if err := config.GetDB().WithContext(dbCtx).Model(&models.InferenceTask{}).
 				Where("created_at >= ?", start).Where("created_at < ?", end).
 				Where("task_type = ?", taskType).
-				Where("(status = ? OR status = ?)", models.InferenceTaskEndSuccess, models.InferenceTaskEndGroupRefund).
+				Where("(status = ? OR status = ?)", models.TaskEndSuccess, models.TaskEndGroupRefund).
 				Count(&successCount).Error; err != nil {
 				return err
 			}

@@ -3,6 +3,7 @@ package nodes
 import "github.com/gin-gonic/gin"
 
 type NodeJoinInput struct {
+	Address   string   `json:"address" path:"address" description:"address" validate:"required"`
 	GPUName   string   `json:"gpu_name" description:"gpu_name" validate:"required"`
 	GPUVram   uint64   `json:"gpu_vram" description:"gpu_vram" validate:"required"`
 	Version   string   `json:"version" description:"version" validate:"required"`

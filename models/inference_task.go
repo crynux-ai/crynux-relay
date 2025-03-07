@@ -2,14 +2,16 @@ package models
 
 import (
 	"context"
-	"crynux_relay/config"
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"gorm.io/gorm"
 )
@@ -121,22 +123,42 @@ type InferenceTask struct {
 	ResultUploadedTime sql.NullTime `json:"result_uploaded_time" gorm:"index;null;default:null"`
 }
 
-func (task *InferenceTask) Save(ctx context.Context) error {
+func (task *InferenceTask) VersionNumbers() [3]uint64 {
+	taskVersions := strings.Split(task.TaskVersion, ".")
+	if len(taskVersions) != 3 {
+		log.Fatalf("Task version is invalid: %d", task.ID)
+	}
+	taskMajorVersion, err := strconv.ParseUint(taskVersions[0], 10, 64)
+	if err != nil {
+		log.Fatalf("Task version is invalid: %d", task.ID)
+	}
+	taskMinorVersion, err := strconv.ParseUint(taskVersions[1], 10, 64)
+	if err != nil {
+		log.Fatalf("Task version is invalid: %d", task.ID)
+	}
+	taskPatchVersion, err := strconv.ParseUint(taskVersions[2], 10, 64)
+	if err != nil {
+		log.Fatalf("Task version is invalid: %d", task.ID)
+	}
+	return [3]uint64{taskMajorVersion, taskMinorVersion, taskPatchVersion}
+}
+
+func (task *InferenceTask) Save(ctx context.Context, db *gorm.DB) error {
 	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
-	if err := config.GetDB().WithContext(dbCtx).Save(&task).Error; err != nil {
+	if err := db.WithContext(dbCtx).Save(&task).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
-func (task *InferenceTask) Update(ctx context.Context, newTask *InferenceTask) error {
+func (task *InferenceTask) Update(ctx context.Context, db *gorm.DB, newTask *InferenceTask) error {
 	if task.ID == 0 {
 		return errors.New("InferenceTask.ID cannot be 0 when update")
 	}
 	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
-	if err := config.GetDB().WithContext(dbCtx).Transaction(func(tx *gorm.DB) error {
+	if err := db.WithContext(dbCtx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(task).Updates(newTask).Error; err != nil {
 			return err
 		}
@@ -150,11 +172,11 @@ func (task *InferenceTask) Update(ctx context.Context, newTask *InferenceTask) e
 	return nil
 }
 
-func GetTaskByIDCommitment(ctx context.Context, taskIDCommitment string) (*InferenceTask, error) {
+func GetTaskByIDCommitment(ctx context.Context, db *gorm.DB, taskIDCommitment string) (*InferenceTask, error) {
 	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 	task := InferenceTask{TaskIDCommitment: taskIDCommitment}
-	if err := config.GetDB().WithContext(dbCtx).Model(&task).Where(&task).First(&task).Error; err != nil {
+	if err := db.WithContext(dbCtx).Model(&task).Where(&task).First(&task).Error; err != nil {
 		return nil, err
 	}
 	return &task, nil

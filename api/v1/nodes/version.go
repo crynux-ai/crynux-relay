@@ -3,6 +3,7 @@ package nodes
 import "github.com/gin-gonic/gin"
 
 type UpdateVersionInput struct {
+	Address   string   `json:"address" path:"address" description:"address" validate:"required"`
 	Version string `json:"version" description:"new node version" validate:"required"`
 }
 

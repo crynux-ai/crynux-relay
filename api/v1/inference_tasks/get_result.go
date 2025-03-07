@@ -57,7 +57,7 @@ func GetResult(c *gin.Context, in *GetResultInputWithSignature) error {
 		return response.NewValidationErrorResponse("signature", "Signer not allowed")
 	}
 
-	if task.Status != models.InferenceTaskEndSuccess && task.Status != models.InferenceTaskResultsReady {
+	if task.Status != models.TaskEndSuccess {
 		return response.NewValidationErrorResponse("task_id", "Task results not uploaded")
 	}
 
@@ -129,7 +129,7 @@ func GetResultCheckpoint(c *gin.Context, in *GetResultCheckpointInputWithSignatu
 		return response.NewValidationErrorResponse("signature", "Signer not allowed")
 	}
 
-	if task.Status != models.InferenceTaskEndSuccess && task.Status != models.InferenceTaskResultsReady {
+	if task.Status != models.TaskEndSuccess {
 		return response.NewValidationErrorResponse("task_id", "Task checkpoint not uploaded")
 	}
 

@@ -46,7 +46,7 @@ func GetCheckpoint(c *gin.Context, in *GetCheckpointInputWithSignature) error {
 		}
 	}
 
-	if task.Status != models.InferenceTaskParamsUploaded {
+	if task.Status != models.TaskParametersUploaded {
 		return response.NewValidationErrorResponse("task_id", "Task not ready")
 	}
 
