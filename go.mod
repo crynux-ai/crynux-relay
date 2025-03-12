@@ -1,6 +1,8 @@
 module crynux_relay
 
-go 1.20
+go 1.22
+
+toolchain go1.23.6
 
 require (
 	github.com/corona10/goimagehash v1.1.0
@@ -14,9 +16,10 @@ require (
 	github.com/santhosh-tekuri/jsonschema/v5 v5.3.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/viper v1.16.0
-	github.com/stretchr/testify v1.8.4
 	github.com/toorop/gin-logrus v0.0.0-20210225092905-2c785434f26f
+	github.com/vechain/go-ecvrf v0.0.0-20220525125849-96fa0442e765
 	github.com/wI2L/fizz v0.22.0
+	gonum.org/v1/gonum v0.15.1
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gorm.io/driver/mysql v1.5.1
 	gorm.io/driver/postgres v1.5.2
@@ -24,14 +27,15 @@ require (
 	gorm.io/gorm v1.25.2
 )
 
+require golang.org/x/exp v0.0.0-20231110203233-9a3e6036ecaa // indirect
+
 require (
 	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.2.0 // indirect
 	github.com/bytedance/sonic v1.9.1 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/deckarep/golang-set/v2 v2.1.0 // indirect
-	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
+	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
@@ -63,7 +67,6 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
-	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible // indirect
 	github.com/spf13/afero v1.9.5 // indirect
 	github.com/spf13/cast v1.5.1 // indirect
@@ -77,8 +80,8 @@ require (
 	golang.org/x/arch v0.3.0 // indirect
 	golang.org/x/crypto v0.9.0 // indirect
 	golang.org/x/net v0.10.0 // indirect
-	golang.org/x/sys v0.8.0 // indirect
-	golang.org/x/text v0.9.0 // indirect
+	golang.org/x/sys v0.14.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.8.0
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/go-playground/validator.v9 v9.31.0 // indirect

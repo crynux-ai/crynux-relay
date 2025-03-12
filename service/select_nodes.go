@@ -1,51 +1,15 @@
-package tasks
+package service
 
 import (
 	"context"
 	"crynux_relay/config"
 	"crynux_relay/models"
-	"database/sql"
-	"math/rand"
 	"time"
 
-	log "github.com/sirupsen/logrus"
+	"gonum.org/v1/gonum/stat/sampleuv"
 	"gorm.io/gorm"
 )
 
-func generateQueuedTasks(ctx context.Context, taskCh chan<- *models.InferenceTask) error {
-	startID := uint(0)
-	limit := 100
-
-	for {
-		tasks, err := func(ctx context.Context, startID uint, limit int) ([]models.InferenceTask, error) {
-			tasks := make([]models.InferenceTask, 0)
-
-			dbCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
-			defer cancel()
-			err := config.GetDB().WithContext(dbCtx).Model(&models.InferenceTask{}).
-				Where("status = ?", models.TaskQueued).
-				Where("id > ?", startID).
-				Order("id").
-				Limit(limit).
-				Find(&tasks).Error
-			if err != nil {
-				return nil, err
-			}
-			return tasks, nil
-		}(ctx, startID, limit)
-		if err != nil {
-			return err
-		}
-		if len(tasks) == 0 {
-			time.Sleep(2 * time.Second)
-			continue
-		}
-		for _, task := range tasks {
-			taskCh <- &task
-		}
-		startID = tasks[len(tasks)-1].ID
-	}
-}
 
 func filterNodesByGPU(ctx context.Context, gpuName string, gpuVram uint64, taskVersionNumbers [3]uint64) ([]models.Node, error) {
 	allNodes := make([]models.Node, 0)
@@ -144,23 +108,21 @@ func isSameModels(nodeModelIDs, taskModelIDs []string) bool {
 	return matchModels(nodeModelIDs, taskModelIDs) == len(nodeModelIDs)
 }
 
-func selectNodesByScore(nodes []models.Node) models.Node {
-	totalScore := 0
-	for _, node := range nodes {
-		totalScore += int(node.QOSScore)
+func selectNodesByScore(nodes []models.Node, n int) []models.Node {
+	scores := make([]float64, len(nodes))
+	for i, node := range nodes {
+		scores[i] = float64(node.QOSScore)
 	}
-	n := rand.Intn(totalScore)
-	currentScore := 0
-	for _, node := range nodes {
-		currentScore += int(node.QOSScore)
-		if currentScore > n {
-			return node
-		}
+	w := sampleuv.NewWeighted(scores, nil)
+	res := make([]models.Node, n)
+	for i := 0; i < n; i++ {
+		idx, _ := w.Take()
+		res[i] = nodes[idx]
 	}
-	return nodes[0]
+	return res
 }
 
-func selectNodeForTask(ctx context.Context, task *models.InferenceTask) (*models.Node, error) {
+func selectNodeForInferenceTask(ctx context.Context, task *models.InferenceTask) (*models.Node, error) {
 	var nodes []models.Node
 	var err error
 	taskVersionNumbers := task.VersionNumbers()
@@ -212,106 +174,64 @@ func selectNodeForTask(ctx context.Context, task *models.InferenceTask) (*models
 		nodes = changedNodes
 	}
 
-	node := selectNodesByScore(nodes)
+	node := selectNodesByScore(nodes, 1)[0]
 	return &node, nil
 }
 
-func startTask(ctx context.Context, task *models.InferenceTask, node *models.Node) error {
-	newModels := make([]models.NodeModel, 0)
-	unusedModels := make([]models.NodeModel, 0)
 
-	localModelSet := make(map[string]models.NodeModel)
-	for _, model := range node.Models {
-		localModelSet[model.ModelID] = model
-	}
-	for _, modelID := range task.ModelIDs {
-		if model, ok := localModelSet[modelID]; !ok {
-			newModels = append(newModels, models.NodeModel{NodeAddress: node.Address, ModelID: modelID, InUse: true})
-		} else if !model.InUse {
-			model.InUse = true
-			newModels = append(newModels, model)
+func selectNodesForDownloadTask(ctx context.Context, task *models.InferenceTask, modelID string, n int) ([]models.Node, error) {
+	var nodes []models.Node
+	var err error
+	taskVersionNumbers := task.VersionNumbers()
+	if len(task.RequiredGPU) > 0 {
+		nodes, err = filterNodesByGPU(ctx, task.RequiredGPU, task.RequiredGPUVRAM, taskVersionNumbers)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		nodes, err = filterNodesByVram(ctx, task.MinVRAM, taskVersionNumbers)
+		if err != nil {
+			return nil, err
 		}
 	}
-	taskModelIDSet := make(map[string]struct{})
-	for _, modelID := range task.ModelIDs {
-		taskModelIDSet[modelID] = struct{}{}
-	}
-	for _, model := range node.Models {
-		_, ok := taskModelIDSet[model.ModelID]
-		if model.InUse && !ok {
-			model.InUse = false
-			unusedModels = append(unusedModels, model)
-		}
+	if len(nodes) == 0 {
+		return nil, nil
 	}
 
-	err := config.GetDB().Transaction(func(tx *gorm.DB) error {
-		dbCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
-		defer cancel()
-		task.Update(dbCtx, tx, &models.InferenceTask{
-			SelectedNode: node.Address,
-			StartTime:    sql.NullTime{Time: time.Now(), Valid: true},
-			Status:       models.TaskParametersUploaded,
-		})
-
-		node.Update(dbCtx, tx, &models.Node{
-			Status: models.NodeStatusBusy,
-		})
-
-		for _, model := range newModels {
-			model.Save(dbCtx, tx)
+	var validNodes []models.Node
+	for _, node := range nodes {
+		valid := true
+		for _, model := range node.Models {
+			if model.ModelID == modelID {
+				valid = false
+				break
+			}
 		}
-		for _, model := range unusedModels {
-			model.Save(dbCtx, tx)
+		if valid {
+			validNodes = append(validNodes, node)
 		}
-		return nil
-	})
+	}
+	if len(validNodes) == 0 {
+		return nil, nil
+	}
+
+	res := selectNodesByScore(validNodes, n)
+	return res, nil
+}
+
+func countAvailableNodesWithModelID(ctx context.Context, db *gorm.DB, modelID string) (int64, error) {
+	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+
+	var count int64
+	err := db.WithContext(dbCtx).
+		Model(&models.NodeModel{}).
+		Joins("INNER JOIN nodes on nodes.address == node_models.node_address and nodes.status == ?", models.NodeStatusAvailable).
+		Where(&models.NodeModel{ModelID: modelID}).
+		Count(&count).
+		Error
 	if err != nil {
-		return err
+		return 0, err
 	}
-	return nil
-}
-
-func processQueuedTask(ctx context.Context, taskCh chan *models.InferenceTask) error {
-	for task := range taskCh {
-		selectedNode, err := selectNodeForTask(ctx, task)
-		if err != nil {
-			return err
-		}
-		if selectedNode == nil {
-			taskCh <- task
-		}
-		startTask(ctx, task, selectedNode)
-	}
-	return nil
-}
-
-func StartTaskProcesser(ctx context.Context) {
-	taskCh := make(chan *models.InferenceTask, 100)
-
-	go func(ctx context.Context, taskCh chan<- *models.InferenceTask) {
-		for {
-			err := generateQueuedTasks(ctx, taskCh)
-			if err == context.DeadlineExceeded || err == context.Canceled {
-				close(taskCh)
-				return
-			}
-			if err != nil {
-				log.Errorf("StartTask: generate queued tasks error: %v", err)
-			}
-			time.Sleep(2 * time.Second)
-		}
-	}(ctx, taskCh)
-
-	for {
-		err := processQueuedTask(ctx, taskCh)
-		if err == context.DeadlineExceeded || err == context.Canceled {
-			return
-		}
-		if err != nil {
-			log.Errorf("StartTask: process queued tasks error: %v", err)
-			time.Sleep(2 * time.Second)
-			continue
-		}
-		break
-	}
+	return count, nil
 }

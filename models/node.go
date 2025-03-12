@@ -30,11 +30,12 @@ type Node struct {
 	MajorVersion            uint64         `json:"major_version"`
 	MinorVersion            uint64         `json:"minor_version"`
 	PatchVersion            uint64         `json:"patch_version"`
+	JoinTime                time.Time      `json:"join_time"`
+	StakeAmount             BigInt         `json:"stake_amount"`
 	CurrentTaskIDCommitment sql.NullString `json:"current_task_id_commitment" gorm:"null;default:null"`
 	CurrentTask             InferenceTask  `json:"-" gorm:"foreignKey:TaskIDCommitment;references:CurrentTaskIDCommitment"`
 	Models                  []NodeModel    `json:"-" gorm:"foreignKey:NodeAddress;references:Address"`
 }
-
 
 func (node *Node) Save(ctx context.Context, db *gorm.DB) error {
 	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
@@ -65,19 +66,28 @@ func (node *Node) Update(ctx context.Context, db *gorm.DB, newNode *Node) error 
 	return nil
 }
 
+func GetNodeByAddress(ctx context.Context, db *gorm.DB, address string) (*Node, error) {
+	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	node := &Node{Address: address}
+	if err := db.WithContext(dbCtx).Model(node).Where(node).First(node).Error; err != nil {
+		return nil, err
+	}
+	return node, nil
+}
 
 type NodeModel struct {
 	gorm.Model
 	NodeAddress string `json:"node_address" gorm:"index"`
 	ModelID     string `json:"model_id" gorm:"index"`
 	InUse       bool   `json:"in_use"`
+	Node        Node   `gorm:"foreignKey:Address;references:NodeAddress"`
 }
-
 
 func (nodeModel *NodeModel) Save(ctx context.Context, db *gorm.DB) error {
 	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
-	if err := db.WithContext(dbCtx).Save(&nodeModel).Error; err != nil {
+	if err := db.WithContext(dbCtx).Save(nodeModel).Error; err != nil {
 		return err
 	}
 	return nil

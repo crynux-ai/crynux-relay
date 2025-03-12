@@ -52,7 +52,9 @@ type AppConfig struct {
 	} `mapstructure:"blockchain"`
 
 	Task struct {
-		Timeout uint64 `mapstructure:"timeout"`
+		Timeout           uint64 `mapstructure:"timeout"`
+		StakeAmount       uint64 `mapstructure:"stake_amount"`
+		DistanceThreshold uint64 `mapstructure:"distance_threshold"`
 	}
 
 	TaskSchema struct {

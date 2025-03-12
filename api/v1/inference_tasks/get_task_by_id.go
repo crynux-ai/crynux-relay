@@ -1,13 +1,11 @@
 package inference_tasks
 
 import (
-	"context"
 	"crynux_relay/api/v1/response"
 	"crynux_relay/api/v1/validate"
 	"crynux_relay/config"
 	"crynux_relay/models"
 	"errors"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -38,31 +36,64 @@ func GetTaskById(c *gin.Context, in *GetTaskInputWithSignature) (*TaskResponse, 
 		return nil, validationErr
 	}
 
-	var task models.InferenceTask
-
-	dbCtx, dbCancel := context.WithTimeout(c.Request.Context(), time.Second)
-	defer dbCancel()
-
-	if result := config.GetDB().WithContext(dbCtx).Where(&models.InferenceTask{TaskIDCommitment: in.TaskIDCommitment}).First(&task); result.Error != nil {
-		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			validationErr := response.NewValidationErrorResponse("task_id", "Task not found")
+	task, err := models.GetTaskByIDCommitment(c.Request.Context(), config.GetDB(), in.TaskIDCommitment)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			validationErr := response.NewValidationErrorResponse("task_id_commitment", "Task not found")
 			return nil, validationErr
 		} else {
-			return nil, response.NewExceptionResponse(result.Error)
+			return nil, response.NewExceptionResponse(err)
 		}
 	}
 
 	if len(task.TaskArgs) == 0 {
-		return nil, response.NewValidationErrorResponse("task_id", "Task not ready")
+		return nil, response.NewValidationErrorResponse("task_id_commitment", "Task not ready")
 	}
 
 	if task.Status == models.TaskQueued {
-		return nil, response.NewValidationErrorResponse("task_id", "Task not ready")
+		return nil, response.NewValidationErrorResponse("task_id_commitment", "Task not ready")
 	}
 
 	if task.SelectedNode != address && task.Creator != address {
 		return nil, response.NewValidationErrorResponse("signature", "Signer not allowed")
 	}
 
-	return &TaskResponse{Data: task}, nil
+	t := &InferenceTask{
+		TaskArgs:         task.TaskArgs,
+		TaskIDCommitment: task.TaskIDCommitment,
+		Creator:          task.Creator,
+		SamplingSeed:     task.SamplingSeed,
+		Nonce:            task.Nonce,
+		Status:           task.Status,
+		TaskType:         task.TaskType,
+		TaskVersion:      task.TaskVersion,
+		Timeout:          task.Timeout,
+		MinVRAM:          task.MinVRAM,
+		RequiredGPU:      task.RequiredGPU,
+		RequiredGPUVRAM:  task.RequiredGPUVRAM,
+		TaskFee:          task.TaskFee,
+		TaskSize:         task.TaskSize,
+		ModelIDs:         task.ModelIDs,
+		AbortReason:      task.AbortReason,
+		TaskError:        task.TaskError,
+		Score:            task.Score,
+		QOSScore:         task.QOSScore,
+		SelectedNode:     task.SelectedNode,
+	}
+	if task.CreateTime.Valid {
+		t.CreateTime = &task.CreateTime.Time
+	}
+	if task.StartTime.Valid {
+		t.StartTime = &task.StartTime.Time
+	}
+	if task.ScoreReadyTime.Valid {
+		t.ScoreReadyTime = &task.ScoreReadyTime.Time
+	}
+	if task.ValidatedTime.Valid {
+		t.ValidatedTime = &task.ValidatedTime.Time
+	}
+	if task.ResultUploadedTime.Valid {
+		t.ResultUploadedTime = &task.ResultUploadedTime.Time
+	}
+	return &TaskResponse{Data: t}, nil
 }

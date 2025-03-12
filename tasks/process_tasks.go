@@ -95,7 +95,7 @@ func reportTaskResultUploaded(ctx context.Context, task *models.InferenceTask) e
 
 func doWaitTaskStatus(ctx context.Context, taskIDCommitment string, status models.TaskStatus) error {
 	for {
-		task, err := models.GetTaskByIDCommitment(ctx, taskIDCommitment)
+		task, err := models.GetTaskByIDCommitment(ctx, config.GetDB(), taskIDCommitment)
 		if err != nil {
 			return err
 		}
@@ -200,7 +200,7 @@ func syncTask(ctx context.Context, task *models.InferenceTask) (*bindings.VSSTas
 	}
 
 	if changed {
-		if err := task.Update(ctx, newTask); err != nil {
+		if err := task.Update(ctx, config.GetDB(), newTask); err != nil {
 			return nil, err
 		}
 	}
@@ -224,7 +224,7 @@ func processOneTask(ctx context.Context, task *models.InferenceTask) error {
 			Status: models.TaskParametersUploaded,
 		}
 
-		if err := task.Update(ctx, newTask); err != nil {
+		if err := task.Update(ctx, config.GetDB(), newTask); err != nil {
 			return err
 		}
 		log.Infof("ProcessTasks: report task %s params uploaded", task.TaskIDCommitment)
@@ -271,7 +271,7 @@ func processOneTask(ctx context.Context, task *models.InferenceTask) error {
 			},
 		}
 
-		if err := task.Update(ctx, newTask); err != nil {
+		if err := task.Update(ctx, config.GetDB(), newTask); err != nil {
 			return err
 		}
 		log.Infof("ProcessTasks: report task %s result is uploaded", task.TaskIDCommitment)
@@ -352,7 +352,7 @@ func ProcessTasks(ctx context.Context) {
 							// set task status to aborted to avoid processing it again
 							if err == context.DeadlineExceeded {
 								newTask := &models.InferenceTask{Status: models.TaskEndAborted}
-								if err := task.Update(ctx, newTask); err != nil {
+								if err := task.Update(ctx, config.GetDB(), newTask); err != nil {
 									log.Errorf("ProcessTasks: save task %s error %v", task.TaskIDCommitment, err)
 								}
 							}

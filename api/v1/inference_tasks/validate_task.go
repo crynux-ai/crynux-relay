@@ -1,6 +1,15 @@
 package inference_tasks
 
-import "github.com/gin-gonic/gin"
+import (
+	"crynux_relay/api/v1/response"
+	"crynux_relay/api/v1/validate"
+	"crynux_relay/config"
+	"crynux_relay/models"
+	"crynux_relay/service"
+
+	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
+)
 
 type ValidateTaskInput struct {
 	TaskIDCommitments []string `json:"task_id_commitments" description:"task_id_commitments" validate:"required"`
@@ -15,6 +24,46 @@ type ValidateTaskInputWithSignature struct {
 	Signature string `json:"signature" description:"Signature" validate:"required"`
 }
 
-func ValidateTask(_ *gin.Context, input *ValidateTaskInputWithSignature) (*TasksResponse, error) {
-	return nil, nil
+func ValidateTask(c *gin.Context, in *ValidateTaskInputWithSignature) (*response.Response, error) {
+	if len(in.TaskIDCommitments) != 1 && len(in.TaskIDCommitments) != 3 {
+		return nil, response.NewValidationErrorResponse("task_id_commitments", "TaskIDCommitments length incorrect")
+	}
+
+	match, address, err := validate.ValidateSignature(in.ValidateTaskInput, in.Timestamp, in.Signature)
+
+	if err != nil || !match {
+
+		if err != nil {
+			log.Debugln("error in sig validate: " + err.Error())
+		}
+
+		validationErr := response.NewValidationErrorResponse("signature", "Invalid signature")
+		return nil, validationErr
+	}
+
+	var tasks []*models.InferenceTask
+	for _, taskIDCommitment := range in.TaskIDCommitments {
+		task, err := models.GetTaskByIDCommitment(c.Request.Context(), config.GetDB(), taskIDCommitment)
+		if err != nil {
+			return nil, response.NewExceptionResponse(err)
+		}
+		if len(task.TaskArgs) == 0 {
+			return nil, response.NewValidationErrorResponse("task_id_commitment", "Task not ready")
+		}
+		if task.Creator != address {
+			return nil, response.NewValidationErrorResponse("signature", "Signer not allowed")
+		}
+		tasks = append(tasks, task)
+	}
+
+	if len(tasks) == 1 {
+		if err := service.ValidateSingleTask(c.Request.Context(), tasks[0], in.TaskID, in.VrfProof, in.PublicKey); err != nil {
+			return nil, response.NewExceptionResponse(err)
+		}
+	} else if len(tasks) == 3 {
+		if err := service.ValidateTaskGroup(c.Request.Context(), tasks, in.TaskID, in.VrfProof, in.PublicKey); err != nil {
+			return nil, response.NewExceptionResponse(err)
+		}
+	}
+	return &response.Response{}, nil
 }

@@ -1,7 +1,6 @@
 package inference_tasks
 
 import (
-	"context"
 	"crynux_relay/api/v1/response"
 	"crynux_relay/api/v1/validate"
 	"crynux_relay/config"
@@ -9,7 +8,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -40,14 +38,11 @@ func GetResult(c *gin.Context, in *GetResultInputWithSignature) error {
 		return response.NewValidationErrorResponse("signature", "Invalid signature")
 	}
 
-	var task models.InferenceTask
-
-	dbCtx, dbCancel := context.WithTimeout(c.Request.Context(), time.Second)
-	defer dbCancel()
-
-	if err := config.GetDB().WithContext(dbCtx).Where(&models.InferenceTask{TaskIDCommitment: in.TaskIDCommitment}).First(&task).Error; err != nil {
+	task, err := models.GetTaskByIDCommitment(c.Request.Context(), config.GetDB(), in.TaskIDCommitment)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return response.NewValidationErrorResponse("task_id", "Task not found")
+			validationErr := response.NewValidationErrorResponse("task_id_commitment", "Task not found")
+			return validationErr
 		} else {
 			return response.NewExceptionResponse(err)
 		}
@@ -112,14 +107,11 @@ func GetResultCheckpoint(c *gin.Context, in *GetResultCheckpointInputWithSignatu
 		return response.NewValidationErrorResponse("signature", "Invalid signature")
 	}
 
-	var task models.InferenceTask
-
-	dbCtx, dbCancel := context.WithTimeout(c.Request.Context(), time.Second)
-	defer dbCancel()
-
-	if err := config.GetDB().WithContext(dbCtx).Where(&models.InferenceTask{TaskIDCommitment: in.TaskIDCommitment}).First(&task).Error; err != nil {
+	task, err := models.GetTaskByIDCommitment(c.Request.Context(), config.GetDB(), in.TaskIDCommitment)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return response.NewValidationErrorResponse("task_id", "Task not found")
+			validationErr := response.NewValidationErrorResponse("task_id_commitment", "Task not found")
+			return validationErr
 		} else {
 			return response.NewExceptionResponse(err)
 		}

@@ -1,18 +1,20 @@
 package inference_tasks
 
 import (
-	"context"
 	"crynux_relay/api/v1/response"
 	"crynux_relay/api/v1/validate"
-	"crynux_relay/blockchain"
 	"crynux_relay/config"
 	"crynux_relay/models"
-	"crynux_relay/utils"
+	"crynux_relay/service"
+	"crypto/rand"
 	"database/sql"
 	"errors"
+	"math/big"
 	"mime/multipart"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -23,21 +25,22 @@ import (
 
 type TaskInput struct {
 	TaskIDCommitment string          `path:"task_id_commitment" json:"task_id_commitment" description:"Task id commitment" validate:"required"`
-	TaskArgs         string          `json:"task_args" description:"Task arguments" validate:"required"`
-	TaskType         models.TaskType `json:"task_type" description:"Task type" validate:"required"`
-	Nonce            string          `json:"nonce" description:"nonce" validate:"required"`
-	TaskModelIDs     []string        `json:"task_model_ids" description:"task model ids" validate:"required"`
-	MinVram          uint64          `json:"min_vram" description:"min vram" validate:"required"`
-	RequiredGPU      bool            `json:"required_gpu" description:"required gpu" validate:"required"`
-	RequiredGPUVram  uint64          `json:"required_gpu_vram" description:"required gpu vram" validate:"required"`
-	TaskVersion      string          `json:"task_version" description:"task version" validate:"required"`
-	TaskSize         uint64          `json:"task_size" description:"task size" validate:"required"`
+	TaskArgs         string          `form:"task_args" json:"task_args" description:"Task arguments" validate:"required"`
+	TaskType         models.TaskType `form:"task_type" json:"task_type" description:"Task type" validate:"required"`
+	Nonce            string          `form:"nonce" json:"nonce" description:"nonce" validate:"required"`
+	TaskModelIDs     []string        `form:"task_model_ids" json:"task_model_ids" description:"task model ids" validate:"required"`
+	MinVram          uint64          `form:"min_vram" json:"min_vram" description:"min vram" validate:"required"`
+	RequiredGPU      string          `form:"required_gpu" json:"required_gpu" description:"required gpu name" validate:"required"`
+	RequiredGPUVram  uint64          `form:"required_gpu_vram" json:"required_gpu_vram" description:"required gpu vram" validate:"required"`
+	TaskVersion      string          `form:"task_version" json:"task_version" description:"task version" validate:"required"`
+	TaskSize         uint64          `form:"task_size" json:"task_size" description:"task size" validate:"required"`
+	TaskFee          *big.Int        `form:"task_fee" json:"task_fee" description:"task fee, in unit wei" validate:"required"`
 }
 
 type TaskInputWithSignature struct {
 	TaskInput
-	Timestamp int64  `json:"timestamp" description:"Signature timestamp" validate:"required"`
-	Signature string `json:"signature" description:"Signature" validate:"required"`
+	Timestamp int64  `form:"timestamp" json:"timestamp" description:"Signature timestamp" validate:"required"`
+	Signature string `form:"signature" json:"signature" description:"Signature" validate:"required"`
 }
 
 func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, error) {
@@ -54,37 +57,22 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 		return nil, validationErr
 	}
 
-	taskIDCommitmentBytes, err := utils.HexStrToCommitment(in.TaskIDCommitment)
-	if err != nil {
-		return nil, response.NewValidationErrorResponse("task_id_commitment", "Invalid task id commitment")
-	}
-
-	chainCtx, chainCancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
-	defer chainCancel()
-	chainTask, err := blockchain.GetTaskByCommitment(chainCtx, *taskIDCommitmentBytes)
-	if err != nil {
-		return nil, response.NewExceptionResponse(err)
-	}
-	if hexutil.Encode(chainTask.TaskIDCommitment[:]) != in.TaskIDCommitment {
-		return nil,
-			response.NewValidationErrorResponse(
-				"task_id_commitment",
-				"Task not found on the Blockchain")
-	}
-	if models.TaskStatus(chainTask.Status) != models.TaskStarted {
-		return nil, response.NewValidationErrorResponse("task_id_commitment", "Task not started")
-	}
-
-	if address != chainTask.Creator.Hex() {
-		return nil, response.NewValidationErrorResponse("signature", "Signer not allowed")
-	}
-
-	validationErr, err := models.ValidateTaskArgsJsonStr(in.TaskArgs, models.TaskType(chainTask.TaskType))
+	validationErr, err := models.ValidateTaskArgsJsonStr(in.TaskArgs, in.TaskType)
 	if err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 	if validationErr != nil {
 		return nil, response.NewValidationErrorResponse("task_args", validationErr.Error())
+	}
+
+	taskVersions := strings.Split(in.TaskVersion, ".")
+	if len(taskVersions) != 3 {
+		return nil, response.NewValidationErrorResponse("task_version", "Invalid task version")
+	}
+	for i := 0; i < 3; i++ {
+		if _, err := strconv.ParseUint(taskVersions[i], 10, 64); err != nil {
+			return nil, response.NewValidationErrorResponse("task_version", "Invalid task version")
+		}
 	}
 
 	_, err = models.GetTaskByIDCommitment(c.Request.Context(), config.GetDB(), in.TaskIDCommitment)
@@ -95,7 +83,7 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 		return nil, response.NewExceptionResponse(err)
 	}
 
-	if models.TaskType(chainTask.TaskType) == models.TaskTypeSDFTLora {
+	if in.TaskType == models.TaskTypeSDFTLora {
 		form, err := c.MultipartForm()
 		if err != nil {
 			return nil, response.NewExceptionResponse(err)
@@ -122,29 +110,57 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 		}
 	}
 
-	taskFee, _ := utils.WeiToEther(chainTask.TaskFee).Float64()
+	samplingSeedBytes := make([]byte, 32)
+	if _, err := rand.Read(samplingSeedBytes); err != nil {
+		return nil, response.NewExceptionResponse(err)
+	}
+	samplingSeed := hexutil.Encode(samplingSeedBytes)
 
-	task := &models.InferenceTask{}
-	task.TaskArgs = in.TaskArgs
-	task.TaskIDCommitment = in.TaskIDCommitment
-	task.Creator = chainTask.Creator.Hex()
-	task.Status = models.TaskQueued
-	task.TaskType = models.TaskType(chainTask.TaskType)
-	task.MinVRAM = chainTask.MinimumVRAM.Uint64()
-	task.RequiredGPU = chainTask.RequiredGPU
-	task.RequiredGPUVRAM = chainTask.RequiredGPUVRAM.Uint64()
-	task.TaskFee = taskFee
-	task.TaskSize = chainTask.TaskSize.Uint64()
-	task.ModelIDs = models.StringArray(chainTask.ModelIDs)
-	task.SelectedNode = chainTask.SelectedNode.Hex()
-	task.CreateTime = sql.NullTime{
-		Time:  time.Unix(chainTask.CreateTimestamp.Int64(), 0),
-		Valid: true,
+	appConfig := config.GetConfig()
+
+	task := &models.InferenceTask{
+		TaskArgs:         in.TaskArgs,
+		TaskIDCommitment: in.TaskIDCommitment,
+		Creator:          address,
+		SamplingSeed:     samplingSeed,
+		Nonce:            in.Nonce,
+		Status:           models.TaskQueued,
+		TaskType:         in.TaskType,
+		TaskVersion:      in.TaskVersion,
+		MinVRAM:          in.MinVram,
+		RequiredGPU:      in.RequiredGPU,
+		RequiredGPUVRAM:  in.RequiredGPUVram,
+		TaskFee:          models.BigInt{Int: *in.TaskFee},
+		TaskSize:         in.TaskSize,
+		ModelIDs:         in.TaskModelIDs,
+		CreateTime: sql.NullTime{
+			Time:  time.Now(),
+			Valid: true,
+		},
+		Timeout: appConfig.Task.Timeout,
 	}
 
-	if err := task.Save(c.Request.Context(), config.GetDB()); err != nil {
+	if err := service.CreateTask(c.Request.Context(), config.GetDB(), task); err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 
-	return &TaskResponse{Data: *task}, nil
+	return &TaskResponse{Data: &InferenceTask{
+		Sequence:         uint64(task.ID),
+		TaskArgs:         task.TaskArgs,
+		TaskIDCommitment: task.TaskIDCommitment,
+		Creator:          task.Creator,
+		SamplingSeed:     task.SamplingSeed,
+		Nonce:            task.Nonce,
+		Status:           task.Status,
+		TaskType:         task.TaskType,
+		TaskVersion:      task.TaskVersion,
+		MinVRAM:          task.MinVRAM,
+		RequiredGPU:      task.RequiredGPU,
+		RequiredGPUVRAM:  task.RequiredGPUVRAM,
+		TaskFee:          task.TaskFee,
+		TaskSize:         task.TaskSize,
+		ModelIDs:         task.ModelIDs,
+		CreateTime:       &task.CreateTime.Time,
+		Timeout:          task.Timeout,
+	}}, nil
 }

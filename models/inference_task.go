@@ -16,8 +16,6 @@ import (
 	"gorm.io/gorm"
 )
 
-var TaskVersionInvalidError = errors.New("Task version invalid")
-
 type TaskStatus uint8
 
 const (
@@ -105,12 +103,15 @@ type InferenceTask struct {
 	MinVRAM          uint64          `json:"min_vram"`
 	RequiredGPU      string          `json:"required_gpu"`
 	RequiredGPUVRAM  uint64          `json:"required_gpu_vram"`
-	TaskFee          float64         `json:"task_fee"`
+	TaskFee          BigInt          `json:"task_fee"`
 	TaskSize         uint64          `json:"task_size"`
 	ModelIDs         StringArray     `json:"model_ids" gorm:"type:text"`
 	AbortReason      TaskAbortReason `json:"abort_reason"`
 	TaskError        TaskError       `json:"task_error"`
+	Score            string          `json:"score" gorm:"type:text"`
+	QOSScore         uint64          `json:"qos_score"`
 	SelectedNode     string          `json:"selected_node"`
+	TaskID           string          `json:"task_id"`
 	// time when task is created (get from blockchain)
 	CreateTime sql.NullTime `json:"create_time" gorm:"index;null;default:null"`
 	// time when task is started (get from blockchain)
@@ -146,7 +147,7 @@ func (task *InferenceTask) VersionNumbers() [3]uint64 {
 func (task *InferenceTask) Save(ctx context.Context, db *gorm.DB) error {
 	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
-	if err := db.WithContext(dbCtx).Save(&task).Error; err != nil {
+	if err := db.WithContext(dbCtx).Save(task).Error; err != nil {
 		return err
 	}
 	return nil
@@ -180,4 +181,21 @@ func GetTaskByIDCommitment(ctx context.Context, db *gorm.DB, taskIDCommitment st
 		return nil, err
 	}
 	return &task, nil
+}
+
+func GetTaskGroupByTaskID(ctx context.Context, db *gorm.DB, taskID string) ([]InferenceTask, error) {
+	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	var tasks []InferenceTask
+	if err := db.WithContext(dbCtx).Model(&InferenceTask{}).Where("task_id = ?", taskID).Find(&tasks).Error; err != nil {
+		return nil, err
+	}
+	return tasks, nil
+}
+
+func (task *InferenceTask) ExecutionTime() time.Duration {
+	if task.StartTime.Valid && task.ScoreReadyTime.Valid {
+		return task.ScoreReadyTime.Time.Sub(task.StartTime.Time)
+	}
+	return time.Duration(1<<63 - 1)
 }
