@@ -9,13 +9,13 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func generateQueuedTasks(ctx context.Context, taskCh chan<- *models.InferenceTask) error {
+func generateQueuedTasks(ctx context.Context, taskQueue *TaskQueue) error {
 	startID := uint(0)
 	limit := 100
 
 	for {
-		tasks, err := func(ctx context.Context, startID uint, limit int) ([]models.InferenceTask, error) {
-			tasks := make([]models.InferenceTask, 0)
+		tasks, err := func(ctx context.Context, startID uint, limit int) ([]*models.InferenceTask, error) {
+			tasks := make([]*models.InferenceTask, 0)
 
 			dbCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 			defer cancel()
@@ -37,21 +37,23 @@ func generateQueuedTasks(ctx context.Context, taskCh chan<- *models.InferenceTas
 			time.Sleep(2 * time.Second)
 			continue
 		}
-		for _, task := range tasks {
-			taskCh <- &task
-		}
+		taskQueue.Push(tasks...)
 		startID = tasks[len(tasks)-1].ID
 	}
 }
 
-func processQueuedTask(ctx context.Context, taskCh chan *models.InferenceTask) error {
-	for task := range taskCh {
+func processQueuedTask(ctx context.Context, taskQueue *TaskQueue) error {
+	for {
+		task := taskQueue.Pop()
+		if task == nil {
+			break
+		}
 		selectedNode, err := selectNodeForInferenceTask(ctx, task)
 		if err != nil {
 			return err
 		}
 		if selectedNode == nil {
-			taskCh <- task
+			taskQueue.Push(task)
 		}
 		SetTaskStatusStarted(ctx, config.GetDB(), task, selectedNode)
 	}
@@ -59,13 +61,13 @@ func processQueuedTask(ctx context.Context, taskCh chan *models.InferenceTask) e
 }
 
 func StartTaskProcesser(ctx context.Context) {
-	taskCh := make(chan *models.InferenceTask, 100)
+	taskQueue := NewTaskQueue()
 
-	go func(ctx context.Context, taskCh chan<- *models.InferenceTask) {
+	go func(ctx context.Context, taskQueue *TaskQueue) {
 		for {
-			err := generateQueuedTasks(ctx, taskCh)
+			err := generateQueuedTasks(ctx, taskQueue)
 			if err == context.DeadlineExceeded || err == context.Canceled {
-				close(taskCh)
+				taskQueue.Close()
 				return
 			}
 			if err != nil {
@@ -73,10 +75,10 @@ func StartTaskProcesser(ctx context.Context) {
 			}
 			time.Sleep(2 * time.Second)
 		}
-	}(ctx, taskCh)
+	}(ctx, taskQueue)
 
 	for {
-		err := processQueuedTask(ctx, taskCh)
+		err := processQueuedTask(ctx, taskQueue)
 		if err == context.DeadlineExceeded || err == context.Canceled {
 			return
 		}
@@ -86,5 +88,5 @@ func StartTaskProcesser(ctx context.Context) {
 			continue
 		}
 		break
-	}
+	} 
 }
