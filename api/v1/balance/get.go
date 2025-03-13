@@ -13,13 +13,9 @@ type GetBalanceInput struct {
 	Address string `path:"address" json:"address" description:"Address of account"`
 }
 
-type GetBalanceOutput struct {
-	Balance *big.Int `json:"balance"`
-}
-
 type GetBalanceResponse struct {
 	response.Response
-	Data *GetBalanceOutput `json:"data"`
+	Data *big.Int `json:"data"`
 }
 
 func GetBalance(c *gin.Context, in *GetBalanceInput) (*GetBalanceResponse, error) {
@@ -28,8 +24,6 @@ func GetBalance(c *gin.Context, in *GetBalanceInput) (*GetBalanceResponse, error
 		return nil, err
 	}
 	return &GetBalanceResponse{
-		Data: &GetBalanceOutput{
-			Balance: balance,
-		},
+		Data: balance,
 	}, nil
 }
