@@ -13,6 +13,7 @@ type ToEventType interface {
 }
 
 type Event struct {
+	gorm.Model
 	Type             string `json:"type" gorm:"index"`
 	NodeAddress      string `json:"node_address" gorm:"index"`
 	TaskIDCommitment string `json:"task_id_commitment" gorm:"index"`

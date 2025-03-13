@@ -2,6 +2,7 @@ package v1
 
 import (
 	"crynux_relay/api/v1/balance"
+	"crynux_relay/api/v1/event"
 	"crynux_relay/api/v1/incentive"
 	"crynux_relay/api/v1/inference_tasks"
 	"crynux_relay/api/v1/network"
@@ -113,6 +114,12 @@ func InitRoutes(r *fizz.Fizz) {
 		fizz.Summary("Transfer balance of account"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(balance.Transfer, 200))
+
+	eventsGroup := v1g.Group("events", "events", "events related APIs")
+	eventsGroup.GET("", []fizz.OperationOption{
+		fizz.Summary("Get events"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(event.GetEvents, 200))
 
 	networkGroup := v1g.Group("network", "network", "Network stats related APIs")
 
