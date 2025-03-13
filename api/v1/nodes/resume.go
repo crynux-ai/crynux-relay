@@ -1,14 +1,59 @@
 package nodes
 
-import "github.com/gin-gonic/gin"
+import (
+	"crynux_relay/api/v1/response"
+	"crynux_relay/api/v1/validate"
+	"crynux_relay/config"
+	"crynux_relay/models"
+	"errors"
+
+	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
+)
+
+type ResumeInput struct {
+	Address string `path:"address" json:"address" description:"address" validate:"required"`
+}
 
 type ResumeInputWithSignature struct {
-	Address   string   `json:"address" path:"address" description:"address" validate:"required"`
+	ResumeInput
 	Timestamp int64  `json:"timestamp" description:"Signature timestamp" validate:"required"`
 	Signature string `json:"signature" description:"Signature" validate:"required"`
 }
 
-func NodeResume(_ *gin.Context, input *ResumeInputWithSignature) (*NodeResponse, error) {
-	return nil, nil
-}
+func NodeResume(c *gin.Context, in *ResumeInputWithSignature) (*response.Response, error) {
+	match, address, err := validate.ValidateSignature(in.ResumeInput, in.Timestamp, in.Signature)
 
+	if err != nil || !match {
+
+		if err != nil {
+			log.Debugln("error in sig validate: " + err.Error())
+		}
+
+		validationErr := response.NewValidationErrorResponse("signature", "Invalid signature")
+		return nil, validationErr
+	}
+
+	if in.Address != address {
+		return nil, response.NewValidationErrorResponse("signature", "Signer not allowed")
+	}
+
+	node, err := models.GetNodeByAddress(c.Request.Context(), config.GetDB(), in.Address)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			validationErr := response.NewValidationErrorResponse("address", "Node not found")
+			return nil, validationErr
+		}
+		return nil, response.NewExceptionResponse(err)
+	}
+
+	if node.Status != models.NodeStatusPaused {
+		return nil, response.NewValidationErrorResponse("address", "Illegal node status")
+	}
+
+	if err := node.Update(c.Request.Context(), config.GetDB(), &models.Node{Status: models.NodeStatusAvailable}); err != nil {
+		return nil, response.NewExceptionResponse(err)
+	}
+	return &response.Response{}, nil
+}

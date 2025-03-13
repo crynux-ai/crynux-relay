@@ -112,3 +112,32 @@ func (nodeModel *NodeModel) Update(ctx context.Context, db *gorm.DB, newNodeMode
 	}
 	return nil
 }
+
+func CreateNodeModels(ctx context.Context, db *gorm.DB, nodeModels []NodeModel) error {
+	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	if err := db.WithContext(dbCtx).Create(&nodeModels).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+func GetNodeModelsByNodeAddress(ctx context.Context, db *gorm.DB, nodeAddress string) ([]NodeModel, error) {
+	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	var nodeModels []NodeModel
+	if err := db.WithContext(dbCtx).Model(&NodeModel{}).Where("node_address = ?", nodeAddress).Order("id").Find(&nodeModels).Error; err != nil {
+		return nil, err
+	}
+	return nodeModels, nil
+}
+
+func GetNodeModel(ctx context.Context, db *gorm.DB, nodeAddress, modelID string) (*NodeModel, error) {
+	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	nodeModel := &NodeModel{NodeAddress: nodeAddress, ModelID: modelID}
+	if err := db.WithContext(dbCtx).Model(nodeModel).Where(nodeModel).First(nodeModel).Error; err != nil {
+		return nil, err
+	}
+	return nodeModel, nil
+}

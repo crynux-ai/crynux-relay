@@ -7,11 +7,36 @@ import (
 	"database/sql"
 	"errors"
 	"math/big"
+	"time"
 
 	"gorm.io/gorm"
 )
 
-func setNodeStatusQuit(ctx context.Context, db *gorm.DB, node *models.Node, slashed bool) error {
+func SetNodeStatusJoin(ctx context.Context, db *gorm.DB, node *models.Node, modelIDs []string) error {
+	appConfig := config.GetConfig()
+
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := Transfer(ctx, tx, node.Address, appConfig.Blockchain.Account.Address, &node.StakeAmount.Int); err != nil {
+			return err
+		}
+		node.Status = models.NodeStatusAvailable
+		node.JoinTime = time.Now()
+		if err := node.Save(ctx, tx); err != nil {
+			return err
+		}
+		var nodeModels []models.NodeModel
+		for _, modelID := range modelIDs {
+			model := models.NodeModel{NodeAddress: node.Address, ModelID: modelID, InUse: false}
+			nodeModels = append(nodeModels, model)
+		}
+		if err := models.CreateNodeModels(ctx, tx, nodeModels); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func SetNodeStatusQuit(ctx context.Context, db *gorm.DB, node *models.Node, slashed bool) error {
 	appConfig := config.GetConfig()
 
 	err := db.Transaction(func(tx *gorm.DB) error {
@@ -101,7 +126,7 @@ func nodeFinishTask(ctx context.Context, db *gorm.DB, node *models.Node) error {
 	}
 	if kickout {
 		return db.Transaction(func(tx *gorm.DB) error {
-			if err := setNodeStatusQuit(ctx, db, node, false); err != nil {
+			if err := SetNodeStatusQuit(ctx, db, node, false); err != nil {
 				return err
 			}
 			return emitEvent(ctx, db, &models.NodeKickedOutEvent{NodeAddress: node.Address})
@@ -119,7 +144,7 @@ func nodeFinishTask(ctx context.Context, db *gorm.DB, node *models.Node) error {
 			QOSScore:                qosScore,
 		})
 	} else if node.Status == models.NodeStatusPendingQuit {
-		return setNodeStatusQuit(ctx, db, node, false)
+		return SetNodeStatusQuit(ctx, db, node, false)
 	} else if node.Status == models.NodeStatusPendingPause {
 		return node.Update(ctx, db, &models.Node{
 			Status:                  models.NodeStatusPaused,
@@ -135,7 +160,7 @@ func nodeSlash(ctx context.Context, db *gorm.DB, node *models.Node) error {
 		return errors.New("illegal node status")
 	}
 	return db.Transaction(func(tx *gorm.DB) error {
-		if err := setNodeStatusQuit(ctx, db, node, true); err != nil {
+		if err := SetNodeStatusQuit(ctx, db, node, true); err != nil {
 			return err
 		}
 		return emitEvent(ctx, db, &models.NodeSlashedEvent{NodeAddress: node.Address})
