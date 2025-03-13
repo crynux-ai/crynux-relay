@@ -2,6 +2,8 @@ package balance
 
 import (
 	"crynux_relay/api/v1/response"
+	"crynux_relay/config"
+	"crynux_relay/service"
 	"math/big"
 
 	"github.com/gin-gonic/gin"
@@ -9,12 +11,6 @@ import (
 
 type GetBalanceInput struct {
 	Address string `path:"address" json:"address" description:"Address of account"`
-}
-
-type GetBalanceInputWithSignature struct {
-	GetBalanceInput
-	Timestamp int64  `query:"timestamp" json:"timestamp" description:"Signature timestamp" validate:"required"`
-	Signature string `query:"signature" json:"signature" description:"Signature" validate:"required"`
 }
 
 type GetBalanceOutput struct {
@@ -26,6 +22,14 @@ type GetBalanceResponse struct {
 	Data *GetBalanceOutput `json:"data"`
 }
 
-func GetBalance(_ *gin.Context, input *GetBalanceInput) (*GetBalanceResponse, error) {
-	return nil, nil
+func GetBalance(c *gin.Context, in *GetBalanceInput) (*GetBalanceResponse, error) {
+	balance, err := service.GetBalance(c.Request.Context(), config.GetDB(), in.Address)
+	if err != nil {
+		return nil, err
+	}
+	return &GetBalanceResponse{
+		Data: &GetBalanceOutput{
+			Balance: balance,
+		},
+	}, nil
 }
