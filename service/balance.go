@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crynux_relay/config"
 	"crynux_relay/models"
 	"errors"
 	"math/big"
@@ -10,6 +11,22 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
+
+func CreateGenesisAccount(ctx context.Context, db *gorm.DB) error {
+	appConfig := config.GetConfig()
+	address := appConfig.Blockchain.Account.Address
+	amount := big.NewInt(int64(appConfig.Blockchain.Account.GenesisTokenAmount))
+
+	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	return db.WithContext(dbCtx).Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "address"}},
+		DoNothing: true,
+	}).Create(&models.Balance{
+		Address: address,
+		Balance: models.BigInt{Int: *amount},
+	}).Error
+}
 
 func Transfer(ctx context.Context, db *gorm.DB, from, to string, amount *big.Int) error {
 	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
@@ -29,15 +46,19 @@ func Transfer(ctx context.Context, db *gorm.DB, from, to string, amount *big.Int
 		}
 
 		var toBalance models.Balance
-		if err := tx.WithContext(dbCtx).Clauses(clause.Locking{Strength: "UPDATE"}).
-			Where("address = ?", to).First(&toBalance).Error; err != nil {
+		err := tx.WithContext(dbCtx).Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("address = ?", to).First(&toBalance).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			toBalance = models.Balance{
+				Address: to,
+				Balance: models.BigInt{Int: *amount},
+			}
+			return tx.WithContext(dbCtx).Create(&toBalance).Error
+		} else if err == nil {
+			return tx.WithContext(dbCtx).Model(&toBalance).Update("balance", big.NewInt(0).Add(&toBalance.Balance.Int, amount)).Error
+		} else {
 			return err
 		}
-		if err := tx.WithContext(dbCtx).Model(&toBalance).Update("balance", big.NewInt(0).Add(&toBalance.Balance.Int, amount)).Error; err != nil {
-			return err
-		}
-
-		return nil
 	})
 }
 

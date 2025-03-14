@@ -39,9 +39,10 @@ type AppConfig struct {
 		GasPrice      uint64 `mapstructure:"gas_price"`
 		ChainID       uint64 `mapstructure:"chain_id"`
 		Account       struct {
-			Address        string `mapstructure:"address"`
-			PrivateKey     string `mapstructure:"private_key"`
-			PrivateKeyFile string `mapstructure:"private_key_file"`
+			Address            string `mapstructure:"address"`
+			PrivateKey         string `mapstructure:"private_key"`
+			PrivateKeyFile     string `mapstructure:"private_key_file"`
+			GenesisTokenAmount uint64 `mapstructure:"genesis_token_amount" description:"genesis token amount, in ether unit"`
 		} `mapstructure:"account"`
 		Contracts struct {
 			Netstats string `mapstructure:"netstats"`
@@ -53,7 +54,7 @@ type AppConfig struct {
 
 	Task struct {
 		Timeout           uint64 `mapstructure:"timeout"`
-		StakeAmount       uint64 `mapstructure:"stake_amount"`
+		StakeAmount       uint64 `mapstructure:"stake_amount" description:"stake amount, in ether unit"`
 		DistanceThreshold uint64 `mapstructure:"distance_threshold"`
 	}
 

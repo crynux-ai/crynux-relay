@@ -6,7 +6,7 @@ import (
 	"crynux_relay/blockchain"
 	"crynux_relay/config"
 	"crynux_relay/migrate"
-	"crynux_relay/tasks"
+	"crynux_relay/service"
 	"fmt"
 	"os"
 
@@ -38,13 +38,17 @@ func main() {
 	if err := blockchain.Init(context.Background()); err != nil {
 		log.Fatalln(err)
 	}
+	if err := service.CreateGenesisAccount(context.Background(), config.GetDB()); err != nil {
+		log.Fatalln(err)
+	}
 
-	go tasks.ProcessTasks(context.Background())
-	go tasks.StartSyncNetwork(context.Background())
-	go tasks.StartStatsTaskCount(context.Background())
-	go tasks.StartStatsTaskExecutionTimeCount(context.Background())
-	go tasks.StartStatsTaskUploadResultTimeCount(context.Background())
-	go tasks.StartStatsTaskWaitingTimeCount(context.Background())
+	go service.StartTaskProcesser(context.Background())
+	// go tasks.ProcessTasks(context.Background())
+	// go tasks.StartSyncNetwork(context.Background())
+	// go tasks.StartStatsTaskCount(context.Background())
+	// go tasks.StartStatsTaskExecutionTimeCount(context.Background())
+	// go tasks.StartStatsTaskUploadResultTimeCount(context.Background())
+	// go tasks.StartStatsTaskWaitingTimeCount(context.Background())
 
 	startServer()
 }
