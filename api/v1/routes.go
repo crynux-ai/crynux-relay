@@ -104,6 +104,10 @@ func InitRoutes(r *fizz.Fizz) {
 		fizz.Summary("Update node's version"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(nodes.UpdateNodeVersion, 200))
+	nodeGroup.GET("/:address/task", []fizz.OperationOption{
+		fizz.Summary("Get node current task"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(nodes.GetNodeTask, 200))
 
 	balanceGroup := v1g.Group("balance", "balance", "balance related APIs")
 	balanceGroup.GET("/:address", []fizz.OperationOption{
