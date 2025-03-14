@@ -11,7 +11,7 @@ import (
 )
 
 type GetNodeTaskInput struct {
-	NodeAddress string `json:"node_address" path:"node_address" description:"node address"`
+	Address string `json:"address" path:"address" description:"node address"`
 }
 
 type GetNodeTaskResponse struct {
@@ -20,10 +20,10 @@ type GetNodeTaskResponse struct {
 }
 
 func GetNodeTask(c *gin.Context, in *GetNodeTaskInput) (*GetNodeTaskResponse, error) {
-	node, err := models.GetNodeByAddress(c.Request.Context(), config.GetDB(), in.NodeAddress)
+	node, err := models.GetNodeByAddress(c.Request.Context(), config.GetDB(), in.Address)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, response.NewValidationErrorResponse("node_address", "Node not found")
+			return nil, response.NewValidationErrorResponse("address", "Node not found")
 		}
 		return nil, err
 	}
