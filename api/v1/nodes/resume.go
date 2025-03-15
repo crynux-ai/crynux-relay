@@ -52,7 +52,7 @@ func NodeResume(c *gin.Context, in *ResumeInputWithSignature) (*response.Respons
 		return nil, response.NewValidationErrorResponse("address", "Illegal node status")
 	}
 
-	if err := node.Update(c.Request.Context(), config.GetDB(), &models.Node{Status: models.NodeStatusAvailable}); err != nil {
+	if err := node.Update(c.Request.Context(), config.GetDB(), map[string]interface{}{"status": models.NodeStatusAvailable}); err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 	return &response.Response{}, nil

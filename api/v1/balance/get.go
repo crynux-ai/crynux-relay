@@ -3,8 +3,8 @@ package balance
 import (
 	"crynux_relay/api/v1/response"
 	"crynux_relay/config"
+	"crynux_relay/models"
 	"crynux_relay/service"
-	"math/big"
 
 	"github.com/gin-gonic/gin"
 )
@@ -15,7 +15,7 @@ type GetBalanceInput struct {
 
 type GetBalanceResponse struct {
 	response.Response
-	Data *big.Int `json:"data"`
+	Data models.BigInt `json:"data"`
 }
 
 func GetBalance(c *gin.Context, in *GetBalanceInput) (*GetBalanceResponse, error) {
@@ -24,6 +24,6 @@ func GetBalance(c *gin.Context, in *GetBalanceInput) (*GetBalanceResponse, error
 		return nil, err
 	}
 	return &GetBalanceResponse{
-		Data: balance,
+		Data: models.BigInt{Int: *balance},
 	}, nil
 }

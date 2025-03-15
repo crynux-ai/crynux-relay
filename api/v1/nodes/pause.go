@@ -57,7 +57,7 @@ func NodePause(c *gin.Context, in *PauseInputWithSignature) (*response.Response,
 		return nil, response.NewValidationErrorResponse("address", "Illegal node status")
 	}
 
-	if err := node.Update(c.Request.Context(), config.GetDB(), &models.Node{Status: status}); err != nil {
+	if err := node.Update(c.Request.Context(), config.GetDB(), map[string]interface{}{"status": status}); err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 	return &response.Response{}, nil

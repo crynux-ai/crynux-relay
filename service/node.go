@@ -51,11 +51,11 @@ func SetNodeStatusQuit(ctx context.Context, db *gorm.DB, node *models.Node, slas
 			}
 		}
 
-		if err := node.Update(ctx, tx, &models.Node{
-			Status:                  models.NodeStatusQuit,
-			QOSScore:                0,
-			CurrentTaskIDCommitment: sql.NullString{Valid: false},
-			StakeAmount:             models.BigInt{Int: *big.NewInt(0)},
+		if err := node.Update(ctx, tx, map[string]interface{}{
+			"status":                     models.NodeStatusQuit,
+			"qos_score":                  0,
+			"current_task_id_commitment": sql.NullString{Valid: false},
+			"stake_amount":               models.BigInt{Int: *big.NewInt(0)},
 		}); err != nil {
 			return err
 		}
@@ -101,9 +101,9 @@ func nodeStartTask(ctx context.Context, db *gorm.DB, node *models.Node, taskIDCo
 	}
 
 	return db.Transaction(func(tx *gorm.DB) error {
-		node.Update(ctx, tx, &models.Node{
-			Status:                  models.NodeStatusBusy,
-			CurrentTaskIDCommitment: sql.NullString{String: taskIDCommitment, Valid: true},
+		node.Update(ctx, tx, map[string]interface{}{
+			"status":                     models.NodeStatusBusy,
+			"current_task_id_commitment": sql.NullString{String: taskIDCommitment, Valid: true},
 		})
 
 		for _, model := range newModels {
@@ -138,18 +138,18 @@ func nodeFinishTask(ctx context.Context, db *gorm.DB, node *models.Node) error {
 		return err
 	}
 	if node.Status == models.NodeStatusBusy {
-		return node.Update(ctx, db, &models.Node{
-			Status:                  models.NodeStatusAvailable,
-			CurrentTaskIDCommitment: sql.NullString{Valid: false},
-			QOSScore:                qosScore,
+		return node.Update(ctx, db, map[string]interface{}{
+			"status":                     models.NodeStatusAvailable,
+			"current_task_id_commitment": sql.NullString{Valid: false},
+			"qos_score":                  qosScore,
 		})
 	} else if node.Status == models.NodeStatusPendingQuit {
 		return SetNodeStatusQuit(ctx, db, node, false)
 	} else if node.Status == models.NodeStatusPendingPause {
-		return node.Update(ctx, db, &models.Node{
-			Status:                  models.NodeStatusPaused,
-			CurrentTaskIDCommitment: sql.NullString{Valid: false},
-			QOSScore:                qosScore,
+		return node.Update(ctx, db, map[string]interface{}{
+			"status":                     models.NodeStatusPaused,
+			"current_task_id_commitment": sql.NullString{Valid: false},
+			"qos_score":                  qosScore,
 		})
 	}
 	return nil

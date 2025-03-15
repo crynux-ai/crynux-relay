@@ -153,14 +153,14 @@ func (task *InferenceTask) Save(ctx context.Context, db *gorm.DB) error {
 	return nil
 }
 
-func (task *InferenceTask) Update(ctx context.Context, db *gorm.DB, newTask *InferenceTask) error {
+func (task *InferenceTask) Update(ctx context.Context, db *gorm.DB, values map[string]interface{}) error {
 	if task.ID == 0 {
 		return errors.New("InferenceTask.ID cannot be 0 when update")
 	}
 	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 	if err := db.WithContext(dbCtx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(task).Updates(newTask).Error; err != nil {
+		if err := tx.Model(task).Updates(values).Error; err != nil {
 			return err
 		}
 		if err := tx.Model(task).First(task).Error; err != nil {

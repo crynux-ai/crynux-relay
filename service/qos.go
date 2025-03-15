@@ -35,7 +35,7 @@ func getNodeTaskQosScore(ctx context.Context, node *models.Node) (uint64, error)
 		Select("selected_node, count(qos_score) as count, sum(qos_score) as score").
 		Where("selected_node = ?", node.Address).
 		Group("selected_node").
-		First(res).Error
+		Scan(res).Error
 	if err != nil {
 		return 0, err
 	}

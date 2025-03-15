@@ -4,6 +4,7 @@ import (
 	"context"
 	"crynux_relay/config"
 	"crynux_relay/models"
+	"crynux_relay/utils"
 	"errors"
 	"math/big"
 	"time"
@@ -15,12 +16,12 @@ import (
 func CreateGenesisAccount(ctx context.Context, db *gorm.DB) error {
 	appConfig := config.GetConfig()
 	address := appConfig.Blockchain.Account.Address
-	amount := big.NewInt(int64(appConfig.Blockchain.Account.GenesisTokenAmount))
+	amount := utils.EtherToWei(big.NewInt(int64(appConfig.Blockchain.Account.GenesisTokenAmount)))
 
 	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 	return db.WithContext(dbCtx).Clauses(clause.OnConflict{
-		Columns: []clause.Column{{Name: "address"}},
+		Columns:   []clause.Column{{Name: "address"}},
 		DoNothing: true,
 	}).Create(&models.Balance{
 		Address: address,
@@ -40,8 +41,8 @@ func Transfer(ctx context.Context, db *gorm.DB, from, to string, amount *big.Int
 		if fromBalance.Balance.Cmp(amount) == -1 {
 			return errors.New("insufficient balance")
 		}
-
-		if err := tx.WithContext(dbCtx).Model(&fromBalance).Update("balance", big.NewInt(0).Sub(&fromBalance.Balance.Int, amount)).Error; err != nil {
+		
+		if err := tx.WithContext(dbCtx).Model(&fromBalance).Update("balance", models.BigInt{Int: *big.NewInt(0).Sub(&fromBalance.Balance.Int, amount)}).Error; err != nil {
 			return err
 		}
 
@@ -55,7 +56,7 @@ func Transfer(ctx context.Context, db *gorm.DB, from, to string, amount *big.Int
 			}
 			return tx.WithContext(dbCtx).Create(&toBalance).Error
 		} else if err == nil {
-			return tx.WithContext(dbCtx).Model(&toBalance).Update("balance", big.NewInt(0).Add(&toBalance.Balance.Int, amount)).Error
+			return tx.WithContext(dbCtx).Model(&toBalance).Update("balance", models.BigInt{Int: *big.NewInt(0).Add(&toBalance.Balance.Int, amount)}).Error
 		} else {
 			return err
 		}

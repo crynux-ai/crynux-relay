@@ -15,7 +15,7 @@ func filterNodesByGPU(ctx context.Context, gpuName string, gpuVram uint64, taskV
 	allNodes := make([]models.Node, 0)
 
 	offset := 0
-	limit := 0
+	limit := 100
 
 	for {
 		nodes, err := func(ctx context.Context, offset, limit int) ([]models.Node, error) {
@@ -26,7 +26,7 @@ func filterNodesByGPU(ctx context.Context, gpuName string, gpuVram uint64, taskV
 			err := config.GetDB().WithContext(dbCtx).Model(&models.Node{}).
 				Preload("Models").
 				Where(&models.Node{Status: models.NodeStatusAvailable, GPUName: gpuName, GPUVram: gpuVram, MajorVersion: taskVersionNumbers[0]}).
-				Where("minor_version > ? or (minor_version = ? and patch_version > ?)", taskVersionNumbers[1], taskVersionNumbers[1], taskVersionNumbers[2]).
+				Where("minor_version > ? or (minor_version = ? and patch_version >= ?)", taskVersionNumbers[1], taskVersionNumbers[1], taskVersionNumbers[2]).
 				Order("id").
 				Offset(offset).
 				Limit(limit).
@@ -52,7 +52,7 @@ func filterNodesByVram(ctx context.Context, minVram uint64, taskVersionNumbers [
 	allNodes := make([]models.Node, 0)
 
 	offset := 0
-	limit := 0
+	limit := 100
 
 	for {
 		nodes, err := func(ctx context.Context, offset, limit int) ([]models.Node, error) {
@@ -64,7 +64,7 @@ func filterNodesByVram(ctx context.Context, minVram uint64, taskVersionNumbers [
 				Preload("Models").
 				Where(&models.Node{Status: models.NodeStatusAvailable, MajorVersion: taskVersionNumbers[0]}).
 				Where("gpu_vram >= ?", minVram).
-				Where("minor_version > ? or (minor_version = ? and patch_version > ?)", taskVersionNumbers[1], taskVersionNumbers[1], taskVersionNumbers[2]).
+				Where("minor_version > ? or (minor_version = ? and patch_version >= ?)", taskVersionNumbers[1], taskVersionNumbers[1], taskVersionNumbers[2]).
 				Order("id").
 				Offset(offset).
 				Limit(limit).
@@ -111,7 +111,11 @@ func isSameModels(nodeModelIDs, taskModelIDs []string) bool {
 func selectNodesByScore(nodes []models.Node, n int) []models.Node {
 	scores := make([]float64, len(nodes))
 	for i, node := range nodes {
-		scores[i] = float64(node.QOSScore)
+		if node.QOSScore > 0 {
+			scores[i] = float64(node.QOSScore)
+		} else {
+			scores[i] = float64(TASK_SCORE_REWARDS[0])
+		}
 	}
 	w := sampleuv.NewWeighted(scores, nil)
 	res := make([]models.Node, n)
@@ -226,7 +230,7 @@ func countAvailableNodesWithModelID(ctx context.Context, db *gorm.DB, modelID st
 	var count int64
 	err := db.WithContext(dbCtx).
 		Model(&models.NodeModel{}).
-		Joins("INNER JOIN nodes on nodes.address == node_models.node_address and nodes.status == ?", models.NodeStatusAvailable).
+		Joins("INNER JOIN nodes on nodes.address = node_models.node_address and nodes.status = ?", models.NodeStatusAvailable).
 		Where(&models.NodeModel{ModelID: modelID}).
 		Count(&count).
 		Error

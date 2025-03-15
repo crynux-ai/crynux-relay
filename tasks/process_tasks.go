@@ -132,7 +132,7 @@ func syncTask(ctx context.Context, task *models.InferenceTask) (*bindings.VSSTas
 	}
 
 	changed := false
-	newTask := &models.InferenceTask{}
+	newTask := make(map[string]interface{})
 	chainTaskStatus := models.TaskStatus(chainTask.Status)
 	abortReason := models.TaskAbortReason(chainTask.AbortReason)
 	taskError := models.TaskError(chainTask.Error)
@@ -140,25 +140,25 @@ func syncTask(ctx context.Context, task *models.InferenceTask) (*bindings.VSSTas
 	scoreReadyTimestamp := chainTask.ScoreReadyTimestamp.Int64()
 
 	if startTimestamp > 0 && !task.StartTime.Valid {
-		newTask.StartTime = sql.NullTime{
+		newTask["start_time"] = sql.NullTime{
 			Time:  time.Unix(startTimestamp, 0).UTC(),
 			Valid: true,
 		}
 		changed = true
 	}
 	if scoreReadyTimestamp > 0 && !task.ScoreReadyTime.Valid {
-		newTask.ScoreReadyTime = sql.NullTime{
+		newTask["score_ready_time"] = sql.NullTime{
 			Time:  time.Unix(scoreReadyTimestamp, 0).UTC(),
 			Valid: true,
 		}
 		changed = true
 	}
 	if abortReason != task.AbortReason {
-		newTask.AbortReason = abortReason
+		newTask["abort_reason"] = abortReason
 		changed = true
 	}
 	if taskError != task.TaskError {
-		newTask.TaskError = taskError
+		newTask["task_error"] = taskError
 		changed = true
 	}
 	if task.Status != chainTaskStatus {
@@ -167,7 +167,7 @@ func syncTask(ctx context.Context, task *models.InferenceTask) (*bindings.VSSTas
 	}
 	if chainTaskStatus == models.TaskValidated || chainTaskStatus == models.TaskGroupValidated {
 		if !task.ValidatedTime.Valid {
-			newTask.ValidatedTime = sql.NullTime{
+			newTask["validated_time"] = sql.NullTime{
 				Time:  time.Now().UTC(),
 				Valid: true,
 			}
@@ -175,7 +175,7 @@ func syncTask(ctx context.Context, task *models.InferenceTask) (*bindings.VSSTas
 		}
 	} else if chainTaskStatus == models.TaskEndAborted {
 		if !task.ValidatedTime.Valid {
-			newTask.ValidatedTime = sql.NullTime{
+			newTask["validated_time"] = sql.NullTime{
 				Time:  time.Now().UTC(),
 				Valid: true,
 			}
@@ -183,7 +183,7 @@ func syncTask(ctx context.Context, task *models.InferenceTask) (*bindings.VSSTas
 		}
 	} else if chainTaskStatus == models.TaskEndInvalidated {
 		if !task.ValidatedTime.Valid {
-			newTask.ValidatedTime = sql.NullTime{
+			newTask["validated_time"] = sql.NullTime{
 				Time:  time.Now().UTC(),
 				Valid: true,
 			}
@@ -191,7 +191,7 @@ func syncTask(ctx context.Context, task *models.InferenceTask) (*bindings.VSSTas
 		}
 	} else if chainTaskStatus == models.TaskEndGroupRefund {
 		if !task.ValidatedTime.Valid {
-			newTask.ValidatedTime = sql.NullTime{
+			newTask["validated_time"] = sql.NullTime{
 				Time:  time.Now().UTC(),
 				Valid: true,
 			}
@@ -220,8 +220,8 @@ func processOneTask(ctx context.Context, task *models.InferenceTask) error {
 			return err
 		}
 
-		newTask := &models.InferenceTask{
-			Status: models.TaskParametersUploaded,
+		newTask := map[string]interface{}{
+			"status": models.TaskParametersUploaded,
 		}
 
 		if err := task.Update(ctx, config.GetDB(), newTask); err != nil {
@@ -263,9 +263,9 @@ func processOneTask(ctx context.Context, task *models.InferenceTask) error {
 			return err
 		}
 
-		newTask := &models.InferenceTask{
-			Status: models.TaskEndSuccess,
-			ResultUploadedTime: sql.NullTime{
+		newTask := map[string]interface{}{
+			"status": models.TaskEndSuccess,
+			"result_uploaded_time": sql.NullTime{
 				Time:  time.Now().UTC(),
 				Valid: true,
 			},
@@ -351,7 +351,7 @@ func ProcessTasks(ctx context.Context) {
 							log.Errorf("ProcessTasks: process task %s timeout %v, finish", task.TaskIDCommitment, err)
 							// set task status to aborted to avoid processing it again
 							if err == context.DeadlineExceeded {
-								newTask := &models.InferenceTask{Status: models.TaskEndAborted}
+								newTask := map[string]interface{}{"status": models.TaskEndAborted}
 								if err := task.Update(ctx, config.GetDB(), newTask); err != nil {
 									log.Errorf("ProcessTasks: save task %s error %v", task.TaskIDCommitment, err)
 								}

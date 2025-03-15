@@ -68,7 +68,7 @@ func UpdateNodeVersion(c *gin.Context, in *UpdateVersionInputWithSignature) (*re
 		}
 	}
 
-	if err := node.Update(c.Request.Context(), config.GetDB(), &models.Node{MajorVersion: nodeVersions[0], MinorVersion: nodeVersions[1], PatchVersion: nodeVersions[2]}); err != nil {
+	if err := node.Update(c.Request.Context(), config.GetDB(), map[string]interface{}{"major_version": nodeVersions[0], "minor_version": nodeVersions[1], "patch_version": nodeVersions[2]}); err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 	return &response.Response{}, nil

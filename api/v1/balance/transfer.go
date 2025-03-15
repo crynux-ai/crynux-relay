@@ -4,8 +4,8 @@ import (
 	"crynux_relay/api/v1/response"
 	"crynux_relay/api/v1/validate"
 	"crynux_relay/config"
+	"crynux_relay/models"
 	"crynux_relay/service"
-	"math/big"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -14,7 +14,7 @@ import (
 type TransferInput struct {
 	From  string   `path:"from" json:"from" description:"The from address of the transfer request"`
 	To    string   `json:"to" description:"The to address of the transfer request" validate:"required"`
-	Value *big.Int `json:"value" description:"The transferred value" validate:"required"`
+	Value models.BigInt `json:"value" description:"The transferred value" validate:"required"`
 }
 
 type TransferInputWithSignature struct {
@@ -41,7 +41,7 @@ func Transfer(c *gin.Context, in *TransferInputWithSignature) (*response.Respons
 		return nil, validationErr
 	}
 
-	if err := service.Transfer(c.Request.Context(), config.GetDB(), in.From, in.To, in.Value); err != nil {
+	if err := service.Transfer(c.Request.Context(), config.GetDB(), in.From, in.To, &in.Value.Int); err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 	return &response.Response{}, nil

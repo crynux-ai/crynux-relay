@@ -54,7 +54,7 @@ func NodeQuit(c *gin.Context, in *QuitInputWithSignature) (*response.Response, e
 			return nil, response.NewExceptionResponse(err)
 		}
 	} else if node.Status == models.NodeStatusBusy {
-		if err := node.Update(c.Request.Context(), config.GetDB(), &models.Node{Status: models.NodeStatusPendingQuit}); err != nil {
+		if err := node.Update(c.Request.Context(), config.GetDB(), map[string]interface{}{"status": models.NodeStatusPendingQuit}); err != nil {
 			return nil, response.NewExceptionResponse(err)
 		}
 	} else {

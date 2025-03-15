@@ -47,12 +47,8 @@ func ReportTaskError(c *gin.Context, in *ReportTaskErrorInputWithSignature) (*re
 		}
 	}
 
-	if len(task.TaskArgs) == 0 {
-		return nil, response.NewValidationErrorResponse("task_id_commitment", "Task not ready")
-	}
-
-	if task.Status == models.TaskStarted {
-		return nil, response.NewValidationErrorResponse("task_id_commitment", "Task not ready")
+	if task.Status != models.TaskStarted {
+		return nil, response.NewValidationErrorResponse("task_id_commitment", "Illegal task state")
 	}
 
 	if task.SelectedNode != address {

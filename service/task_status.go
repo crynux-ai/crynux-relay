@@ -28,10 +28,10 @@ func SetTaskStatusStarted(ctx context.Context, db *gorm.DB, task *models.Inferen
 	err := db.Transaction(func(tx *gorm.DB) error {
 		dbCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 		defer cancel()
-		if err := task.Update(dbCtx, tx, &models.InferenceTask{
-			SelectedNode: node.Address,
-			StartTime:    sql.NullTime{Time: time.Now(), Valid: true},
-			Status:       models.TaskStarted,
+		if err := task.Update(dbCtx, tx, map[string]interface{}{
+			"selected_node": node.Address,
+			"start_time":    sql.NullTime{Time: time.Now(), Valid: true},
+			"status":        models.TaskStarted,
 		}); err != nil {
 			return err
 		}
@@ -108,10 +108,10 @@ func SetTaskStatusScoreReady(ctx context.Context, db *gorm.DB, task *models.Infe
 	}
 
 	return db.Transaction(func(tx *gorm.DB) error {
-		err = task.Update(ctx, tx, &models.InferenceTask{
-			Status:         models.TaskScoreReady,
-			Score:          task.Score,
-			ScoreReadyTime: sql.NullTime{Time: time.Now(), Valid: true},
+		err = task.Update(ctx, tx, map[string]interface{}{
+			"status":           models.TaskScoreReady,
+			"score":            task.Score,
+			"score_ready_time": sql.NullTime{Time: time.Now(), Valid: true},
 		})
 		if err != nil {
 			return err
@@ -130,10 +130,10 @@ func SetTaskStatusErrorReported(ctx context.Context, db *gorm.DB, task *models.I
 		return err
 	}
 	return db.Transaction(func(tx *gorm.DB) error {
-		err = task.Update(ctx, tx, &models.InferenceTask{
-			Status:         models.TaskErrorReported,
-			TaskError:      task.TaskError,
-			ScoreReadyTime: sql.NullTime{Time: time.Now(), Valid: true},
+		err = task.Update(ctx, tx, map[string]interface{}{
+			"status":           models.TaskErrorReported,
+			"task_error":       task.TaskError,
+			"score_ready_time": sql.NullTime{Time: time.Now(), Valid: true},
 		})
 		if err != nil {
 			return err
@@ -153,11 +153,11 @@ func SetTaskStatusValidated(ctx context.Context, db *gorm.DB, task *models.Infer
 	}
 
 	return db.Transaction(func(tx *gorm.DB) error {
-		err = task.Update(ctx, tx, &models.InferenceTask{
-			Status:        models.TaskValidated,
-			ValidatedTime: sql.NullTime{Time: time.Now(), Valid: true},
-			QOSScore:      task.QOSScore,
-			TaskID:        task.TaskID,
+		err = task.Update(ctx, tx, map[string]interface{}{
+			"status":         models.TaskValidated,
+			"validated_time": sql.NullTime{Time: time.Now(), Valid: true},
+			"qos_score":      task.QOSScore,
+			"task_id":        task.TaskID,
 		})
 		if err != nil {
 			return err
@@ -173,11 +173,11 @@ func SetTaskStatusGroupValidated(ctx context.Context, db *gorm.DB, task *models.
 	}
 
 	return db.Transaction(func(tx *gorm.DB) error {
-		err = task.Update(ctx, tx, &models.InferenceTask{
-			Status:        models.TaskGroupValidated,
-			ValidatedTime: sql.NullTime{Time: time.Now(), Valid: true},
-			QOSScore:      task.QOSScore,
-			TaskID:        task.TaskID,
+		err = task.Update(ctx, tx, map[string]interface{}{
+			"status":         models.TaskGroupValidated,
+			"validated_time": sql.NullTime{Time: time.Now(), Valid: true},
+			"qos_score":      task.QOSScore,
+			"task_id":        task.TaskID,
 		})
 		if err != nil {
 			return err
@@ -193,11 +193,11 @@ func SetTaskStatusEndInvalidated(ctx context.Context, db *gorm.DB, task *models.
 	}
 
 	return db.Transaction(func(tx *gorm.DB) error {
-		err = task.Update(ctx, tx, &models.InferenceTask{
-			Status:        models.TaskEndInvalidated,
-			ValidatedTime: sql.NullTime{Time: time.Now(), Valid: true},
-			QOSScore:      task.QOSScore,
-			TaskID:        task.TaskID,
+		err = task.Update(ctx, tx, map[string]interface{}{
+			"status":         models.TaskEndInvalidated,
+			"validated_time": sql.NullTime{Time: time.Now(), Valid: true},
+			"qos_score":      task.QOSScore,
+			"task_id":        task.TaskID,
 		})
 		if err != nil {
 			return err
@@ -223,16 +223,16 @@ func SetTaskStatusEndGroupRefund(ctx context.Context, db *gorm.DB, task *models.
 			return err
 		}
 
-		err = task.Update(ctx, tx, &models.InferenceTask{
-			Status:        models.TaskEndGroupRefund,
-			ValidatedTime: sql.NullTime{Time: time.Now(), Valid: true},
-			QOSScore:      task.QOSScore,
-			TaskID:        task.TaskID,
+		err = task.Update(ctx, tx, map[string]interface{}{
+			"status":         models.TaskEndGroupRefund,
+			"validated_time": sql.NullTime{Time: time.Now(), Valid: true},
+			"qos_score":      task.QOSScore,
+			"task_id":        task.TaskID,
 		})
 		if err != nil {
 			return err
 		}
-		return emitEvent(ctx, tx, &models.TaskEndInvalidatedEvent{TaskIDCommitment: task.TaskIDCommitment, SelectedNode: task.SelectedNode})
+		return emitEvent(ctx, tx, &models.TaskEndGroupRefundEvent{TaskIDCommitment: task.TaskIDCommitment, SelectedNode: task.SelectedNode})
 	})
 }
 
@@ -245,11 +245,11 @@ func SetTaskStatusEndAborted(ctx context.Context, db *gorm.DB, task *models.Infe
 	}
 	lastStatus := task.Status
 
-	newTask := &models.InferenceTask{
-		Status:        models.TaskEndAborted,
-		AbortReason:   task.AbortReason,
-		TaskID:        task.TaskID,
-		ValidatedTime: task.ValidatedTime,
+	newTask := map[string]interface{}{
+		"status":         models.TaskEndAborted,
+		"abort_reason":   task.AbortReason,
+		"task_id":        task.TaskID,
+		"validated_time": task.ValidatedTime,
 	}
 	appConfig := config.GetConfig()
 	if task.Status != models.TaskQueued {
@@ -259,7 +259,7 @@ func SetTaskStatusEndAborted(ctx context.Context, db *gorm.DB, task *models.Infe
 		}
 
 		if lastStatus == models.TaskScoreReady || lastStatus == models.TaskErrorReported {
-			newTask.QOSScore = task.QOSScore
+			newTask["qos_score"] = task.QOSScore
 		}
 
 		return db.Transaction(func(tx *gorm.DB) error {
@@ -352,9 +352,9 @@ func SetTaskStatusEndSuccess(ctx context.Context, db *gorm.DB, task *models.Infe
 			return err
 		}
 
-		err = task.Update(ctx, tx, &models.InferenceTask{
-			Status:             status,
-			ResultUploadedTime: sql.NullTime{Time: time.Now(), Valid: true},
+		err = task.Update(ctx, tx, map[string]interface{}{
+			"status":               status,
+			"result_uploaded_time": sql.NullTime{Time: time.Now(), Valid: true},
 		})
 		if err != nil {
 			return err

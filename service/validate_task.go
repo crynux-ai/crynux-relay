@@ -105,6 +105,21 @@ func ValidateSingleTask(ctx context.Context, task *models.InferenceTask, taskID,
 	}
 }
 
+func checkHammingDistance(h1, h2 []byte, threshold uint64) bool {
+	if len(h1) != len(h2) || len(h1) % 8 != 0 {
+		return false
+	}
+
+	for i := 0; i < len(h1); i += 8 {
+		distance := utils.HammingDistance(h1[i:i+8], h2[i:i+8])
+		if uint64(distance) >= threshold {
+			return false
+		}
+	}
+
+	return true
+}
+
 func compareTaskScore(task1, task2 *models.InferenceTask, threshold uint64) bool {
 	if task1.TaskType != task2.TaskType {
 		return false
@@ -116,8 +131,7 @@ func compareTaskScore(task1, task2 *models.InferenceTask, threshold uint64) bool
 		if task1.TaskType == models.TaskTypeSD || task1.TaskType == models.TaskTypeSDFTLora {
 			h1 := hexutil.MustDecode(task1.Score)
 			h2 := hexutil.MustDecode(task2.Score)
-			distance := utils.HammingDistance(h1, h2)
-			return uint64(distance) < threshold
+			return checkHammingDistance(h1, h2, threshold)
 		} else if task1.TaskType == models.TaskTypeLLM {
 			return task1.Score == task2.Score
 		} else {

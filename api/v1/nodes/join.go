@@ -22,7 +22,7 @@ type NodeJoinInput struct {
 	GPUName  string   `json:"gpu_name" description:"gpu_name" validate:"required"`
 	GPUVram  uint64   `json:"gpu_vram" description:"gpu_vram" validate:"required"`
 	Version  string   `json:"version" description:"version" validate:"required"`
-	ModelIDs []string `json:"model_ids" description:"node local model ids" validate:"requried"`
+	ModelIDs []string `json:"model_ids" description:"node local model ids" validate:"required"`
 }
 
 type NodeJoinInputWithSignature struct {

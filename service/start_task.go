@@ -53,9 +53,13 @@ func processQueuedTask(ctx context.Context, taskQueue *TaskQueue) error {
 			return err
 		}
 		if selectedNode == nil {
-			taskQueue.Push(task)
+			go func(task *models.InferenceTask) {
+				time.Sleep(2 * time.Second)
+				taskQueue.Push(task)
+			}(task)
+		} else {
+			SetTaskStatusStarted(ctx, config.GetDB(), task, selectedNode)
 		}
-		SetTaskStatusStarted(ctx, config.GetDB(), task, selectedNode)
 	}
 	return nil
 }
@@ -88,5 +92,5 @@ func StartTaskProcesser(ctx context.Context) {
 			continue
 		}
 		break
-	} 
+	}
 }

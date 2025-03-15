@@ -48,12 +48,8 @@ func SubmitScore(c *gin.Context, in *SubmitScoreInputWithSignature) (*response.R
 		}
 	}
 
-	if len(task.TaskArgs) == 0 {
-		return nil, response.NewValidationErrorResponse("task_id_commitment", "Task not ready")
-	}
-
-	if task.Status == models.TaskStarted {
-		return nil, response.NewValidationErrorResponse("task_id_commitment", "Task not ready")
+	if task.Status != models.TaskStarted {
+		return nil, response.NewValidationErrorResponse("task_id_commitment", "Illegal task state")
 	}
 
 	if task.SelectedNode != address {

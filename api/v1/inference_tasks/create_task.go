@@ -9,7 +9,6 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"errors"
-	"math/big"
 	"mime/multipart"
 	"os"
 	"path/filepath"
@@ -26,15 +25,15 @@ import (
 type TaskInput struct {
 	TaskIDCommitment string          `path:"task_id_commitment" json:"task_id_commitment" description:"Task id commitment" validate:"required"`
 	TaskArgs         string          `form:"task_args" json:"task_args" description:"Task arguments" validate:"required"`
-	TaskType         models.TaskType `form:"task_type" json:"task_type" description:"Task type" validate:"required"`
+	TaskType         *models.TaskType `form:"task_type" json:"task_type" description:"Task type" validate:"required"`
 	Nonce            string          `form:"nonce" json:"nonce" description:"nonce" validate:"required"`
 	TaskModelIDs     []string        `form:"task_model_ids" json:"task_model_ids" description:"task model ids" validate:"required"`
-	MinVram          uint64          `form:"min_vram" json:"min_vram" description:"min vram" validate:"required"`
-	RequiredGPU      string          `form:"required_gpu" json:"required_gpu" description:"required gpu name" validate:"required"`
-	RequiredGPUVram  uint64          `form:"required_gpu_vram" json:"required_gpu_vram" description:"required gpu vram" validate:"required"`
+	MinVram          *uint64          `form:"min_vram" json:"min_vram" description:"min vram" validate:"required"`
+	RequiredGPU      *string          `form:"required_gpu" json:"required_gpu" description:"required gpu name" validate:"required"`
+	RequiredGPUVram  *uint64          `form:"required_gpu_vram" json:"required_gpu_vram" description:"required gpu vram" validate:"required"`
 	TaskVersion      string          `form:"task_version" json:"task_version" description:"task version" validate:"required"`
-	TaskSize         uint64          `form:"task_size" json:"task_size" description:"task size" validate:"required"`
-	TaskFee          *big.Int        `form:"task_fee" json:"task_fee" description:"task fee, in unit wei" validate:"required"`
+	TaskSize         *uint64          `form:"task_size" json:"task_size" description:"task size" validate:"required"`
+	TaskFee          models.BigInt   `form:"task_fee" json:"task_fee" description:"task fee, in unit wei" validate:"required"`
 }
 
 type TaskInputWithSignature struct {
@@ -57,7 +56,7 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 		return nil, validationErr
 	}
 
-	validationErr, err := models.ValidateTaskArgsJsonStr(in.TaskArgs, in.TaskType)
+	validationErr, err := models.ValidateTaskArgsJsonStr(in.TaskArgs, *in.TaskType)
 	if err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
@@ -83,7 +82,7 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 		return nil, response.NewExceptionResponse(err)
 	}
 
-	if in.TaskType == models.TaskTypeSDFTLora {
+	if *in.TaskType == models.TaskTypeSDFTLora {
 		form, err := c.MultipartForm()
 		if err != nil {
 			return nil, response.NewExceptionResponse(err)
@@ -125,13 +124,13 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 		SamplingSeed:     samplingSeed,
 		Nonce:            in.Nonce,
 		Status:           models.TaskQueued,
-		TaskType:         in.TaskType,
+		TaskType:         *in.TaskType,
 		TaskVersion:      in.TaskVersion,
-		MinVRAM:          in.MinVram,
-		RequiredGPU:      in.RequiredGPU,
-		RequiredGPUVRAM:  in.RequiredGPUVram,
-		TaskFee:          models.BigInt{Int: *in.TaskFee},
-		TaskSize:         in.TaskSize,
+		MinVRAM:          *in.MinVram,
+		RequiredGPU:      *in.RequiredGPU,
+		RequiredGPUVRAM:  *in.RequiredGPUVram,
+		TaskFee:          in.TaskFee,
+		TaskSize:         *in.TaskSize,
 		ModelIDs:         in.TaskModelIDs,
 		CreateTime: sql.NullTime{
 			Time:  time.Now(),

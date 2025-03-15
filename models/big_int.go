@@ -2,6 +2,7 @@ package models
 
 import (
 	"database/sql/driver"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -33,4 +34,20 @@ func (i *BigInt) Scan(val interface{}) error {
 
 func (i BigInt) Value() (driver.Value, error) {
 	return i.String(), nil
+}
+
+func (b BigInt) MarshalJSON() ([]byte, error) {
+	return json.Marshal((*big.Int)(&b.Int).String())
+}
+
+func (b *BigInt) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return err
+	}
+	_, success := (*big.Int)(&b.Int).SetString(s, 10)
+	if !success {
+		return fmt.Errorf("failed to parse big.Int from string: %s", s)
+	}
+	return nil
 }

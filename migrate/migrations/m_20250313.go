@@ -15,7 +15,7 @@ func M20250313(db *gorm.DB) *gormigrate.Gormigrate {
 		CreatedAt time.Time      `gorm:"index"`
 		UpdatedAt time.Time      `gorm:"index"`
 		DeletedAt gorm.DeletedAt `gorm:"index"`
-		Address   string         `json:"address" gorm:"index"`
+		Address   string         `json:"address" gorm:"uniqueIndex;type:string;size:255"`
 		Balance   models.BigInt  `json:"balance" gorm:"type:string;size:255"`
 	}
 
@@ -31,13 +31,14 @@ func M20250313(db *gorm.DB) *gormigrate.Gormigrate {
 	}
 
 	type InferenceTask struct {
-		SamplingSeed string `json:"sampling_seed"`
-		Nonce        string `json:"nonce"`
-		TaskVersion  string `json:"task_version"`
-		Timeout      uint64 `json:"timeout"`
-		Score        string `json:"score" gorm:"type:text"`
-		QOSScore     uint64 `json:"qos_score"`
-		TaskID       string `json:"task_id"`
+		SamplingSeed string        `json:"sampling_seed"`
+		Nonce        string        `json:"nonce"`
+		TaskVersion  string        `json:"task_version"`
+		Timeout      uint64        `json:"timeout"`
+		Score        string        `json:"score" gorm:"type:text"`
+		QOSScore     uint64        `json:"qos_score"`
+		TaskID       string        `json:"task_id"`
+		TaskFee      models.BigInt `json:"task_fee" gorm:"type:string;size:255"`
 	}
 
 	type NodeModel struct {
@@ -66,8 +67,6 @@ func M20250313(db *gorm.DB) *gormigrate.Gormigrate {
 		JoinTime                time.Time         `json:"join_time"`
 		StakeAmount             models.BigInt     `json:"stake_amount"`
 		CurrentTaskIDCommitment sql.NullString    `json:"current_task_id_commitment" gorm:"null;default:null"`
-		CurrentTask             InferenceTask     `json:"-" gorm:"foreignKey:TaskIDCommitment;references:CurrentTaskIDCommitment"`
-		Models                  []NodeModel       `json:"-" gorm:"foreignKey:NodeAddress;references:Address"`
 	}
 
 	return gormigrate.New(db, gormigrate.DefaultOptions, []*gormigrate.Migration{
@@ -96,6 +95,9 @@ func M20250313(db *gorm.DB) *gormigrate.Gormigrate {
 					return err
 				}
 				if err := tx.Migrator().AddColumn(&InferenceTask{}, "TaskID"); err != nil {
+					return err
+				}
+				if err := tx.Migrator().AlterColumn(&InferenceTask{}, "TaskFee"); err != nil {
 					return err
 				}
 				return nil

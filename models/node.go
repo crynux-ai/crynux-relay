@@ -46,14 +46,14 @@ func (node *Node) Save(ctx context.Context, db *gorm.DB) error {
 	return nil
 }
 
-func (node *Node) Update(ctx context.Context, db *gorm.DB, newNode *Node) error {
+func (node *Node) Update(ctx context.Context, db *gorm.DB, values map[string]interface{}) error {
 	if node.ID == 0 {
 		return errors.New("Node.ID cannot be 0 when update")
 	}
 	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 	if err := db.WithContext(dbCtx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(node).Updates(newNode).Error; err != nil {
+		if err := tx.Model(node).Updates(values).Error; err != nil {
 			return err
 		}
 		if err := tx.Model(node).First(node).Error; err != nil {
@@ -93,14 +93,14 @@ func (nodeModel *NodeModel) Save(ctx context.Context, db *gorm.DB) error {
 	return nil
 }
 
-func (nodeModel *NodeModel) Update(ctx context.Context, db *gorm.DB, newNodeModel *NodeModel) error {
+func (nodeModel *NodeModel) Update(ctx context.Context, db *gorm.DB, values map[string]interface{}) error {
 	if nodeModel.ID == 0 {
 		return errors.New("Node.ID cannot be 0 when update")
 	}
 	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 	if err := db.WithContext(dbCtx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(nodeModel).Updates(newNodeModel).Error; err != nil {
+		if err := tx.Model(nodeModel).Updates(values).Error; err != nil {
 			return err
 		}
 		if err := tx.Model(nodeModel).First(nodeModel).Error; err != nil {
