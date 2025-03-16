@@ -1,18 +1,17 @@
 package inference_tasks
 
 import (
-	"context"
 	"crynux_relay/api/v1/response"
+	"crynux_relay/api/v1/validate"
 	"crynux_relay/blockchain"
 	"crynux_relay/config"
 	"crynux_relay/models"
-	"crynux_relay/utils"
+	"crynux_relay/service"
 	"errors"
 	"mime/multipart"
 	"os"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gin-gonic/gin"
@@ -32,7 +31,7 @@ type ResultInputWithSignature struct {
 
 func UploadResult(c *gin.Context, in *ResultInputWithSignature) (*response.Response, error) {
 
-	match, address, err := ValidateSignature(in.ResultInput, in.Timestamp, in.Signature)
+	match, address, err := validate.ValidateSignature(in.ResultInput, in.Timestamp, in.Signature)
 
 	if err != nil {
 		return nil, response.NewExceptionResponse(err)
@@ -43,7 +42,7 @@ func UploadResult(c *gin.Context, in *ResultInputWithSignature) (*response.Respo
 		return nil, validationErr
 	}
 
-	task, err := models.GetTaskByIDCommitment(c.Request.Context(), in.TaskIDCommitment)
+	task, err := models.GetTaskByIDCommitment(c.Request.Context(), config.GetDB(), in.TaskIDCommitment)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			validationErr := response.NewValidationErrorResponse("task_id_commitment", "Task not found")
@@ -57,20 +56,7 @@ func UploadResult(c *gin.Context, in *ResultInputWithSignature) (*response.Respo
 		return nil, response.NewValidationErrorResponse("Signature", "Signer not allowed")
 	}
 
-	taskIDCommitmentBytes, err := utils.HexStrToCommitment(in.TaskIDCommitment)
-	if err != nil {
-		return nil, response.NewValidationErrorResponse("task_id_commitment", "Invalid task id commitment")
-	}
-
-	chainCtx, chainCancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
-	defer chainCancel()
-	chainTask, err := blockchain.GetTaskByCommitment(chainCtx, *taskIDCommitmentBytes)
-	if err != nil {
-		return nil, response.NewExceptionResponse(err)
-	}
-
-	if task.Status != models.InferenceTaskParamsUploaded ||
-		(models.ChainTaskStatus(chainTask.Status) != models.ChainTaskValidated && models.ChainTaskStatus(chainTask.Status) != models.ChainTaskGroupValidated) {
+	if task.Status != models.TaskValidated && task.Status != models.TaskGroupValidated {
 		validationErr := response.NewValidationErrorResponse("task_id_commitment", "Task not validated")
 		return nil, validationErr
 	}
@@ -114,12 +100,11 @@ func UploadResult(c *gin.Context, in *ResultInputWithSignature) (*response.Respo
 	}
 
 	uploadedScore := hexutil.Encode(uploadedScoreBytes)
-	chainScore := hexutil.Encode(chainTask.Score)
 
-	log.Debugln("image compare: result from the blockchain: " + chainScore)
-	log.Debugln("image compare: result from the uploaded file: " + uploadedScore)
+	log.Debugln("image compare: submitted score: " + task.Score)
+	log.Debugln("image compare: score from the uploaded file: " + uploadedScore)
 
-	if chainScore != uploadedScore {
+	if task.Score != uploadedScore {
 		validationErr := response.NewValidationErrorResponse("files", "Wrong result files uploaded")
 		return nil, validationErr
 	}
@@ -162,12 +147,9 @@ func UploadResult(c *gin.Context, in *ResultInputWithSignature) (*response.Respo
 		}
 	}
 
-	// Update task status
-	newTask := &models.InferenceTask{Status: models.InferenceTaskResultsReady}
-
-	if err := task.Update(c.Request.Context(), newTask); err != nil {
+	err = service.SetTaskStatusEndSuccess(c.Request.Context(), config.GetDB(), task)
+	if err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
-
 	return &response.Response{}, nil
 }

@@ -1,14 +1,13 @@
 package inference_tasks
 
 import (
-	"context"
 	"crynux_relay/api/v1/response"
+	"crynux_relay/api/v1/validate"
 	"crynux_relay/config"
 	"crynux_relay/models"
 	"errors"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -28,7 +27,7 @@ type GetResultInputWithSignature struct {
 
 func GetResult(c *gin.Context, in *GetResultInputWithSignature) error {
 
-	match, address, err := ValidateSignature(in.GetResultInput, in.Timestamp, in.Signature)
+	match, address, err := validate.ValidateSignature(in.GetResultInput, in.Timestamp, in.Signature)
 
 	if err != nil || !match {
 
@@ -39,14 +38,11 @@ func GetResult(c *gin.Context, in *GetResultInputWithSignature) error {
 		return response.NewValidationErrorResponse("signature", "Invalid signature")
 	}
 
-	var task models.InferenceTask
-
-	dbCtx, dbCancel := context.WithTimeout(c.Request.Context(), time.Second)
-	defer dbCancel()
-
-	if err := config.GetDB().WithContext(dbCtx).Where(&models.InferenceTask{TaskIDCommitment: in.TaskIDCommitment}).First(&task).Error; err != nil {
+	task, err := models.GetTaskByIDCommitment(c.Request.Context(), config.GetDB(), in.TaskIDCommitment)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return response.NewValidationErrorResponse("task_id", "Task not found")
+			validationErr := response.NewValidationErrorResponse("task_id_commitment", "Task not found")
+			return validationErr
 		} else {
 			return response.NewExceptionResponse(err)
 		}
@@ -56,7 +52,7 @@ func GetResult(c *gin.Context, in *GetResultInputWithSignature) error {
 		return response.NewValidationErrorResponse("signature", "Signer not allowed")
 	}
 
-	if task.Status != models.InferenceTaskEndSuccess && task.Status != models.InferenceTaskResultsReady {
+	if task.Status != models.TaskEndSuccess {
 		return response.NewValidationErrorResponse("task_id", "Task results not uploaded")
 	}
 
@@ -100,7 +96,7 @@ type GetResultCheckpointInputWithSignature struct {
 }
 
 func GetResultCheckpoint(c *gin.Context, in *GetResultCheckpointInputWithSignature) error {
-	match, address, err := ValidateSignature(in.GetResultCheckpointInput, in.Timestamp, in.Signature)
+	match, address, err := validate.ValidateSignature(in.GetResultCheckpointInput, in.Timestamp, in.Signature)
 
 	if err != nil || !match {
 
@@ -111,14 +107,11 @@ func GetResultCheckpoint(c *gin.Context, in *GetResultCheckpointInputWithSignatu
 		return response.NewValidationErrorResponse("signature", "Invalid signature")
 	}
 
-	var task models.InferenceTask
-
-	dbCtx, dbCancel := context.WithTimeout(c.Request.Context(), time.Second)
-	defer dbCancel()
-
-	if err := config.GetDB().WithContext(dbCtx).Where(&models.InferenceTask{TaskIDCommitment: in.TaskIDCommitment}).First(&task).Error; err != nil {
+	task, err := models.GetTaskByIDCommitment(c.Request.Context(), config.GetDB(), in.TaskIDCommitment)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return response.NewValidationErrorResponse("task_id", "Task not found")
+			validationErr := response.NewValidationErrorResponse("task_id_commitment", "Task not found")
+			return validationErr
 		} else {
 			return response.NewExceptionResponse(err)
 		}
@@ -128,7 +121,7 @@ func GetResultCheckpoint(c *gin.Context, in *GetResultCheckpointInputWithSignatu
 		return response.NewValidationErrorResponse("signature", "Signer not allowed")
 	}
 
-	if task.Status != models.InferenceTaskEndSuccess && task.Status != models.InferenceTaskResultsReady {
+	if task.Status != models.TaskEndSuccess {
 		return response.NewValidationErrorResponse("task_id", "Task checkpoint not uploaded")
 	}
 

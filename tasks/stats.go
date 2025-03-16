@@ -17,7 +17,7 @@ var statsDuration time.Duration = time.Hour
 func getTaskCounts(ctx context.Context, start, end time.Time) ([]*models.TaskCount, error) {
 	var results []*models.TaskCount
 
-	taskTypes := []models.ChainTaskType{models.TaskTypeSD, models.TaskTypeLLM, models.TaskTypeSDFTLora}
+	taskTypes := []models.TaskType{models.TaskTypeSD, models.TaskTypeLLM, models.TaskTypeSDFTLora}
 
 	for _, taskType := range taskTypes {
 		var successCount, abortedCount int64
@@ -28,7 +28,7 @@ func getTaskCounts(ctx context.Context, start, end time.Time) ([]*models.TaskCou
 			if err := config.GetDB().WithContext(dbCtx).Model(&models.InferenceTask{}).
 				Where("created_at >= ?", start).Where("created_at < ?", end).
 				Where("task_type = ?", taskType).
-				Where("(status = ? OR status = ?)", models.InferenceTaskEndAborted, models.InferenceTaskEndInvalidated).
+				Where("(status = ? OR status = ?)", models.TaskEndAborted, models.TaskEndInvalidated).
 				Count(&abortedCount).Error; err != nil {
 				return err
 			}
@@ -45,7 +45,7 @@ func getTaskCounts(ctx context.Context, start, end time.Time) ([]*models.TaskCou
 			if err := config.GetDB().WithContext(dbCtx).Model(&models.InferenceTask{}).
 				Where("created_at >= ?", start).Where("created_at < ?", end).
 				Where("task_type = ?", taskType).
-				Where("(status = ? OR status = ?)", models.InferenceTaskEndSuccess, models.InferenceTaskEndGroupRefund).
+				Where("(status = ? OR status = ?)", models.TaskEndSuccess, models.TaskEndGroupRefund).
 				Count(&successCount).Error; err != nil {
 				return err
 			}
@@ -143,7 +143,7 @@ func StartStatsTaskCount(ctx context.Context) {
 func getTaskExecutionTimeCount(ctx context.Context, start, end time.Time) ([]*models.TaskExecutionTimeCount, error) {
 	var results []*models.TaskExecutionTimeCount
 
-	taskTypes := []models.ChainTaskType{models.TaskTypeSD, models.TaskTypeLLM, models.TaskTypeSDFTLora}
+	taskTypes := []models.TaskType{models.TaskTypeSD, models.TaskTypeLLM, models.TaskTypeSDFTLora}
 	binSize := 5
 	for _, taskType := range taskTypes {
 		rows, err := func() (*sql.Rows, error) {
@@ -254,7 +254,7 @@ func StartStatsTaskExecutionTimeCount(ctx context.Context) {
 func getTaskUploadResultTimeCount(ctx context.Context, start, end time.Time) ([]*models.TaskUploadResultTimeCount, error) {
 	var results []*models.TaskUploadResultTimeCount
 
-	taskTypes := []models.ChainTaskType{models.TaskTypeSD, models.TaskTypeLLM, models.TaskTypeSDFTLora}
+	taskTypes := []models.TaskType{models.TaskTypeSD, models.TaskTypeLLM, models.TaskTypeSDFTLora}
 	binSize := 5
 	for _, taskType := range taskTypes {
 		rows, err := func() (*sql.Rows, error) {
@@ -362,7 +362,7 @@ func StartStatsTaskUploadResultTimeCount(ctx context.Context) {
 func getTaskWaitingTimeCount(ctx context.Context, start, end time.Time) ([]*models.TaskWaitingTimeCount, error) {
 	var results []*models.TaskWaitingTimeCount
 
-	taskTypes := []models.ChainTaskType{models.TaskTypeSD, models.TaskTypeLLM, models.TaskTypeSDFTLora}
+	taskTypes := []models.TaskType{models.TaskTypeSD, models.TaskTypeLLM, models.TaskTypeSDFTLora}
 	binSize := 5
 	for _, taskType := range taskTypes {
 		rows, err := func() (*sql.Rows, error) {

@@ -1,4 +1,4 @@
-package inference_tasks
+package validate
 
 import (
 	"encoding/hex"
@@ -30,6 +30,7 @@ func ValidateSignature(data interface{}, timestamp int64, signature string) (boo
 	if err != nil {
 		return false, "", err
 	}
+	log.Debugf("data to verify: %s", string(dataBytes))
 
 	log.Debugln("signature to verify: " + signature)
 

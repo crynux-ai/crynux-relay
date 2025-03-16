@@ -14,7 +14,7 @@ var sdInferenceTaskSchema *jsonschema.Schema
 var gptInferenceTaskSchema *jsonschema.Schema
 var sdFinetuneLoraTaskSchema *jsonschema.Schema
 
-func ValidateTaskArgsJsonStr(jsonStr string, taskType ChainTaskType) (validationError, err error) {
+func ValidateTaskArgsJsonStr(jsonStr string, taskType TaskType) (validationError, err error) {
 	if taskType == TaskTypeSD {
 		return validateSDTaskArgs(jsonStr)
 	} else if taskType == TaskTypeLLM {

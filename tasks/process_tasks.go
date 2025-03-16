@@ -95,7 +95,7 @@ func reportTaskResultUploaded(ctx context.Context, task *models.InferenceTask) e
 
 func doWaitTaskStatus(ctx context.Context, taskIDCommitment string, status models.TaskStatus) error {
 	for {
-		task, err := models.GetTaskByIDCommitment(ctx, taskIDCommitment)
+		task, err := models.GetTaskByIDCommitment(ctx, config.GetDB(), taskIDCommitment)
 		if err != nil {
 			return err
 		}
@@ -132,80 +132,66 @@ func syncTask(ctx context.Context, task *models.InferenceTask) (*bindings.VSSTas
 	}
 
 	changed := false
-	newTask := &models.InferenceTask{}
-	chainTaskStatus := models.ChainTaskStatus(chainTask.Status)
+	newTask := make(map[string]interface{})
+	chainTaskStatus := models.TaskStatus(chainTask.Status)
 	abortReason := models.TaskAbortReason(chainTask.AbortReason)
 	taskError := models.TaskError(chainTask.Error)
 	startTimestamp := chainTask.StartTimestamp.Int64()
 	scoreReadyTimestamp := chainTask.ScoreReadyTimestamp.Int64()
 
 	if startTimestamp > 0 && !task.StartTime.Valid {
-		newTask.StartTime = sql.NullTime{
+		newTask["start_time"] = sql.NullTime{
 			Time:  time.Unix(startTimestamp, 0).UTC(),
 			Valid: true,
 		}
 		changed = true
 	}
 	if scoreReadyTimestamp > 0 && !task.ScoreReadyTime.Valid {
-		newTask.ScoreReadyTime = sql.NullTime{
+		newTask["score_ready_time"] = sql.NullTime{
 			Time:  time.Unix(scoreReadyTimestamp, 0).UTC(),
 			Valid: true,
 		}
 		changed = true
 	}
 	if abortReason != task.AbortReason {
-		newTask.AbortReason = abortReason
+		newTask["abort_reason"] = abortReason
 		changed = true
 	}
 	if taskError != task.TaskError {
-		newTask.TaskError = taskError
+		newTask["task_error"] = taskError
 		changed = true
 	}
-
-	if chainTaskStatus == models.ChainTaskParametersUploaded {
-		if task.Status != models.InferenceTaskParamsUploaded {
-			newTask.Status = models.InferenceTaskParamsUploaded
-			changed = true
-		}
-	} else if chainTaskStatus == models.ChainTaskValidated || chainTaskStatus == models.ChainTaskGroupValidated {
+	if task.Status != chainTaskStatus {
+		task.Status = chainTaskStatus
+		changed = true
+	}
+	if chainTaskStatus == models.TaskValidated || chainTaskStatus == models.TaskGroupValidated {
 		if !task.ValidatedTime.Valid {
-			newTask.ValidatedTime = sql.NullTime{
+			newTask["validated_time"] = sql.NullTime{
 				Time:  time.Now().UTC(),
 				Valid: true,
 			}
 			changed = true
 		}
-	} else if chainTaskStatus == models.ChainTaskEndAborted {
-		if task.Status != models.InferenceTaskEndAborted {
-			newTask.Status = models.InferenceTaskEndAborted
-			changed = true
-		}
+	} else if chainTaskStatus == models.TaskEndAborted {
 		if !task.ValidatedTime.Valid {
-			newTask.ValidatedTime = sql.NullTime{
+			newTask["validated_time"] = sql.NullTime{
 				Time:  time.Now().UTC(),
 				Valid: true,
 			}
 			changed = true
 		}
-	} else if chainTaskStatus == models.ChainTaskEndInvalidated {
-		if task.Status != models.InferenceTaskEndInvalidated {
-			newTask.Status = models.InferenceTaskEndInvalidated
-			changed = true
-		}
+	} else if chainTaskStatus == models.TaskEndInvalidated {
 		if !task.ValidatedTime.Valid {
-			newTask.ValidatedTime = sql.NullTime{
+			newTask["validated_time"] = sql.NullTime{
 				Time:  time.Now().UTC(),
 				Valid: true,
 			}
 			changed = true
 		}
-	} else if chainTaskStatus == models.ChainTaskEndGroupRefund {
-		if task.Status != models.InferenceTaskEndGroupRefund {
-			newTask.Status = models.InferenceTaskEndGroupRefund
-			changed = true
-		}
+	} else if chainTaskStatus == models.TaskEndGroupRefund {
 		if !task.ValidatedTime.Valid {
-			newTask.ValidatedTime = sql.NullTime{
+			newTask["validated_time"] = sql.NullTime{
 				Time:  time.Now().UTC(),
 				Valid: true,
 			}
@@ -214,7 +200,7 @@ func syncTask(ctx context.Context, task *models.InferenceTask) (*bindings.VSSTas
 	}
 
 	if changed {
-		if err := task.Update(ctx, newTask); err != nil {
+		if err := task.Update(ctx, config.GetDB(), newTask); err != nil {
 			return nil, err
 		}
 	}
@@ -229,16 +215,16 @@ func processOneTask(ctx context.Context, task *models.InferenceTask) error {
 	}
 
 	// report task params is uploaded to blochchain
-	if task.Status == models.InferenceTaskCreated {
+	if task.Status == models.TaskStarted {
 		if err := reportTaskParamsUploaded(ctx, task); err != nil {
 			return err
 		}
 
-		newTask := &models.InferenceTask{
-			Status: models.InferenceTaskParamsUploaded,
+		newTask := map[string]interface{}{
+			"status": models.TaskParametersUploaded,
 		}
 
-		if err := task.Update(ctx, newTask); err != nil {
+		if err := task.Update(ctx, config.GetDB(), newTask); err != nil {
 			return err
 		}
 		log.Infof("ProcessTasks: report task %s params uploaded", task.TaskIDCommitment)
@@ -251,9 +237,9 @@ func processOneTask(ctx context.Context, task *models.InferenceTask) error {
 		if err != nil {
 			return err
 		}
-		chainTaskStatus := models.ChainTaskStatus(chainTask.Status)
-		needResult = (chainTaskStatus == models.ChainTaskValidated || chainTaskStatus == models.ChainTaskGroupValidated)
-		if task.Status != models.InferenceTaskParamsUploaded || task.ValidatedTime.Valid {
+		chainTaskStatus := models.TaskStatus(chainTask.Status)
+		needResult = (chainTaskStatus == models.TaskValidated || chainTaskStatus == models.TaskGroupValidated)
+		if task.Status != models.TaskParametersUploaded || task.ValidatedTime.Valid {
 			break
 		}
 		time.Sleep(time.Second)
@@ -266,7 +252,7 @@ func processOneTask(ctx context.Context, task *models.InferenceTask) error {
 		err := func() error {
 			timeCtx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 			defer cancel()
-			return waitTaskStatus(timeCtx, task.TaskIDCommitment, models.InferenceTaskResultsReady)
+			return waitTaskStatus(timeCtx, task.TaskIDCommitment, models.TaskEndSuccess)
 		}()
 		if err != nil {
 			return err
@@ -277,15 +263,15 @@ func processOneTask(ctx context.Context, task *models.InferenceTask) error {
 			return err
 		}
 
-		newTask := &models.InferenceTask{
-			Status: models.InferenceTaskEndSuccess,
-			ResultUploadedTime: sql.NullTime{
+		newTask := map[string]interface{}{
+			"status": models.TaskEndSuccess,
+			"result_uploaded_time": sql.NullTime{
 				Time:  time.Now().UTC(),
 				Valid: true,
 			},
 		}
 
-		if err := task.Update(ctx, newTask); err != nil {
+		if err := task.Update(ctx, config.GetDB(), newTask); err != nil {
 			return err
 		}
 		log.Infof("ProcessTasks: report task %s result is uploaded", task.TaskIDCommitment)
@@ -308,9 +294,9 @@ func ProcessTasks(ctx context.Context) {
 			dbCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 			defer cancel()
 			err := config.GetDB().WithContext(dbCtx).Model(&models.InferenceTask{}).
-				Where("status != ?", models.InferenceTaskEndAborted).
-				Where("status != ?", models.InferenceTaskEndInvalidated).
-				Where("status != ?", models.InferenceTaskEndSuccess).
+				Where("status != ?", models.TaskEndAborted).
+				Where("status != ?", models.TaskEndInvalidated).
+				Where("status != ?", models.TaskEndSuccess).
 				Where("id > ?", lastID).
 				Find(&tasks).
 				Order("id ASC").
@@ -354,7 +340,7 @@ func ProcessTasks(ctx context.Context) {
 						case err := <-c:
 							if err != nil {
 								log.Errorf("ProcessTasks: process task %s error %v, retry", task.TaskIDCommitment, err)
-								duration := time.Duration((mrand.Float64() * 2 + 1) * 1000)
+								duration := time.Duration((mrand.Float64()*2 + 1) * 1000)
 								time.Sleep(duration * time.Millisecond)
 							} else {
 								log.Infof("ProcessTasks: process task %s successfully", task.TaskIDCommitment)
@@ -365,8 +351,8 @@ func ProcessTasks(ctx context.Context) {
 							log.Errorf("ProcessTasks: process task %s timeout %v, finish", task.TaskIDCommitment, err)
 							// set task status to aborted to avoid processing it again
 							if err == context.DeadlineExceeded {
-								newTask := &models.InferenceTask{Status: models.InferenceTaskEndAborted}
-								if err := task.Update(ctx, newTask); err != nil {
+								newTask := map[string]interface{}{"status": models.TaskEndAborted}
+								if err := task.Update(ctx, config.GetDB(), newTask); err != nil {
 									log.Errorf("ProcessTasks: save task %s error %v", task.TaskIDCommitment, err)
 								}
 							}
