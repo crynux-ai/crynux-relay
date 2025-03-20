@@ -2,10 +2,10 @@ package models
 
 import (
 	"database/sql/driver"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 )
 
 type BigInt struct {
@@ -36,18 +36,31 @@ func (i BigInt) Value() (driver.Value, error) {
 	return i.String(), nil
 }
 
-func (b BigInt) MarshalJSON() ([]byte, error) {
-	return json.Marshal((*big.Int)(&b.Int).String())
+func (i BigInt) MarshalText() ([]byte, error) {
+	s := i.String()
+	return fmt.Appendf(nil, "\"%s\"", s), nil
 }
 
-func (b *BigInt) UnmarshalJSON(data []byte) error {
-	var s string
-	if err := json.Unmarshal(data, &s); err != nil {
-		return err
+func (i *BigInt) UnmarshalText(data []byte) error {
+	s := string(data)
+	s = strings.Trim(s, "\"")
+
+	var z big.Int
+	_, ok := z.SetString(s, 10)
+	if !ok {
+		return fmt.Errorf("not a valid big integer: %s", s)
 	}
-	_, success := (*big.Int)(&b.Int).SetString(s, 10)
-	if !success {
-		return fmt.Errorf("failed to parse big.Int from string: %s", s)
-	}
+	i.Int = z
 	return nil
+}
+
+func (i BigInt) MarshalJSON() ([]byte, error) {
+	return i.MarshalText()
+}
+
+func (i *BigInt) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		return nil
+	}
+	return i.UnmarshalText(data)
 }

@@ -67,7 +67,11 @@ func GetBalance(ctx context.Context, db *gorm.DB, address string) (*big.Int, err
 	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 	var balance models.Balance
-	if err := db.WithContext(dbCtx).Where("address = ?", address).First(&balance).Error; err != nil {
+	err := db.WithContext(dbCtx).Where("address = ?", address).First(&balance).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return big.NewInt(0), err
+	}
+	if err != nil {
 		return nil, err
 	}
 	return &balance.Balance.Int, nil

@@ -17,6 +17,5 @@ func WeiToEther(wei *big.Int) *big.Float {
 }
 
 func EtherToWei(ether *big.Int) *big.Int {
-	m := big.NewInt(0).Exp(big.NewInt(10), big.NewInt(18), nil)
-	return big.NewInt(0).Mul(ether, m)
+	return big.NewInt(0).Mul(ether, big.NewInt(params.Ether))
 }

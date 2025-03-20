@@ -52,7 +52,7 @@ func GetResult(c *gin.Context, in *GetResultInputWithSignature) error {
 		return response.NewValidationErrorResponse("signature", "Signer not allowed")
 	}
 
-	if task.Status != models.TaskEndSuccess {
+	if task.Status != models.TaskEndSuccess && task.Status != models.TaskEndGroupSuccess {
 		return response.NewValidationErrorResponse("task_id", "Task results not uploaded")
 	}
 

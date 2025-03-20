@@ -50,10 +50,6 @@ func GetTaskById(c *gin.Context, in *GetTaskInputWithSignature) (*TaskResponse, 
 		return nil, response.NewValidationErrorResponse("task_id_commitment", "Task not ready")
 	}
 
-	if task.Status == models.TaskQueued {
-		return nil, response.NewValidationErrorResponse("task_id_commitment", "Task not ready")
-	}
-
 	if task.SelectedNode != address && task.Creator != address {
 		return nil, response.NewValidationErrorResponse("signature", "Signer not allowed")
 	}

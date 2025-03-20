@@ -23,17 +23,17 @@ import (
 )
 
 type TaskInput struct {
-	TaskIDCommitment string          `path:"task_id_commitment" json:"task_id_commitment" description:"Task id commitment" validate:"required"`
-	TaskArgs         string          `form:"task_args" json:"task_args" description:"Task arguments" validate:"required"`
+	TaskIDCommitment string           `path:"task_id_commitment" json:"task_id_commitment" description:"Task id commitment" validate:"required"`
+	TaskArgs         string           `form:"task_args" json:"task_args" description:"Task arguments" validate:"required"`
 	TaskType         *models.TaskType `form:"task_type" json:"task_type" description:"Task type" validate:"required"`
-	Nonce            string          `form:"nonce" json:"nonce" description:"nonce" validate:"required"`
-	TaskModelIDs     []string        `form:"task_model_ids" json:"task_model_ids" description:"task model ids" validate:"required"`
+	Nonce            string           `form:"nonce" json:"nonce" description:"nonce" validate:"required"`
+	TaskModelIDs     []string         `form:"task_model_ids" json:"task_model_ids" description:"task model ids" validate:"required"`
 	MinVram          *uint64          `form:"min_vram" json:"min_vram" description:"min vram" validate:"required"`
 	RequiredGPU      *string          `form:"required_gpu" json:"required_gpu" description:"required gpu name" validate:"required"`
 	RequiredGPUVram  *uint64          `form:"required_gpu_vram" json:"required_gpu_vram" description:"required gpu vram" validate:"required"`
-	TaskVersion      string          `form:"task_version" json:"task_version" description:"task version" validate:"required"`
+	TaskVersion      string           `form:"task_version" json:"task_version" description:"task version" validate:"required"`
 	TaskSize         *uint64          `form:"task_size" json:"task_size" description:"task size" validate:"required"`
-	TaskFee          models.BigInt   `form:"task_fee" json:"task_fee" description:"task fee, in unit wei" validate:"required"`
+	TaskFee          models.BigInt    `form:"task_fee" json:"task_fee" description:"task fee, in unit wei" validate:"required"`
 }
 
 type TaskInputWithSignature struct {
@@ -43,7 +43,6 @@ type TaskInputWithSignature struct {
 }
 
 func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, error) {
-
 	match, address, err := validate.ValidateSignature(in.TaskInput, in.Timestamp, in.Signature)
 
 	if err != nil || !match {
@@ -136,7 +135,7 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 			Time:  time.Now(),
 			Valid: true,
 		},
-		Timeout: appConfig.Task.Timeout,
+		Timeout: appConfig.Task.Timeout * 60, // appConfig.Task.Timeout is in minutes
 	}
 
 	if err := service.CreateTask(c.Request.Context(), config.GetDB(), task); err != nil {
