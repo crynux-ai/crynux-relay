@@ -96,11 +96,11 @@ func InitRoutes(r *fizz.Fizz) {
 		fizz.Summary("Node resume"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(nodes.NodeResume, 200))
-	nodeGroup.POST("/:address/model/", []fizz.OperationOption{
+	nodeGroup.POST("/:address/model", []fizz.OperationOption{
 		fizz.Summary("Add node's local model id"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(nodes.AddModelID, 200))
-	nodeGroup.POST("/:address/version/", []fizz.OperationOption{
+	nodeGroup.POST("/:address/version", []fizz.OperationOption{
 		fizz.Summary("Update node's version"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(nodes.UpdateNodeVersion, 200))
@@ -202,6 +202,10 @@ func InitRoutes(r *fizz.Fizz) {
 		fizz.Summary("Get node event logs in the recent hour"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(stats.GetNodeEventLogs, 200))
+	statsGroup.GET("/queue/count", []fizz.OperationOption{
+		fizz.Summary("Get queued tasks count"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(stats.GetQueuedTasksCount, 200))
 
 	incentiveGroup := v1g.Group("incentive", "incentive", "incentive statistics related APIs")
 

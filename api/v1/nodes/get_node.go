@@ -4,9 +4,11 @@ import (
 	"crynux_relay/api/v1/response"
 	"crynux_relay/config"
 	"crynux_relay/models"
+	"errors"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type GetNodeInput struct {
@@ -15,6 +17,20 @@ type GetNodeInput struct {
 
 func GetNode(c *gin.Context, input *GetNodeInput) (*NodeResponse, error) {
 	node, err := models.GetNodeByAddress(c.Request.Context(), config.GetDB(), input.Address)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return &NodeResponse{
+			Data: &Node{
+				Address:       input.Address,
+				Status:        models.NodeStatusQuit,
+				GPUName:       "",
+				GPUVram:       0,
+				QOSScore:      0,
+				Version:       "",
+				InUseModelIDs: []string{},
+				ModelIDs:      []string{},
+			},
+		}, nil
+	}
 	if err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}

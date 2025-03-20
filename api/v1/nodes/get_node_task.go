@@ -19,19 +19,21 @@ type GetNodeTaskResponse struct {
 	Data string `json:"data" description:"node current task taskIDCommitment, empty string means no task"`
 }
 
+const zeroTaskIDCommitment = "0x0000000000000000000000000000000000000000000000000000000000000000"
+
 func GetNodeTask(c *gin.Context, in *GetNodeTaskInput) (*GetNodeTaskResponse, error) {
 	node, err := models.GetNodeByAddress(c.Request.Context(), config.GetDB(), in.Address)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return &GetNodeTaskResponse{Data: zeroTaskIDCommitment}, nil
+	}
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, response.NewValidationErrorResponse("address", "Node not found")
-		}
 		return nil, err
 	}
 	resp := &GetNodeTaskResponse{}
 	if node.CurrentTaskIDCommitment.Valid {
 		resp.Data = node.CurrentTaskIDCommitment.String
 	} else {
-		resp.Data = ""
+		resp.Data = zeroTaskIDCommitment
 	}
 	return resp, nil
 }

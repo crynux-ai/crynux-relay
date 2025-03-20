@@ -51,7 +51,7 @@ func GetEvents(c *gin.Context, in *GetEventsInput) (*GetEventsResponse, error) {
 	}
 	err := config.GetDB().WithContext(dbCtx).
 		Model(event).
-		Where("created_at >= ? AND created_at <= ?", startTime, endTime).
+		Where("created_at >= ? AND created_at < ?", startTime, endTime).
 		Where(event).
 		Order("created_at").
 		Limit(in.PageSize).
