@@ -67,10 +67,10 @@ func GetNodeEventLogs(ctx *gin.Context) error {
 		nodeData := nodeDataMap[task.SelectedNode]
 		timeString := task.StartTime.Time.UTC().Format(time.RFC3339)
 		fmt.Fprintf(&builder, "[%s] [%s] [%s.%d] [%s] [%s] [%s]\n", timeString, "Node selected", nodeData.CardModel, nodeData.VRam, task.SelectedNode, task.SelectedNode, task.TaskIDCommitment)
-		if task.Status == models.InferenceTaskEndGroupRefund || task.Status == models.InferenceTaskEndAborted || task.Status == models.InferenceTaskEndInvalidated {
+		if task.Status == models.TaskEndGroupRefund || task.Status == models.TaskEndAborted || task.Status == models.TaskEndInvalidated {
 			timeString = task.ValidatedTime.Time.UTC().Format(time.RFC3339)
 			fmt.Fprintf(&builder, "[%s] [%s] [%s.%d] [%s] [%s] [%s]\n", timeString, "Node released", nodeData.CardModel, nodeData.VRam, task.SelectedNode, task.SelectedNode, task.TaskIDCommitment)
-		} else if task.Status == models.InferenceTaskEndSuccess {
+		} else if task.Status == models.TaskEndSuccess {
 			timeString = task.ResultUploadedTime.Time.UTC().Format(time.RFC3339)
 			fmt.Fprintf(&builder, "[%s] [%s] [%s.%d] [%s] [%s] [%s]\n", timeString, "Node released", nodeData.CardModel, nodeData.VRam, task.SelectedNode, task.SelectedNode, task.TaskIDCommitment)
 		}

@@ -1,9 +1,12 @@
 package v1
 
 import (
+	"crynux_relay/api/v1/balance"
+	"crynux_relay/api/v1/event"
 	"crynux_relay/api/v1/incentive"
 	"crynux_relay/api/v1/inference_tasks"
 	"crynux_relay/api/v1/network"
+	"crynux_relay/api/v1/nodes"
 	"crynux_relay/api/v1/response"
 	"crynux_relay/api/v1/stats"
 	"crynux_relay/api/v1/time"
@@ -55,6 +58,72 @@ func InitRoutes(r *fizz.Fizz) {
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(inference_tasks.GetCheckpoint, 200))
 
+	tasksGroup.POST("/:task_id_commitment/score", []fizz.OperationOption{
+		fizz.Summary("Submit task score"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(inference_tasks.SubmitScore, 200))
+	tasksGroup.POST("/validate", []fizz.OperationOption{
+		fizz.Summary("Validate single task or task group"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(inference_tasks.ValidateTask, 200))
+	tasksGroup.POST("/:task_id_commitment/abort_reason", []fizz.OperationOption{
+		fizz.Summary("Abort task, report task abort resaon"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(inference_tasks.AbortTask, 200))
+	tasksGroup.POST("/:task_id_commitment/task_error", []fizz.OperationOption{
+		fizz.Summary("Report task error"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(inference_tasks.ReportTaskError, 200))
+
+	nodeGroup := v1g.Group("node", "node", "Node APIs")
+	nodeGroup.GET("/:address", []fizz.OperationOption{
+		fizz.Summary("Get node info"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(nodes.GetNode, 200))
+	nodeGroup.POST("/:address/join", []fizz.OperationOption{
+		fizz.Summary("Node join"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(nodes.NodeJoin, 200))
+	nodeGroup.POST("/:address/quit", []fizz.OperationOption{
+		fizz.Summary("Node quit"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(nodes.NodeQuit, 200))
+	nodeGroup.POST("/:address/pause", []fizz.OperationOption{
+		fizz.Summary("Node pause"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(nodes.NodePause, 200))
+	nodeGroup.POST("/:address/resume", []fizz.OperationOption{
+		fizz.Summary("Node resume"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(nodes.NodeResume, 200))
+	nodeGroup.POST("/:address/model", []fizz.OperationOption{
+		fizz.Summary("Add node's local model id"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(nodes.AddModelID, 200))
+	nodeGroup.POST("/:address/version", []fizz.OperationOption{
+		fizz.Summary("Update node's version"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(nodes.UpdateNodeVersion, 200))
+	nodeGroup.GET("/:address/task", []fizz.OperationOption{
+		fizz.Summary("Get node current task"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(nodes.GetNodeTask, 200))
+
+	balanceGroup := v1g.Group("balance", "balance", "balance related APIs")
+	balanceGroup.GET("/:address", []fizz.OperationOption{
+		fizz.Summary("Get balance of account"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(balance.GetBalance, 200))
+	balanceGroup.POST("/:from/transfer", []fizz.OperationOption{
+		fizz.Summary("Transfer balance of account"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(balance.Transfer, 200))
+
+	eventsGroup := v1g.Group("events", "events", "events related APIs")
+	eventsGroup.GET("", []fizz.OperationOption{
+		fizz.Summary("Get events"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(event.GetEvents, 200))
 
 	networkGroup := v1g.Group("network", "network", "Network stats related APIs")
 
@@ -133,6 +202,10 @@ func InitRoutes(r *fizz.Fizz) {
 		fizz.Summary("Get node event logs in the recent hour"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(stats.GetNodeEventLogs, 200))
+	statsGroup.GET("/queue/count", []fizz.OperationOption{
+		fizz.Summary("Get queued tasks count"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(stats.GetQueuedTasksCount, 200))
 
 	incentiveGroup := v1g.Group("incentive", "incentive", "incentive statistics related APIs")
 

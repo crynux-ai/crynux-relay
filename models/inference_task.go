@@ -2,51 +2,41 @@ package models
 
 import (
 	"context"
-	"crynux_relay/config"
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
+	log "github.com/sirupsen/logrus"
+
 	"gorm.io/gorm"
-)
-
-type ChainTaskStatus uint8
-
-const (
-	ChainTaskQueued ChainTaskStatus = iota
-	ChainTaskStarted
-	ChainTaskParametersUploaded
-	ChainTaskErrorReported
-	ChainTaskScoreReady
-	ChainTaskValidated
-	ChainTaskGroupValidated
-	ChainTaskEndInvalidated
-	ChainTaskEndSuccess
-	ChainTaskEndAborted
-	ChainTaskEndGroupRefund
-	ChainTaskEndGroupSuccess
 )
 
 type TaskStatus uint8
 
 const (
-	InferenceTaskCreated TaskStatus = iota
-	InferenceTaskParamsUploaded
-	InferenceTaskResultsReady
-	InferenceTaskEndAborted
-	InferenceTaskEndGroupRefund
-	InferenceTaskEndInvalidated
-	InferenceTaskEndSuccess
+	TaskQueued TaskStatus = iota
+	TaskStarted
+	TaskParametersUploaded
+	TaskErrorReported
+	TaskScoreReady
+	TaskValidated
+	TaskGroupValidated
+	TaskEndInvalidated
+	TaskEndSuccess
+	TaskEndAborted
+	TaskEndGroupRefund
+	TaskEndGroupSuccess
 )
 
-type ChainTaskType uint8
+type TaskType uint8
 
 const (
-	TaskTypeSD ChainTaskType = iota
+	TaskTypeSD TaskType = iota
 	TaskTypeLLM
 	TaskTypeSDFTLora
 )
@@ -69,7 +59,6 @@ const (
 )
 
 type StringArray []string
-
 
 func (arr *StringArray) Scan(val interface{}) error {
 	var arrString string
@@ -105,17 +94,24 @@ type InferenceTask struct {
 	TaskArgs         string          `json:"task_args"`
 	TaskIDCommitment string          `json:"task_id_commitment" gorm:"index"`
 	Creator          string          `json:"creator"`
+	SamplingSeed     string          `json:"sampling_seed"`
+	Nonce            string          `json:"nonce"`
 	Status           TaskStatus      `json:"status"`
-	TaskType         ChainTaskType   `json:"task_type" gorm:"index"`
+	TaskType         TaskType        `json:"task_type" gorm:"index"`
+	TaskVersion      string          `json:"task_version"`
+	Timeout          uint64          `json:"timeout"`
 	MinVRAM          uint64          `json:"min_vram"`
 	RequiredGPU      string          `json:"required_gpu"`
 	RequiredGPUVRAM  uint64          `json:"required_gpu_vram"`
-	TaskFee          float64         `json:"task_fee"`
+	TaskFee          BigInt          `json:"task_fee"`
 	TaskSize         uint64          `json:"task_size"`
 	ModelIDs         StringArray     `json:"model_ids" gorm:"type:text"`
 	AbortReason      TaskAbortReason `json:"abort_reason"`
 	TaskError        TaskError       `json:"task_error"`
+	Score            string          `json:"score" gorm:"type:text"`
+	QOSScore         uint64          `json:"qos_score"`
 	SelectedNode     string          `json:"selected_node"`
+	TaskID           string          `json:"task_id"`
 	// time when task is created (get from blockchain)
 	CreateTime sql.NullTime `json:"create_time" gorm:"index;null;default:null"`
 	// time when task is started (get from blockchain)
@@ -128,23 +124,43 @@ type InferenceTask struct {
 	ResultUploadedTime sql.NullTime `json:"result_uploaded_time" gorm:"index;null;default:null"`
 }
 
-func (task *InferenceTask) Save(ctx context.Context) error {
+func (task *InferenceTask) VersionNumbers() [3]uint64 {
+	taskVersions := strings.Split(task.TaskVersion, ".")
+	if len(taskVersions) != 3 {
+		log.Fatalf("Task version is invalid: %d", task.ID)
+	}
+	taskMajorVersion, err := strconv.ParseUint(taskVersions[0], 10, 64)
+	if err != nil {
+		log.Fatalf("Task version is invalid: %d", task.ID)
+	}
+	taskMinorVersion, err := strconv.ParseUint(taskVersions[1], 10, 64)
+	if err != nil {
+		log.Fatalf("Task version is invalid: %d", task.ID)
+	}
+	taskPatchVersion, err := strconv.ParseUint(taskVersions[2], 10, 64)
+	if err != nil {
+		log.Fatalf("Task version is invalid: %d", task.ID)
+	}
+	return [3]uint64{taskMajorVersion, taskMinorVersion, taskPatchVersion}
+}
+
+func (task *InferenceTask) Save(ctx context.Context, db *gorm.DB) error {
 	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
-	if err := config.GetDB().WithContext(dbCtx).Save(&task).Error; err != nil {
+	if err := db.WithContext(dbCtx).Save(task).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
-func (task *InferenceTask) Update(ctx context.Context, newTask *InferenceTask) error {
+func (task *InferenceTask) Update(ctx context.Context, db *gorm.DB, values map[string]interface{}) error {
 	if task.ID == 0 {
 		return errors.New("InferenceTask.ID cannot be 0 when update")
 	}
 	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
-	if err := config.GetDB().WithContext(dbCtx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(task).Updates(newTask).Error; err != nil {
+	if err := db.WithContext(dbCtx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(task).Updates(values).Error; err != nil {
 			return err
 		}
 		if err := tx.Model(task).First(task).Error; err != nil {
@@ -157,12 +173,29 @@ func (task *InferenceTask) Update(ctx context.Context, newTask *InferenceTask) e
 	return nil
 }
 
-func GetTaskByIDCommitment(ctx context.Context, taskIDCommitment string) (*InferenceTask, error) {
+func GetTaskByIDCommitment(ctx context.Context, db *gorm.DB, taskIDCommitment string) (*InferenceTask, error) {
 	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 	task := InferenceTask{TaskIDCommitment: taskIDCommitment}
-	if err := config.GetDB().WithContext(dbCtx).Model(&task).Where(&task).First(&task).Error; err != nil {
+	if err := db.WithContext(dbCtx).Model(&task).Where(&task).First(&task).Error; err != nil {
 		return nil, err
 	}
 	return &task, nil
+}
+
+func GetTaskGroupByTaskID(ctx context.Context, db *gorm.DB, taskID string) ([]InferenceTask, error) {
+	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	var tasks []InferenceTask
+	if err := db.WithContext(dbCtx).Model(&InferenceTask{}).Where("task_id = ?", taskID).Find(&tasks).Error; err != nil {
+		return nil, err
+	}
+	return tasks, nil
+}
+
+func (task *InferenceTask) ExecutionTime() time.Duration {
+	if task.StartTime.Valid && task.ScoreReadyTime.Valid {
+		return task.ScoreReadyTime.Time.Sub(task.StartTime.Time)
+	}
+	return time.Duration(1<<63 - 1)
 }

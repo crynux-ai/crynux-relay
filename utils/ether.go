@@ -15,3 +15,7 @@ func WeiToEther(wei *big.Int) *big.Float {
 	fWei.SetMode(big.ToNearestEven)
 	return f.Quo(fWei.SetInt(wei), big.NewFloat(params.Ether))
 }
+
+func EtherToWei(ether *big.Int) *big.Int {
+	return big.NewInt(0).Mul(ether, big.NewInt(params.Ether))
+}

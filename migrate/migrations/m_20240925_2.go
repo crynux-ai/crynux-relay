@@ -12,22 +12,22 @@ func M20240925_2(db *gorm.DB) *gormigrate.Gormigrate {
 	type TaskCount struct {
 		gorm.Model
 
-		Start        time.Time            `json:"start" gorm:"index"`
-		End          time.Time            `json:"end"`
-		TaskType     models.ChainTaskType `json:"task_type" gorm:"index"`
-		TotalCount   int64                `json:"total_count"`
-		SuccessCount int64                `json:"success_count"`
-		AbortedCount int64                `json:"aborted_count"`
+		Start        time.Time       `json:"start" gorm:"index"`
+		End          time.Time       `json:"end"`
+		TaskType     models.TaskType `json:"task_type" gorm:"index"`
+		TotalCount   int64           `json:"total_count"`
+		SuccessCount int64           `json:"success_count"`
+		AbortedCount int64           `json:"aborted_count"`
 	}
 
 	type TaskExecutionTimeCount struct {
 		gorm.Model
 
-		Start    time.Time            `json:"start" gorm:"index"`
-		End      time.Time            `json:"end"`
-		TaskType models.ChainTaskType `json:"task_type" gorm:"index"`
-		Seconds  int64                `json:"seconds"`
-		Count    int64                `json:"count"`
+		Start    time.Time       `json:"start" gorm:"index"`
+		End      time.Time       `json:"end"`
+		TaskType models.TaskType `json:"task_type" gorm:"index"`
+		Seconds  int64           `json:"seconds"`
+		Count    int64           `json:"count"`
 	}
 
 	return gormigrate.New(db, gormigrate.DefaultOptions, []*gormigrate.Migration{
