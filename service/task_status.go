@@ -112,6 +112,7 @@ func SetTaskStatusScoreReady(ctx context.Context, db *gorm.DB, task *models.Infe
 			"status":           models.TaskScoreReady,
 			"score":            task.Score,
 			"score_ready_time": sql.NullTime{Time: time.Now(), Valid: true},
+			"qos_score":        getTaskQosScore(0),
 		})
 		if err != nil {
 			return err
@@ -134,6 +135,7 @@ func SetTaskStatusErrorReported(ctx context.Context, db *gorm.DB, task *models.I
 			"status":           models.TaskErrorReported,
 			"task_error":       task.TaskError,
 			"score_ready_time": sql.NullTime{Time: time.Now(), Valid: true},
+			"qos_score":        getTaskQosScore(0),
 		})
 		if err != nil {
 			return err
@@ -256,10 +258,6 @@ func SetTaskStatusEndAborted(ctx context.Context, db *gorm.DB, task *models.Infe
 		node, err := checkTaskSelectedNode(ctx, db, task)
 		if err != nil {
 			return err
-		}
-
-		if lastStatus == models.TaskScoreReady || lastStatus == models.TaskErrorReported {
-			newTask["qos_score"] = task.QOSScore
 		}
 
 		return db.Transaction(func(tx *gorm.DB) error {

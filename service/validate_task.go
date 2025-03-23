@@ -96,7 +96,6 @@ func ValidateSingleTask(ctx context.Context, task *models.InferenceTask, taskID,
 	}
 
 	if task.Status == models.TaskScoreReady {
-		task.QOSScore = getTaskQosScore(0)
 		return SetTaskStatusValidated(ctx, config.GetDB(), task)
 	} else {
 		task.AbortReason = models.TaskAbortIncorrectResult
@@ -183,8 +182,10 @@ func ValidateTaskGroup(ctx context.Context, tasks []*models.InferenceTask, taskI
 	})
 	// set task qos score
 	for i, task := range tasks {
-		score := getTaskQosScore(i)
-		task.QOSScore = score
+		if task.Status != models.TaskEndAborted {
+			score := getTaskQosScore(i)
+			task.QOSScore = score
+		}
 	}
 
 	// validate tasks' score
