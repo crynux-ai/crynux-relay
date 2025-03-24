@@ -10,26 +10,24 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type GetEventsInput struct {
-	Start            uint    `query:"start" description:"start event id of this query"`
+type GetCurrentEventIDInput struct {
 	EventType        *string `query:"event_type" description:"Event type"`
 	NodeAddress      *string `query:"node_address" description:"Node address"`
 	TaskIDCommitment *string `query:"task_id_commitment" description:"Task id commitment"`
-	Limit            int     `query:"limit" description:"Event count limit" default:"50"`
 }
 
-type GetEventsResponse struct {
+type GetCurrentEventIDResponse struct {
 	response.Response
-	Data []*models.Event `json:"data"`
+	Data uint `json:"data"`
 }
 
-func GetEvents(c *gin.Context, in *GetEventsInput) (*GetEventsResponse, error) {
+func GetCurrentEventID(c *gin.Context, in *GetCurrentEventIDInput) (*GetCurrentEventIDResponse, error) {
 	dbCtx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
 	defer cancel()
 
-	var events []*models.Event
+	var event models.Event
 
-	stmt := config.GetDB().WithContext(dbCtx).Model(&models.Event{}).Where("id > ?", in.Start)
+	stmt := config.GetDB().WithContext(dbCtx).Model(&event)
 	if in.EventType != nil {
 		stmt.Where("event_type = ?", *in.EventType)
 	}
@@ -39,14 +37,11 @@ func GetEvents(c *gin.Context, in *GetEventsInput) (*GetEventsResponse, error) {
 	if in.TaskIDCommitment != nil {
 		stmt.Where("task_id_commitment = ?", *in.TaskIDCommitment)
 	}
-	err := stmt.
-		Order("id").
-		Limit(in.Limit).
-		Find(&events).Error
+	err := stmt.Order("id DESC").First(&event).Error
 	if err != nil {
 		return nil, err
 	}
-	return &GetEventsResponse{
-		Data: events,
+	return &GetCurrentEventIDResponse{
+		Data: event.ID,
 	}, nil
 }
