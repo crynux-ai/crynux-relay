@@ -18,6 +18,8 @@ import (
 
 type TaskStatus uint8
 
+var ErrTaskIDEmpty = errors.New("InferenceTask.ID is 0")
+
 const (
 	TaskQueued TaskStatus = iota
 	TaskStarted
@@ -144,6 +146,18 @@ func (task *InferenceTask) VersionNumbers() [3]uint64 {
 	return [3]uint64{taskMajorVersion, taskMinorVersion, taskPatchVersion}
 }
 
+func (task *InferenceTask) SyncFromDB(ctx context.Context, db *gorm.DB) error {
+	if task.ID == 0 {
+		return ErrTaskIDEmpty
+	}
+	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	if err := db.WithContext(dbCtx).Model(task).First(task).Error; err != nil {
+		return err
+	}
+	return nil
+}
+
 func (task *InferenceTask) Save(ctx context.Context, db *gorm.DB) error {
 	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
@@ -155,7 +169,7 @@ func (task *InferenceTask) Save(ctx context.Context, db *gorm.DB) error {
 
 func (task *InferenceTask) Update(ctx context.Context, db *gorm.DB, values map[string]interface{}) error {
 	if task.ID == 0 {
-		return errors.New("InferenceTask.ID cannot be 0 when update")
+		return ErrTaskIDEmpty
 	}
 	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
