@@ -10,7 +10,10 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"slices"
 )
+
+var errWrongTaskStatus = errors.New("illegal previous task status")
 
 func CreateTask(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
 	appConfig := config.GetConfig()
@@ -23,7 +26,21 @@ func CreateTask(ctx context.Context, db *gorm.DB, task *models.InferenceTask) er
 	})
 }
 
+func checkTaskStatus(ctx context.Context, db *gorm.DB, task *models.InferenceTask, expectedStatus ...models.TaskStatus) error {
+	err := task.SyncFromDB(ctx, db)
+	if err != nil {
+		return err
+	}
+	if slices.Contains(expectedStatus, task.Status) {
+		return nil
+	}
+	return errWrongTaskStatus
+}
+
 func SetTaskStatusStarted(ctx context.Context, db *gorm.DB, task *models.InferenceTask, node *models.Node) error {
+	if err := checkTaskStatus(ctx, db, task, models.TaskQueued); err != nil {
+		return err
+	}
 	// start inference task
 	err := db.Transaction(func(tx *gorm.DB) error {
 		dbCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
@@ -102,6 +119,10 @@ func checkTaskSelectedNode(ctx context.Context, db *gorm.DB, task *models.Infere
 }
 
 func SetTaskStatusScoreReady(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
+	if err := checkTaskStatus(ctx, db, task, models.TaskStarted); err != nil {
+		return err
+	}
+
 	_, err := checkTaskSelectedNode(ctx, db, task)
 	if err != nil {
 		return err
@@ -126,6 +147,10 @@ func SetTaskStatusScoreReady(ctx context.Context, db *gorm.DB, task *models.Infe
 }
 
 func SetTaskStatusErrorReported(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
+	if err := checkTaskStatus(ctx, db, task, models.TaskStarted); err != nil {
+		return err
+	}
+
 	_, err := checkTaskSelectedNode(ctx, db, task)
 	if err != nil {
 		return err
@@ -149,6 +174,10 @@ func SetTaskStatusErrorReported(ctx context.Context, db *gorm.DB, task *models.I
 }
 
 func SetTaskStatusValidated(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
+	if err := checkTaskStatus(ctx, db, task, models.TaskScoreReady); err != nil {
+		return err
+	}
+
 	_, err := checkTaskSelectedNode(ctx, db, task)
 	if err != nil {
 		return err
@@ -169,6 +198,10 @@ func SetTaskStatusValidated(ctx context.Context, db *gorm.DB, task *models.Infer
 }
 
 func SetTaskStatusGroupValidated(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
+	if err := checkTaskStatus(ctx, db, task, models.TaskScoreReady); err != nil {
+		return err
+	}
+
 	_, err := checkTaskSelectedNode(ctx, db, task)
 	if err != nil {
 		return err
@@ -189,6 +222,10 @@ func SetTaskStatusGroupValidated(ctx context.Context, db *gorm.DB, task *models.
 }
 
 func SetTaskStatusEndInvalidated(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
+	if err := checkTaskStatus(ctx, db, task, models.TaskScoreReady, models.TaskEndAborted, models.TaskErrorReported); err != nil {
+		return err
+	}
+
 	node, err := checkTaskSelectedNode(ctx, db, task)
 	if err != nil {
 		return err
@@ -210,6 +247,10 @@ func SetTaskStatusEndInvalidated(ctx context.Context, db *gorm.DB, task *models.
 }
 
 func SetTaskStatusEndGroupRefund(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
+	if err := checkTaskStatus(ctx, db, task, models.TaskScoreReady); err != nil {
+		return err
+	}
+
 	node, err := checkTaskSelectedNode(ctx, db, task)
 	if err != nil {
 		return err
@@ -239,11 +280,14 @@ func SetTaskStatusEndGroupRefund(ctx context.Context, db *gorm.DB, task *models.
 }
 
 func SetTaskStatusEndAborted(ctx context.Context, db *gorm.DB, task *models.InferenceTask, aboutIssuer string) error {
+	if err := task.SyncFromDB(ctx, db); err != nil {
+		return err
+	}
 	if task.Status == models.TaskEndAborted {
 		return nil
 	}
 	if task.Status == models.TaskEndSuccess || task.Status == models.TaskEndInvalidated || task.Status == models.TaskEndGroupSuccess || task.Status == models.TaskEndGroupRefund {
-		return errors.New("illegal previous task state")
+		return errWrongTaskStatus
 	}
 	lastStatus := task.Status
 

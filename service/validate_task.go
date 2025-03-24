@@ -105,7 +105,7 @@ func ValidateSingleTask(ctx context.Context, task *models.InferenceTask, taskID,
 }
 
 func checkHammingDistance(h1, h2 []byte, threshold uint64) bool {
-	if len(h1) != len(h2) || len(h1) % 8 != 0 {
+	if len(h1) != len(h2) || len(h1)%8 != 0 {
 		return false
 	}
 
@@ -213,20 +213,29 @@ func ValidateTaskGroup(ctx context.Context, tasks []*models.InferenceTask, taskI
 				if err := SetTaskStatusEndAborted(ctx, tx, task, task.Creator); err != nil {
 					return err
 				}
+				continue
 			}
-			if isValid[i] {
-				if !emitValidated {
-					if err := SetTaskStatusGroupValidated(ctx, tx, task); err != nil {
-						return err
-					}
-					emitValidated = true
-				} else {
-					if err := SetTaskStatusEndGroupRefund(ctx, tx, task); err != nil {
-						return err
-					}
-				}
-			} else {
+			if !isValid[i] {
 				if err := SetTaskStatusEndInvalidated(ctx, tx, task); err != nil {
+					return err
+				}
+				continue
+			}
+			if task.Status == models.TaskErrorReported {
+				task.AbortReason = models.TaskAbortIncorrectResult
+				task.ValidatedTime = sql.NullTime{Time: time.Now(), Valid: true}
+				if err := SetTaskStatusEndAborted(ctx, tx, task, task.Creator); err != nil {
+					return err
+				}
+				continue
+			}
+			if !emitValidated {
+				if err := SetTaskStatusGroupValidated(ctx, tx, task); err != nil {
+					return err
+				}
+				emitValidated = true
+			} else {
+				if err := SetTaskStatusEndGroupRefund(ctx, tx, task); err != nil {
 					return err
 				}
 			}

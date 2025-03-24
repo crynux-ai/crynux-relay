@@ -4,6 +4,7 @@ import (
 	"context"
 	"crynux_relay/config"
 	"crynux_relay/models"
+	"errors"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -58,7 +59,13 @@ func processQueuedTask(ctx context.Context, taskQueue *TaskQueue) error {
 				taskQueue.Push(task)
 			}(task)
 		} else {
-			SetTaskStatusStarted(ctx, config.GetDB(), task, selectedNode)
+			err := SetTaskStatusStarted(ctx, config.GetDB(), task, selectedNode)
+			if err != nil && !errors.Is(err, errWrongTaskStatus) {
+				go func(task *models.InferenceTask) {
+					time.Sleep(2 * time.Second)
+					taskQueue.Push(task)
+				}(task)	
+			}
 		}
 	}
 	return nil
