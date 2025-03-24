@@ -157,6 +157,7 @@ func (task *InferenceTask) SyncStatus(ctx context.Context, db *gorm.DB) error {
 		return err
 	}
 	task.Status = res.Status
+	log.Infof("task %d status %d", task.ID, task.Status)
 	return nil
 }
 
