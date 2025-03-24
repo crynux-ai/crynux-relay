@@ -18,9 +18,17 @@ type GetEventsInput struct {
 	Limit            int     `query:"limit" description:"Event count limit" default:"50"`
 }
 
+type Event struct {
+	ID               uint   `json:"id"`
+	Type             string `json:"type"`
+	NodeAddress      string `json:"node_address"`
+	TaskIDCommitment string `json:"task_id_commitment"`
+	Args             string `json:"args"`
+}
+
 type GetEventsResponse struct {
 	response.Response
-	Data []*models.Event `json:"data"`
+	Data []Event `json:"data"`
 }
 
 func GetEvents(c *gin.Context, in *GetEventsInput) (*GetEventsResponse, error) {
@@ -46,7 +54,18 @@ func GetEvents(c *gin.Context, in *GetEventsInput) (*GetEventsResponse, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	respEvents := make([]Event, len(events))
+	for i, event := range events {
+		respEvents[i] = Event{
+			ID: event.ID,
+			Type: event.Type,
+			NodeAddress: event.NodeAddress,
+			TaskIDCommitment: event.TaskIDCommitment,
+			Args: event.Args,
+		}
+	}
 	return &GetEventsResponse{
-		Data: events,
+		Data: respEvents,
 	}, nil
 }
