@@ -12,6 +12,13 @@ type AppConfig struct {
 	Db struct {
 		Driver           string `mapstructure:"driver"`
 		ConnectionString string `mapstructure:"connection"`
+		Log              struct {
+			Level       string `mapstructure:"level"`
+			Output      string `mapstructure:"output"`
+			MaxFileSize int    `mapstructure:"max_file_size"`
+			MaxDays     int    `mapstructure:"max_days"`
+			MaxFileNum  int    `mapstructure:"max_file_num"`
+		} `mapstructure:"log"`
 	} `mapstructure:"db"`
 
 	Log struct {
