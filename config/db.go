@@ -2,13 +2,13 @@ package config
 
 import (
 	"errors"
-	"github.com/onrik/gorm-logrus"
+	"time"
+
 	log "github.com/sirupsen/logrus"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"time"
 )
 
 var db *gorm.DB
@@ -32,7 +32,7 @@ func InitDB(appConfig *AppConfig) error {
 	}
 
 	instance, err := gorm.Open(dial, &gorm.Config{
-		Logger:         gorm_logrus.New(),
+		Logger:         NewDBLogger(),
 		TranslateError: true,
 	})
 
