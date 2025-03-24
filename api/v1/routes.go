@@ -124,6 +124,10 @@ func InitRoutes(r *fizz.Fizz) {
 		fizz.Summary("Get events"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(event.GetEvents, 200))
+	eventsGroup.GET("/current_id", []fizz.OperationOption{
+		fizz.Summary("Get current event id"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(event.GetCurrentEventID, 200))
 
 	networkGroup := v1g.Group("network", "network", "Network stats related APIs")
 
