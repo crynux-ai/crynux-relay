@@ -9,8 +9,9 @@ import (
 	"math/big"
 	"time"
 
-	"gorm.io/gorm"
 	"slices"
+
+	"gorm.io/gorm"
 )
 
 var errWrongTaskStatus = errors.New("illegal previous task status")
@@ -27,7 +28,7 @@ func CreateTask(ctx context.Context, db *gorm.DB, task *models.InferenceTask) er
 }
 
 func checkTaskStatus(ctx context.Context, db *gorm.DB, task *models.InferenceTask, expectedStatus ...models.TaskStatus) error {
-	err := task.SyncFromDB(ctx, db)
+	err := task.SyncStatus(ctx, db)
 	if err != nil {
 		return err
 	}
@@ -280,7 +281,7 @@ func SetTaskStatusEndGroupRefund(ctx context.Context, db *gorm.DB, task *models.
 }
 
 func SetTaskStatusEndAborted(ctx context.Context, db *gorm.DB, task *models.InferenceTask, aboutIssuer string) error {
-	if err := task.SyncFromDB(ctx, db); err != nil {
+	if err := task.SyncStatus(ctx, db); err != nil {
 		return err
 	}
 	if task.Status == models.TaskEndAborted {
