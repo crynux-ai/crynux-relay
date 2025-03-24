@@ -153,7 +153,7 @@ func (task *InferenceTask) SyncStatus(ctx context.Context, db *gorm.DB) error {
 	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 	var res InferenceTask
-	if err := db.WithContext(dbCtx).Model(task).Select("status").First(&res).Error; err != nil {
+	if err := db.WithContext(dbCtx).Model(task).Select("status").First(&res, task.ID).Error; err != nil {
 		return err
 	}
 	task.Status = res.Status
