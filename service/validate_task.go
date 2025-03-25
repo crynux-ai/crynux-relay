@@ -191,51 +191,69 @@ func ValidateTaskGroup(ctx context.Context, tasks []*models.InferenceTask, taskI
 	// validate tasks' score
 	appConfig := config.GetConfig()
 
-	isValid := []bool{false, false, false}
-	for i := 0; i < 2; i++ {
-		for j := i + 1; j < 3; j++ {
-			if tasks[i].Status != models.TaskEndAborted && tasks[j].Status != models.TaskEndAborted {
-				if compareTaskScore(tasks[i], tasks[j], appConfig.Task.DistanceThreshold) {
-					isValid[i] = true
-					isValid[j] = true
-				}
+	nextStatusMap := make(map[string]models.TaskStatus)
+	finishedTasks := make([]*models.InferenceTask, 0)
+	for _, task := range tasks {
+		nextStatusMap[task.TaskIDCommitment] = models.TaskEndAborted
+		if task.Status != models.TaskEndAborted {
+			finishedTasks = append(finishedTasks, task)
+		}
+	}
+
+	if len(finishedTasks) == 2 {
+		if compareTaskScore(finishedTasks[0], finishedTasks[1], appConfig.Task.DistanceThreshold) && finishedTasks[0].Status == models.TaskScoreReady {
+			nextStatusMap[finishedTasks[0].TaskIDCommitment] = models.TaskGroupValidated
+			nextStatusMap[finishedTasks[1].TaskIDCommitment] = models.TaskEndGroupRefund
+		}
+	} else if len(finishedTasks) == 3 {
+		same1 := compareTaskScore(finishedTasks[0], finishedTasks[1], appConfig.Task.DistanceThreshold)
+		same2 := compareTaskScore(finishedTasks[0], finishedTasks[2], appConfig.Task.DistanceThreshold)
+		same3 := compareTaskScore(finishedTasks[1], finishedTasks[2], appConfig.Task.DistanceThreshold)
+		if (same1) {
+			if finishedTasks[0].Status == models.TaskScoreReady {
+				nextStatusMap[finishedTasks[0].TaskIDCommitment] = models.TaskGroupValidated
+				nextStatusMap[finishedTasks[1].TaskIDCommitment] = models.TaskEndGroupRefund
 			}
+			if (same2) {
+				nextStatusMap[finishedTasks[2].TaskIDCommitment] = models.TaskEndGroupRefund
+			} else {
+				nextStatusMap[finishedTasks[2].TaskIDCommitment] = models.TaskEndInvalidated
+			}
+		} else if (same2) {
+			if finishedTasks[0].Status == models.TaskScoreReady {
+				nextStatusMap[finishedTasks[0].TaskIDCommitment] = models.TaskGroupValidated
+				nextStatusMap[finishedTasks[2].TaskIDCommitment] = models.TaskEndGroupRefund
+			}
+			nextStatusMap[finishedTasks[1].TaskIDCommitment] = models.TaskEndInvalidated
+		} else if (same3) {
+			if finishedTasks[1].Status == models.TaskScoreReady {
+				nextStatusMap[finishedTasks[1].TaskIDCommitment] = models.TaskGroupValidated
+				nextStatusMap[finishedTasks[2].TaskIDCommitment] = models.TaskEndGroupRefund
+			}
+			nextStatusMap[finishedTasks[0].TaskIDCommitment] = models.TaskEndInvalidated
 		}
 	}
 
 	return config.GetDB().Transaction(func(tx *gorm.DB) error {
-		emitValidated := false
+		for _, task := range tasks {
+			nextStatus := nextStatusMap[task.TaskIDCommitment]
 
-		for i, task := range tasks {
-			if task.Status == models.TaskEndAborted {
-				task.AbortReason = models.TaskAbortIncorrectResult
-				task.ValidatedTime = sql.NullTime{Time: time.Now(), Valid: true}
-				if err := SetTaskStatusEndAborted(ctx, tx, task, task.Creator); err != nil {
-					return err
-				}
-				continue
-			}
-			if !isValid[i] {
+			if nextStatus == models.TaskEndInvalidated {
 				if err := SetTaskStatusEndInvalidated(ctx, tx, task); err != nil {
 					return err
 				}
-				continue
-			}
-			if task.Status == models.TaskErrorReported {
-				task.AbortReason = models.TaskAbortIncorrectResult
-				task.ValidatedTime = sql.NullTime{Time: time.Now(), Valid: true}
-				if err := SetTaskStatusEndAborted(ctx, tx, task, task.Creator); err != nil {
-					return err
-				}
-				continue
-			}
-			if !emitValidated {
+			} else if nextStatus == models.TaskGroupValidated {
 				if err := SetTaskStatusGroupValidated(ctx, tx, task); err != nil {
 					return err
 				}
-				emitValidated = true
-			} else {
+			} else if nextStatus == models.TaskEndGroupRefund {
 				if err := SetTaskStatusEndGroupRefund(ctx, tx, task); err != nil {
+					return err
+				}
+			} else {
+				task.AbortReason = models.TaskAbortIncorrectResult
+				task.ValidatedTime = sql.NullTime{Time: time.Now(), Valid: true}
+				if err := SetTaskStatusEndAborted(ctx, tx, task, task.Creator); err != nil {
 					return err
 				}
 			}
