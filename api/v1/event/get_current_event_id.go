@@ -5,9 +5,11 @@ import (
 	"crynux_relay/api/v1/response"
 	"crynux_relay/config"
 	"crynux_relay/models"
+	"errors"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type GetCurrentEventIDInput struct {
@@ -38,6 +40,11 @@ func GetCurrentEventID(c *gin.Context, in *GetCurrentEventIDInput) (*GetCurrentE
 		stmt.Where("task_id_commitment = ?", *in.TaskIDCommitment)
 	}
 	err := stmt.Order("id DESC").First(&event).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return &GetCurrentEventIDResponse{
+			Data: 0,
+		}, nil
+	}
 	if err != nil {
 		return nil, err
 	}
