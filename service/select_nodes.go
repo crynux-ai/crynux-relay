@@ -10,7 +10,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
 func filterNodesByGPU(ctx context.Context, gpuName string, gpuVram uint64, taskVersionNumbers [3]uint64) ([]models.Node, error) {
 	allNodes := make([]models.Node, 0)
 
@@ -182,7 +181,6 @@ func selectNodeForInferenceTask(ctx context.Context, task *models.InferenceTask)
 	return &node, nil
 }
 
-
 func selectNodesForDownloadTask(ctx context.Context, task *models.InferenceTask, modelID string, n int) ([]models.Node, error) {
 	var nodes []models.Node
 	var err error
@@ -224,7 +222,7 @@ func selectNodesForDownloadTask(ctx context.Context, task *models.InferenceTask,
 }
 
 func countAvailableNodesWithModelID(ctx context.Context, db *gorm.DB, modelID string) (int64, error) {
-	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
+	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 
 	var count int64

@@ -18,7 +18,7 @@ func CreateGenesisAccount(ctx context.Context, db *gorm.DB) error {
 	address := appConfig.Blockchain.Account.Address
 	amount := utils.EtherToWei(big.NewInt(int64(appConfig.Blockchain.Account.GenesisTokenAmount)))
 
-	dbCtx, cancel := context.WithTimeout(ctx, time.Second)
+	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 	return db.WithContext(dbCtx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "address"}},
@@ -41,7 +41,7 @@ func Transfer(ctx context.Context, db *gorm.DB, from, to string, amount *big.Int
 		if fromBalance.Balance.Cmp(amount) == -1 {
 			return errors.New("insufficient balance")
 		}
-		
+
 		if err := tx.WithContext(dbCtx).Model(&fromBalance).Update("balance", models.BigInt{Int: *big.NewInt(0).Sub(&fromBalance.Balance.Int, amount)}).Error; err != nil {
 			return err
 		}
