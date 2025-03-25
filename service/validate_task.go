@@ -89,7 +89,9 @@ func ValidateSingleTask(ctx context.Context, task *models.InferenceTask, taskID,
 	if err := validateTaskID(taskID, task.Nonce, task.TaskIDCommitment); err != nil {
 		return err
 	}
-	task.TaskID = taskID
+	if err := task.Update(ctx, config.GetDB(), map[string]interface{}{"task_id": taskID}); err != nil {
+		return err
+	}
 
 	if err := validateVRFProof(task.SamplingSeed, vrfProof, publicKey, task.Creator, false); err != nil {
 		return err
@@ -156,7 +158,16 @@ func ValidateTaskGroup(ctx context.Context, tasks []*models.InferenceTask, taskI
 		if err := validateTaskID(taskID, task.Nonce, task.TaskIDCommitment); err != nil {
 			return err
 		}
-		task.TaskID = taskID
+	}
+	if err := config.GetDB().Transaction(func(tx *gorm.DB) error {
+		for _, task := range tasks {
+			if err := task.Update(ctx, tx, map[string]interface{}{"task_id": taskID}); err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	// sort tasks by sequence
@@ -209,23 +220,23 @@ func ValidateTaskGroup(ctx context.Context, tasks []*models.InferenceTask, taskI
 		same1 := compareTaskScore(finishedTasks[0], finishedTasks[1], appConfig.Task.DistanceThreshold)
 		same2 := compareTaskScore(finishedTasks[0], finishedTasks[2], appConfig.Task.DistanceThreshold)
 		same3 := compareTaskScore(finishedTasks[1], finishedTasks[2], appConfig.Task.DistanceThreshold)
-		if (same1) {
+		if same1 {
 			if finishedTasks[0].Status == models.TaskScoreReady {
 				nextStatusMap[finishedTasks[0].TaskIDCommitment] = models.TaskGroupValidated
 				nextStatusMap[finishedTasks[1].TaskIDCommitment] = models.TaskEndGroupRefund
 			}
-			if (same2) {
+			if same2 {
 				nextStatusMap[finishedTasks[2].TaskIDCommitment] = models.TaskEndGroupRefund
 			} else {
 				nextStatusMap[finishedTasks[2].TaskIDCommitment] = models.TaskEndInvalidated
 			}
-		} else if (same2) {
+		} else if same2 {
 			if finishedTasks[0].Status == models.TaskScoreReady {
 				nextStatusMap[finishedTasks[0].TaskIDCommitment] = models.TaskGroupValidated
 				nextStatusMap[finishedTasks[2].TaskIDCommitment] = models.TaskEndGroupRefund
 			}
 			nextStatusMap[finishedTasks[1].TaskIDCommitment] = models.TaskEndInvalidated
-		} else if (same3) {
+		} else if same3 {
 			if finishedTasks[1].Status == models.TaskScoreReady {
 				nextStatusMap[finishedTasks[1].TaskIDCommitment] = models.TaskGroupValidated
 				nextStatusMap[finishedTasks[2].TaskIDCommitment] = models.TaskEndGroupRefund

@@ -189,7 +189,6 @@ func SetTaskStatusValidated(ctx context.Context, db *gorm.DB, task *models.Infer
 			"status":         models.TaskValidated,
 			"validated_time": sql.NullTime{Time: time.Now(), Valid: true},
 			"qos_score":      task.QOSScore,
-			"task_id":        task.TaskID,
 		})
 		if err != nil {
 			return err
@@ -213,7 +212,6 @@ func SetTaskStatusGroupValidated(ctx context.Context, db *gorm.DB, task *models.
 			"status":         models.TaskGroupValidated,
 			"validated_time": sql.NullTime{Time: time.Now(), Valid: true},
 			"qos_score":      task.QOSScore,
-			"task_id":        task.TaskID,
 		})
 		if err != nil {
 			return err
@@ -237,7 +235,6 @@ func SetTaskStatusEndInvalidated(ctx context.Context, db *gorm.DB, task *models.
 			"status":         models.TaskEndInvalidated,
 			"validated_time": sql.NullTime{Time: time.Now(), Valid: true},
 			"qos_score":      task.QOSScore,
-			"task_id":        task.TaskID,
 		})
 		if err != nil {
 			return err
@@ -271,7 +268,6 @@ func SetTaskStatusEndGroupRefund(ctx context.Context, db *gorm.DB, task *models.
 			"status":         models.TaskEndGroupRefund,
 			"validated_time": sql.NullTime{Time: time.Now(), Valid: true},
 			"qos_score":      task.QOSScore,
-			"task_id":        task.TaskID,
 		})
 		if err != nil {
 			return err
@@ -295,7 +291,6 @@ func SetTaskStatusEndAborted(ctx context.Context, db *gorm.DB, task *models.Infe
 	newTask := map[string]interface{}{
 		"status":         models.TaskEndAborted,
 		"abort_reason":   task.AbortReason,
-		"task_id":        task.TaskID,
 		"validated_time": task.ValidatedTime,
 	}
 	appConfig := config.GetConfig()
