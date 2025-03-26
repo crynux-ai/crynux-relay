@@ -216,3 +216,38 @@ func (task *InferenceTask) ExecutionTime() time.Duration {
 	}
 	return time.Duration(1<<63 - 1)
 }
+
+func GetTotalTaskCount(ctx context.Context, db *gorm.DB) (int64, error) {
+	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	var res int64
+	if err := db.WithContext(dbCtx).Model(&InferenceTask{}).Count(&res).Error; err != nil {
+		return 0, err
+	}
+	return res, nil
+}
+
+func GetRunningTaskCount(ctx context.Context, db *gorm.DB) (int64, error) {
+	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	var res int64
+	if err := db.WithContext(dbCtx).Model(&InferenceTask{}).
+		Where("status IN ?", []TaskStatus{TaskStarted, TaskParametersUploaded, TaskErrorReported, TaskScoreReady, TaskValidated, TaskGroupValidated}).
+		Count(&res).Error; err != nil {
+		return 0, err
+	}
+	return res, nil
+}
+
+func GetQueuedTaskCount(ctx context.Context, db *gorm.DB) (int64, error) {
+	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	var res int64
+	if err := db.WithContext(dbCtx).Model(&InferenceTask{}).Where("status = ?", TaskQueued).Count(&res).Error; err != nil {
+		return 0, err
+	}
+	return res, nil
+}
