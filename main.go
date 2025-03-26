@@ -7,6 +7,7 @@ import (
 	"crynux_relay/config"
 	"crynux_relay/migrate"
 	"crynux_relay/service"
+	"crynux_relay/tasks"
 	"fmt"
 	"os"
 
@@ -44,11 +45,11 @@ func main() {
 
 	go service.StartTaskProcesser(context.Background())
 	// go tasks.ProcessTasks(context.Background())
-	// go tasks.StartSyncNetwork(context.Background())
-	// go tasks.StartStatsTaskCount(context.Background())
-	// go tasks.StartStatsTaskExecutionTimeCount(context.Background())
-	// go tasks.StartStatsTaskUploadResultTimeCount(context.Background())
-	// go tasks.StartStatsTaskWaitingTimeCount(context.Background())
+	go tasks.StartSyncNetwork(context.Background())
+	go tasks.StartStatsTaskCount(context.Background())
+	go tasks.StartStatsTaskExecutionTimeCount(context.Background())
+	go tasks.StartStatsTaskUploadResultTimeCount(context.Background())
+	go tasks.StartStatsTaskWaitingTimeCount(context.Background())
 
 	startServer()
 }

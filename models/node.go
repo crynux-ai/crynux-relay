@@ -35,6 +35,7 @@ type Node struct {
 	CurrentTaskIDCommitment sql.NullString `json:"current_task_id_commitment" gorm:"null;default:null"`
 	CurrentTask             InferenceTask  `json:"-" gorm:"foreignKey:TaskIDCommitment;references:CurrentTaskIDCommitment"`
 	Models                  []NodeModel    `json:"-" gorm:"foreignKey:NodeAddress;references:Address"`
+	Balance                 Balance        `json:"-" gorm:"foreignKey:Address;references:Address"`
 }
 
 func (node *Node) Save(ctx context.Context, db *gorm.DB) error {
@@ -140,4 +141,37 @@ func GetNodeModel(ctx context.Context, db *gorm.DB, nodeAddress, modelID string)
 		return nil, err
 	}
 	return nodeModel, nil
+}
+
+func GetBusyNodeCount(ctx context.Context, db *gorm.DB) (int64, error) {
+	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	var res int64
+	if err := db.WithContext(dbCtx).Model(&Node{}).Where("status = ?", NodeStatusBusy).Count(&res).Error; err != nil {
+		return 0, err
+	}
+	return res, nil
+}
+
+func GetAllNodeCount(ctx context.Context, db *gorm.DB) (int64, error) {
+	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	var res int64
+	if err := db.WithContext(dbCtx).Model(&Node{}).Count(&res).Error; err != nil {
+		return 0, err
+	}
+	return res, nil
+}
+
+func GetActiveNodeCount(ctx context.Context, db *gorm.DB) (int64, error) {
+	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	var res int64
+	if err := db.WithContext(dbCtx).Model(&Node{}).Where("status != ?", NodeStatusQuit).Count(&res).Error; err != nil {
+		return 0, err
+	}
+	return res, nil
 }
