@@ -11,7 +11,13 @@ type taskPriorityQueue []*models.InferenceTask
 func (pq taskPriorityQueue) Len() int { return len(pq) }
 
 func (pq taskPriorityQueue) Less(i, j int) bool {
-	return pq[i].TaskFee.Cmp(&pq[j].TaskFee.Int) > 0
+	flag := pq[i].TaskFee.Cmp(&pq[j].TaskFee.Int)
+	if flag > 0 {
+		return true
+	} else if flag == 0 {
+		return pq[i].TaskType > pq[j].TaskType
+	}
+	return false
 }
 
 func (pq taskPriorityQueue) Swap(i, j int) {
