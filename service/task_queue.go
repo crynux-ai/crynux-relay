@@ -14,8 +14,16 @@ func (pq taskPriorityQueue) Less(i, j int) bool {
 	flag := pq[i].TaskFee.Cmp(&pq[j].TaskFee.Int)
 	if flag > 0 {
 		return true
-	} else if flag == 0 {
-		return pq[i].TaskType > pq[j].TaskType
+	} else if flag < 0 {
+		return false
+	}
+	if pq[i].TaskType > pq[j].TaskType {
+		return true
+	} else if pq[i].TaskType < pq[j].TaskType {
+		return false
+	}
+	if pq[i].ID < pq[j].ID {
+		return true
 	}
 	return false
 }
