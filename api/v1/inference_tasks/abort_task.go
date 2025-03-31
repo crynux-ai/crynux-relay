@@ -53,7 +53,7 @@ func AbortTask(c *gin.Context, in *AbortTaskInputWithSignature) (*response.Respo
 		return nil, response.NewValidationErrorResponse("signature", "Signer not allowed")
 	}
 
-	if task.StartTime.Valid && task.StartTime.Time.Add(time.Duration(task.Timeout)).Compare(time.Now()) > 0 {
+	if task.StartTime.Valid && task.StartTime.Time.Add(time.Duration(task.Timeout) * time.Second).Compare(time.Now()) > 0 {
 		return nil, response.NewValidationErrorResponse("task_id_commitment", "Timeout not reached")
 	}
 
