@@ -9,8 +9,6 @@ import (
 	"math/big"
 	"time"
 
-	"slices"
-
 	"gorm.io/gorm"
 )
 
@@ -27,20 +25,9 @@ func CreateTask(ctx context.Context, db *gorm.DB, task *models.InferenceTask) er
 	})
 }
 
-func checkTaskStatus(ctx context.Context, db *gorm.DB, task *models.InferenceTask, expectedStatus ...models.TaskStatus) error {
-	err := task.SyncStatus(ctx, db)
-	if err != nil {
-		return err
-	}
-	if slices.Contains(expectedStatus, task.Status) {
-		return nil
-	}
-	return errWrongTaskStatus
-}
-
 func SetTaskStatusStarted(ctx context.Context, db *gorm.DB, task *models.InferenceTask, node *models.Node) error {
-	if err := checkTaskStatus(ctx, db, task, models.TaskQueued); err != nil {
-		return err
+	if task.Status != models.TaskQueued {
+		return errWrongTaskStatus
 	}
 	// start inference task
 	err := db.Transaction(func(tx *gorm.DB) error {
@@ -120,10 +107,9 @@ func checkTaskSelectedNode(ctx context.Context, db *gorm.DB, task *models.Infere
 }
 
 func SetTaskStatusScoreReady(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
-	if err := checkTaskStatus(ctx, db, task, models.TaskStarted); err != nil {
-		return err
+	if task.Status != models.TaskStarted {
+		return errWrongTaskStatus
 	}
-
 	_, err := checkTaskSelectedNode(ctx, db, task)
 	if err != nil {
 		return err
@@ -148,10 +134,9 @@ func SetTaskStatusScoreReady(ctx context.Context, db *gorm.DB, task *models.Infe
 }
 
 func SetTaskStatusErrorReported(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
-	if err := checkTaskStatus(ctx, db, task, models.TaskStarted); err != nil {
-		return err
+	if task.Status != models.TaskStarted {
+		return errWrongTaskStatus
 	}
-
 	_, err := checkTaskSelectedNode(ctx, db, task)
 	if err != nil {
 		return err
@@ -175,10 +160,9 @@ func SetTaskStatusErrorReported(ctx context.Context, db *gorm.DB, task *models.I
 }
 
 func SetTaskStatusValidated(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
-	if err := checkTaskStatus(ctx, db, task, models.TaskScoreReady); err != nil {
-		return err
+	if task.Status != models.TaskScoreReady {
+		return errWrongTaskStatus
 	}
-
 	_, err := checkTaskSelectedNode(ctx, db, task)
 	if err != nil {
 		return err
@@ -198,10 +182,9 @@ func SetTaskStatusValidated(ctx context.Context, db *gorm.DB, task *models.Infer
 }
 
 func SetTaskStatusGroupValidated(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
-	if err := checkTaskStatus(ctx, db, task, models.TaskScoreReady); err != nil {
-		return err
+	if task.Status != models.TaskScoreReady {
+		return errWrongTaskStatus
 	}
-
 	_, err := checkTaskSelectedNode(ctx, db, task)
 	if err != nil {
 		return err
@@ -221,8 +204,8 @@ func SetTaskStatusGroupValidated(ctx context.Context, db *gorm.DB, task *models.
 }
 
 func SetTaskStatusEndInvalidated(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
-	if err := checkTaskStatus(ctx, db, task, models.TaskScoreReady, models.TaskEndAborted, models.TaskErrorReported); err != nil {
-		return err
+	if task.Status != models.TaskScoreReady && task.Status != models.TaskEndAborted && task.Status != models.TaskErrorReported {
+		return errWrongTaskStatus
 	}
 
 	node, err := checkTaskSelectedNode(ctx, db, task)
@@ -245,8 +228,8 @@ func SetTaskStatusEndInvalidated(ctx context.Context, db *gorm.DB, task *models.
 }
 
 func SetTaskStatusEndGroupRefund(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
-	if err := checkTaskStatus(ctx, db, task, models.TaskScoreReady); err != nil {
-		return err
+	if task.Status != models.TaskScoreReady {
+		return errWrongTaskStatus
 	}
 
 	node, err := checkTaskSelectedNode(ctx, db, task)
@@ -277,9 +260,6 @@ func SetTaskStatusEndGroupRefund(ctx context.Context, db *gorm.DB, task *models.
 }
 
 func SetTaskStatusEndAborted(ctx context.Context, db *gorm.DB, task *models.InferenceTask, aboutIssuer string) error {
-	if err := task.SyncStatus(ctx, db); err != nil {
-		return err
-	}
 	if task.Status == models.TaskEndAborted {
 		return nil
 	}
