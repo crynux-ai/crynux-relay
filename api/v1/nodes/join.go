@@ -76,6 +76,12 @@ func NodeJoin(c *gin.Context, in *NodeJoinInputWithSignature) (*response.Respons
 		}
 	} else if err != nil {
 		return nil, response.NewExceptionResponse(err)
+	} else {
+		node.GPUName = in.GPUName
+		node.GPUVram = in.GPUVram
+		node.MajorVersion = nodeVersions[0]
+		node.MinorVersion = nodeVersions[1]
+		node.PatchVersion = nodeVersions[2]
 	}
 	if node.Status != models.NodeStatusQuit {
 		return nil, response.NewValidationErrorResponse("address", "Node already joined")
