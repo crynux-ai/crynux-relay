@@ -19,6 +19,7 @@ import (
 type TaskStatus uint8
 
 var ErrTaskIDEmpty = errors.New("InferenceTask.ID is 0")
+var ErrTaskStatusChanged = errors.New("InferenceTask.Status changed during update")
 
 const (
 	TaskQueued TaskStatus = iota
@@ -177,7 +178,11 @@ func (task *InferenceTask) Update(ctx context.Context, db *gorm.DB, values map[s
 	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 	if err := db.WithContext(dbCtx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(task).Updates(values).Error; err != nil {
+		result := tx.Model(task).Where("status = ?", task.Status).Updates(values)
+		if result.RowsAffected == 0 {
+			return ErrTaskStatusChanged
+		}
+		if err := result.Error; err != nil {
 			return err
 		}
 		if err := tx.Model(task).First(task).Error; err != nil {

@@ -60,7 +60,7 @@ func processQueuedTask(ctx context.Context, taskQueue *TaskQueue) error {
 			}(task)
 		} else {
 			err := SetTaskStatusStarted(ctx, config.GetDB(), task, selectedNode)
-			if err != nil && !errors.Is(err, errWrongTaskStatus) {
+			if err != nil && !errors.Is(err, errWrongTaskStatus) && !errors.Is(err, models.ErrTaskStatusChanged) {
 				go func(task *models.InferenceTask) {
 					time.Sleep(2 * time.Second)
 					taskQueue.Push(task)
