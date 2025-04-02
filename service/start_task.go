@@ -51,6 +51,9 @@ func processQueuedTask(ctx context.Context, taskQueue *TaskQueue) error {
 		}
 		selectedNode, err := selectNodeForInferenceTask(ctx, task)
 		if err != nil {
+			if err != context.DeadlineExceeded && err != context.Canceled {
+				taskQueue.Push(task)
+			}
 			return err
 		}
 		if selectedNode == nil {
@@ -61,10 +64,7 @@ func processQueuedTask(ctx context.Context, taskQueue *TaskQueue) error {
 		} else {
 			err := SetTaskStatusStarted(ctx, config.GetDB(), task, selectedNode)
 			if err != nil && !errors.Is(err, errWrongTaskStatus) && !errors.Is(err, models.ErrTaskStatusChanged) {
-				go func(task *models.InferenceTask) {
-					time.Sleep(2 * time.Second)
-					taskQueue.Push(task)
-				}(task)	
+				taskQueue.Push(task)
 			}
 		}
 	}
@@ -91,13 +91,11 @@ func StartTaskProcesser(ctx context.Context) {
 	for {
 		err := processQueuedTask(ctx, taskQueue)
 		if err == context.DeadlineExceeded || err == context.Canceled {
-			return
+			break
 		}
 		if err != nil {
 			log.Errorf("StartTask: process queued tasks error: %v", err)
-			time.Sleep(2 * time.Second)
-			continue
 		}
-		break
+		time.Sleep(2 * time.Second)
 	}
 }
