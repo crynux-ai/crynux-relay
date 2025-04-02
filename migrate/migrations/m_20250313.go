@@ -37,7 +37,7 @@ func M20250313(db *gorm.DB) *gormigrate.Gormigrate {
 		Timeout      uint64        `json:"timeout"`
 		Score        string        `json:"score" gorm:"type:text"`
 		QOSScore     uint64        `json:"qos_score"`
-		TaskID       string        `json:"task_id"`
+		TaskID       string        `json:"task_id" gorm:"type:string;size:255;index"`
 		TaskFee      models.BigInt `json:"task_fee" gorm:"type:string;size:255"`
 	}
 
