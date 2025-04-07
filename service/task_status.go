@@ -4,6 +4,7 @@ import (
 	"context"
 	"crynux_relay/config"
 	"crynux_relay/models"
+	"crynux_relay/utils"
 	"database/sql"
 	"errors"
 	"math/big"
@@ -362,6 +363,13 @@ func SetTaskStatusEndSuccess(ctx context.Context, db *gorm.DB, task *models.Infe
 	return db.Transaction(func(tx *gorm.DB) error {
 		for address, payment := range payments {
 			if err := Transfer(ctx, tx, appConfig.Blockchain.Account.Address, address, payment); err != nil {
+				return err
+			}
+		}
+
+		for address, payment := range payments {
+			incentive, _ := utils.WeiToEther(payment).Float64()
+			if err := addNodeIncentive(ctx, tx, address, incentive); err != nil {
 				return err
 			}
 		}
