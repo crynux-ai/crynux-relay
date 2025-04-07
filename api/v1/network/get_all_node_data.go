@@ -4,7 +4,7 @@ import (
 	"crynux_relay/api/v1/response"
 	"crynux_relay/config"
 	"crynux_relay/models"
-	"crynux_relay/utils"
+	"math/big"
 
 	"github.com/gin-gonic/gin"
 )
@@ -15,11 +15,11 @@ type GetAllNodesDataParams struct {
 }
 
 type NetworkNodeData struct {
-	Address   string  `json:"address"`
-	CardModel string  `json:"card_model"`
-	VRam      int     `json:"v_ram"`
-	Balance   float64 `json:"balance"`
-	QoS       int64   `json:"qos"`
+	Address   string   `json:"address"`
+	CardModel string   `json:"card_model"`
+	VRam      int      `json:"v_ram"`
+	Balance   *big.Int `json:"balance"`
+	QoS       int64    `json:"qos"`
 }
 
 type GetAllNodesDataResponse struct {
@@ -35,12 +35,11 @@ func GetAllNodeData(_ *gin.Context, in *GetAllNodesDataParams) (*GetAllNodesData
 	}
 	var data []NetworkNodeData
 	for _, node := range allNodeData {
-		balance, _ := utils.WeiToEther(&node.Balance.Int).Float64()
 		data = append(data, NetworkNodeData{
 			Address:   node.Address,
 			CardModel: node.CardModel,
 			VRam:      node.VRam,
-			Balance:   balance,
+			Balance:   &node.Balance.Int,
 			QoS:       node.QoS,
 		})
 	}
