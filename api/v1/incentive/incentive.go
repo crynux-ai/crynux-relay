@@ -4,6 +4,7 @@ import (
 	"crynux_relay/api/v1/response"
 	"crynux_relay/config"
 	"crynux_relay/models"
+	"database/sql"
 
 	"github.com/gin-gonic/gin"
 )
@@ -14,10 +15,14 @@ type GetIncentiveOutput struct {
 }
 
 func GetTotalIncentive(_ *gin.Context) (*GetIncentiveOutput, error) {
-	var incentive float64
+	var incentive sql.NullFloat64
 	if err := config.GetDB().Model(&models.NodeIncentive{}).Select("SUM(incentive) as incentive").Scan(&incentive).Error; err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 
-	return &GetIncentiveOutput{Data: incentive}, nil
+	var data float64
+	if incentive.Valid {
+		data = incentive.Float64
+	}
+	return &GetIncentiveOutput{Data: data}, nil
 }
