@@ -86,7 +86,7 @@ func TestTaskQueue(t *testing.T) {
 	queue.Push(tasks...)
 	orders := []uint{3,4,1,2}
 	for i := 0; i < 4; i++ {
-		task := queue.Pop()
+		task, _ := queue.Pop()
 		if task.ID != orders[i] {
 			t.Fatal("Wrong task order")
 		}

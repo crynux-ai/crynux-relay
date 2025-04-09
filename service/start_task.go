@@ -5,6 +5,7 @@ import (
 	"crynux_relay/config"
 	"crynux_relay/models"
 	"errors"
+	"math"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -45,7 +46,7 @@ func generateQueuedTasks(ctx context.Context, taskQueue *TaskQueue) error {
 
 func processQueuedTask(ctx context.Context, taskQueue *TaskQueue) error {
 	for {
-		task := taskQueue.Pop()
+		task, retryCount := taskQueue.Pop()
 		if task == nil {
 			break
 		}
@@ -57,10 +58,11 @@ func processQueuedTask(ctx context.Context, taskQueue *TaskQueue) error {
 			return err
 		}
 		if selectedNode == nil {
-			go func(task *models.InferenceTask) {
-				time.Sleep(2 * time.Second)
-				taskQueue.Push(task)
-			}(task)
+			go func(task *models.InferenceTask, retryCount int) {
+				t := time.Duration(math.Min(30, math.Exp2(float64(retryCount + 1))))
+				time.Sleep(t * time.Second)
+				taskQueue.PushWithRetry(task, retryCount + 1)
+			}(task, retryCount)
 		} else {
 			err := SetTaskStatusStarted(ctx, config.GetDB(), task, selectedNode)
 			if err != nil && !errors.Is(err, errWrongTaskStatus) && !errors.Is(err, models.ErrTaskStatusChanged) {

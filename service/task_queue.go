@@ -6,23 +6,33 @@ import (
 	"sync"
 )
 
-type taskPriorityQueue []*models.InferenceTask
+type TaskWithRetry struct {
+	Task       *models.InferenceTask
+	RetryCount int
+}
+
+type taskPriorityQueue []*TaskWithRetry
 
 func (pq taskPriorityQueue) Len() int { return len(pq) }
 
 func (pq taskPriorityQueue) Less(i, j int) bool {
-	flag := pq[i].TaskFee.Cmp(&pq[j].TaskFee.Int)
+	flag := pq[i].Task.TaskFee.Cmp(&pq[j].Task.TaskFee.Int)
 	if flag > 0 {
 		return true
 	} else if flag < 0 {
 		return false
 	}
-	if pq[i].TaskType > pq[j].TaskType {
+	if pq[i].RetryCount < pq[j].RetryCount {
 		return true
-	} else if pq[i].TaskType < pq[j].TaskType {
+	} else if pq[i].RetryCount > pq[j].RetryCount {
 		return false
 	}
-	if pq[i].ID < pq[j].ID {
+	if pq[i].Task.TaskType > pq[j].Task.TaskType {
+		return true
+	} else if pq[i].Task.TaskType < pq[j].Task.TaskType {
+		return false
+	}
+	if pq[i].Task.ID < pq[j].Task.ID {
 		return true
 	}
 	return false
@@ -33,7 +43,7 @@ func (pq taskPriorityQueue) Swap(i, j int) {
 }
 
 func (pq *taskPriorityQueue) Push(x any) {
-	item := x.(*models.InferenceTask)
+	item := x.(*TaskWithRetry)
 	*pq = append(*pq, item)
 }
 
@@ -65,22 +75,36 @@ func NewTaskQueue() *TaskQueue {
 func (q *TaskQueue) Push(task ...*models.InferenceTask) {
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
-	for _, task := range task {
-		heap.Push(&q.queue, task)
+	for _, t := range task {
+		heap.Push(&q.queue, &TaskWithRetry{
+			Task:       t,
+			RetryCount: 0,
+		})
 	}
 	q.cond.Broadcast()
 }
 
-func (q *TaskQueue) Pop() *models.InferenceTask {
+func (q *TaskQueue) PushWithRetry(task *models.InferenceTask, retryCount int) {
+	q.cond.L.Lock()
+	defer q.cond.L.Unlock()
+	heap.Push(&q.queue, &TaskWithRetry{
+		Task:       task,
+		RetryCount: retryCount,
+	})
+	q.cond.Broadcast()
+}
+
+func (q *TaskQueue) Pop() (*models.InferenceTask, int) {
 	q.cond.L.Lock()
 	defer q.cond.L.Unlock()
 	for q.queue.Len() == 0 && !q.closed {
 		q.cond.Wait()
 	}
 	if q.closed {
-		return nil
+		return nil, 0
 	}
-	return heap.Pop(&q.queue).(*models.InferenceTask)
+	taskWithRetry := heap.Pop(&q.queue).(*TaskWithRetry)
+	return taskWithRetry.Task, taskWithRetry.RetryCount
 }
 
 func (q *TaskQueue) Close() {
