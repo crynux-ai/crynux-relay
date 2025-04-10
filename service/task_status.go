@@ -32,7 +32,7 @@ func SetTaskStatusStarted(ctx context.Context, db *gorm.DB, task *models.Inferen
 	}
 	// start inference task
 	err := db.Transaction(func(tx *gorm.DB) error {
-		dbCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+		dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		if err := task.Update(dbCtx, tx, map[string]interface{}{
 			"selected_node": node.Address,

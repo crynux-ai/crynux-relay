@@ -33,7 +33,7 @@ func StartSyncNetwork(ctx context.Context) {
 }
 
 func getNodeData(ctx context.Context, db *gorm.DB, offset, limit int) ([]models.NetworkNodeData, error) {
-	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	var nodes []models.Node

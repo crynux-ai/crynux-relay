@@ -23,7 +23,7 @@ func GetNodeEventLogs(ctx *gin.Context) error {
 	for {
 		var tasks []models.InferenceTask
 		err := func() error {
-			dbCtx, cancel := context.WithTimeout(ctx.Request.Context(), 3*time.Second)
+			dbCtx, cancel := context.WithTimeout(ctx.Request.Context(), 5*time.Second)
 			defer cancel()
 			return config.GetDB().WithContext(dbCtx).Model(&models.InferenceTask{}).
 				Where("created_at >= ?", start).
@@ -34,7 +34,7 @@ func GetNodeEventLogs(ctx *gin.Context) error {
 			return response.NewExceptionResponse(err)
 		}
 		allTasks = append(allTasks, tasks...)
-		
+
 		if len(tasks) < limit {
 			break
 		}
@@ -55,7 +55,6 @@ func GetNodeEventLogs(ctx *gin.Context) error {
 	}(); err != nil {
 		return response.NewExceptionResponse(err)
 	}
-
 
 	nodeDataMap := make(map[string]models.NetworkNodeData)
 	for _, nodeData := range nodeDatas {

@@ -17,7 +17,7 @@ type QueuedTasksCountResponse struct {
 
 func GetQueuedTasksCount(c *gin.Context) (*QueuedTasksCountResponse, error) {
 	var cnt int64
-	dbCtx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
+	dbCtx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	if err := config.GetDB().WithContext(dbCtx).Model(&models.InferenceTask{}).Where("status = ?", models.TaskQueued).Count(&cnt).Error; err != nil {

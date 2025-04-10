@@ -21,7 +21,7 @@ func getTaskQosScore(order int) uint64 {
 }
 
 func getNodeTaskQosScore(ctx context.Context, node *models.Node) (uint64, error) {
-	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	dbCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	type Result struct {
@@ -51,7 +51,7 @@ func getNodeTaskQosScore(ctx context.Context, node *models.Node) (uint64, error)
 }
 
 func getNodeRecentTaskQosScore(ctx context.Context, node *models.Node) (uint64, uint64, error) {
-	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	dbCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	var tasks []models.InferenceTask

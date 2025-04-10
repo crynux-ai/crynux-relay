@@ -19,7 +19,7 @@ func generateQueuedTasks(ctx context.Context, taskQueue *TaskQueue) error {
 		tasks, err := func(ctx context.Context, startID uint, limit int) ([]*models.InferenceTask, error) {
 			tasks := make([]*models.InferenceTask, 0)
 
-			dbCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+			dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
 			err := config.GetDB().WithContext(dbCtx).Model(&models.InferenceTask{}).
 				Where("status = ?", models.TaskQueued).
@@ -59,9 +59,9 @@ func processQueuedTask(ctx context.Context, taskQueue *TaskQueue) error {
 		}
 		if selectedNode == nil {
 			go func(task *models.InferenceTask, retryCount int) {
-				t := time.Duration(math.Min(30, math.Exp2(float64(retryCount + 1))))
+				t := time.Duration(math.Min(30, math.Exp2(float64(retryCount+1))))
 				time.Sleep(t * time.Second)
-				taskQueue.PushWithRetry(task, retryCount + 1)
+				taskQueue.PushWithRetry(task, retryCount+1)
 			}(task, retryCount)
 		} else {
 			err := SetTaskStatusStarted(ctx, config.GetDB(), task, selectedNode)

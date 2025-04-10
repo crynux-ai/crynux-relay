@@ -21,7 +21,7 @@ type Event struct {
 }
 
 func (e *Event) Save(ctx context.Context, db *gorm.DB) error {
-	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if err := db.WithContext(dbCtx).Save(e).Error; err != nil {
 		return err

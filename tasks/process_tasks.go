@@ -291,7 +291,7 @@ func ProcessTasks(ctx context.Context) {
 		tasks, err := func(ctx context.Context) ([]models.InferenceTask, error) {
 			var tasks []models.InferenceTask
 
-			dbCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+			dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
 			err := config.GetDB().WithContext(dbCtx).Model(&models.InferenceTask{}).
 				Where("status != ?", models.TaskEndAborted).
