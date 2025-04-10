@@ -19,7 +19,7 @@ func filterNodesByGPU(ctx context.Context, gpuName string, gpuVram uint64, taskV
 	for {
 		nodes, err := func(ctx context.Context, offset, limit int) ([]models.Node, error) {
 			nodes := make([]models.Node, 0)
-			dbCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+			dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
 
 			err := config.GetDB().WithContext(dbCtx).Model(&models.Node{}).
@@ -56,7 +56,7 @@ func filterNodesByVram(ctx context.Context, minVram uint64, taskVersionNumbers [
 	for {
 		nodes, err := func(ctx context.Context, offset, limit int) ([]models.Node, error) {
 			nodes := make([]models.Node, 0)
-			dbCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+			dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
 
 			err := config.GetDB().WithContext(dbCtx).Model(&models.Node{}).
@@ -222,7 +222,7 @@ func selectNodesForDownloadTask(ctx context.Context, task *models.InferenceTask,
 }
 
 func countAvailableNodesWithModelID(ctx context.Context, db *gorm.DB, modelID string) (int64, error) {
-	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	var count int64

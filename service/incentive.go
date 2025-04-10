@@ -9,7 +9,7 @@ import (
 )
 
 func addNodeIncentive(ctx context.Context, db *gorm.DB, nodeAddress string, incentive float64) error {
-	dbCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	t := time.Now().UTC().Truncate(24 * time.Hour)

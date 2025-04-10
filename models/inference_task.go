@@ -151,7 +151,7 @@ func (task *InferenceTask) SyncStatus(ctx context.Context, db *gorm.DB) error {
 	if task.ID == 0 {
 		return ErrTaskIDEmpty
 	}
-	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	var res InferenceTask
 	if err := db.WithContext(dbCtx).Model(task).Select("status").First(&res, task.ID).Error; err != nil {
@@ -163,7 +163,7 @@ func (task *InferenceTask) SyncStatus(ctx context.Context, db *gorm.DB) error {
 }
 
 func (task *InferenceTask) Save(ctx context.Context, db *gorm.DB) error {
-	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if err := db.WithContext(dbCtx).Save(task).Error; err != nil {
 		return err
@@ -175,7 +175,7 @@ func (task *InferenceTask) Update(ctx context.Context, db *gorm.DB, values map[s
 	if task.ID == 0 {
 		return ErrTaskIDEmpty
 	}
-	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if err := db.WithContext(dbCtx).Transaction(func(tx *gorm.DB) error {
 		result := tx.Model(task).Where("status = ?", task.Status).Updates(values)
@@ -196,7 +196,7 @@ func (task *InferenceTask) Update(ctx context.Context, db *gorm.DB, values map[s
 }
 
 func GetTaskByIDCommitment(ctx context.Context, db *gorm.DB, taskIDCommitment string) (*InferenceTask, error) {
-	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	task := InferenceTask{TaskIDCommitment: taskIDCommitment}
 	if err := db.WithContext(dbCtx).Model(&task).Where(&task).First(&task).Error; err != nil {
@@ -206,7 +206,7 @@ func GetTaskByIDCommitment(ctx context.Context, db *gorm.DB, taskIDCommitment st
 }
 
 func GetTaskGroupByTaskID(ctx context.Context, db *gorm.DB, taskID string) ([]InferenceTask, error) {
-	dbCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	var tasks []InferenceTask
 	if err := db.WithContext(dbCtx).Model(&InferenceTask{}).Where("task_id = ?", taskID).Find(&tasks).Error; err != nil {
@@ -223,7 +223,7 @@ func (task *InferenceTask) ExecutionTime() time.Duration {
 }
 
 func GetTotalTaskCount(ctx context.Context, db *gorm.DB) (int64, error) {
-	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	var res int64
@@ -234,7 +234,7 @@ func GetTotalTaskCount(ctx context.Context, db *gorm.DB) (int64, error) {
 }
 
 func GetRunningTaskCount(ctx context.Context, db *gorm.DB) (int64, error) {
-	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	dbCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	var res int64
@@ -247,7 +247,7 @@ func GetRunningTaskCount(ctx context.Context, db *gorm.DB) (int64, error) {
 }
 
 func GetQueuedTaskCount(ctx context.Context, db *gorm.DB) (int64, error) {
-	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	var res int64

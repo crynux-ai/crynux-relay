@@ -39,7 +39,7 @@ type Node struct {
 }
 
 func (node *Node) Save(ctx context.Context, db *gorm.DB) error {
-	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if err := db.WithContext(dbCtx).Save(&node).Error; err != nil {
 		return err
@@ -51,7 +51,7 @@ func (node *Node) Update(ctx context.Context, db *gorm.DB, values map[string]int
 	if node.ID == 0 {
 		return errors.New("Node.ID cannot be 0 when update")
 	}
-	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if err := db.WithContext(dbCtx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(node).Updates(values).Error; err != nil {
@@ -68,7 +68,7 @@ func (node *Node) Update(ctx context.Context, db *gorm.DB, values map[string]int
 }
 
 func GetNodeByAddress(ctx context.Context, db *gorm.DB, address string) (*Node, error) {
-	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	node := &Node{Address: address}
 	if err := db.WithContext(dbCtx).Model(node).Where(node).First(node).Error; err != nil {
@@ -86,7 +86,7 @@ type NodeModel struct {
 }
 
 func (nodeModel *NodeModel) Save(ctx context.Context, db *gorm.DB) error {
-	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if err := db.WithContext(dbCtx).Save(nodeModel).Error; err != nil {
 		return err
@@ -98,7 +98,7 @@ func (nodeModel *NodeModel) Update(ctx context.Context, db *gorm.DB, values map[
 	if nodeModel.ID == 0 {
 		return errors.New("Node.ID cannot be 0 when update")
 	}
-	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if err := db.WithContext(dbCtx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(nodeModel).Updates(values).Error; err != nil {
@@ -115,7 +115,7 @@ func (nodeModel *NodeModel) Update(ctx context.Context, db *gorm.DB, values map[
 }
 
 func CreateNodeModels(ctx context.Context, db *gorm.DB, nodeModels []NodeModel) error {
-	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if err := db.WithContext(dbCtx).Create(&nodeModels).Error; err != nil {
 		return err
@@ -124,7 +124,7 @@ func CreateNodeModels(ctx context.Context, db *gorm.DB, nodeModels []NodeModel) 
 }
 
 func GetNodeModelsByNodeAddress(ctx context.Context, db *gorm.DB, nodeAddress string) ([]NodeModel, error) {
-	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	var nodeModels []NodeModel
 	if err := db.WithContext(dbCtx).Model(&NodeModel{}).Where("node_address = ?", nodeAddress).Order("id").Find(&nodeModels).Error; err != nil {
@@ -134,7 +134,7 @@ func GetNodeModelsByNodeAddress(ctx context.Context, db *gorm.DB, nodeAddress st
 }
 
 func GetNodeModel(ctx context.Context, db *gorm.DB, nodeAddress, modelID string) (*NodeModel, error) {
-	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	nodeModel := &NodeModel{NodeAddress: nodeAddress, ModelID: modelID}
 	if err := db.WithContext(dbCtx).Model(nodeModel).Where(nodeModel).First(nodeModel).Error; err != nil {
@@ -144,7 +144,7 @@ func GetNodeModel(ctx context.Context, db *gorm.DB, nodeAddress, modelID string)
 }
 
 func GetBusyNodeCount(ctx context.Context, db *gorm.DB) (int64, error) {
-	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	var res int64
@@ -155,7 +155,7 @@ func GetBusyNodeCount(ctx context.Context, db *gorm.DB) (int64, error) {
 }
 
 func GetAllNodeCount(ctx context.Context, db *gorm.DB) (int64, error) {
-	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	var res int64
@@ -166,7 +166,7 @@ func GetAllNodeCount(ctx context.Context, db *gorm.DB) (int64, error) {
 }
 
 func GetActiveNodeCount(ctx context.Context, db *gorm.DB) (int64, error) {
-	dbCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	var res int64

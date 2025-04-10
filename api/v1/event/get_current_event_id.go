@@ -24,7 +24,7 @@ type GetCurrentEventIDResponse struct {
 }
 
 func GetCurrentEventID(c *gin.Context, in *GetCurrentEventIDInput) (*GetCurrentEventIDResponse, error) {
-	dbCtx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
+	dbCtx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	var event models.Event

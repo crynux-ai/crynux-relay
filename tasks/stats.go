@@ -23,7 +23,7 @@ func getTaskCounts(ctx context.Context, start, end time.Time) ([]*models.TaskCou
 		var successCount, abortedCount int64
 
 		err := func() error {
-			dbCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+			dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
 			if err := config.GetDB().WithContext(dbCtx).Model(&models.InferenceTask{}).
 				Where("created_at >= ?", start).Where("created_at < ?", end).
@@ -40,7 +40,7 @@ func getTaskCounts(ctx context.Context, start, end time.Time) ([]*models.TaskCou
 		}
 
 		err = func() error {
-			dbCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+			dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
 			if err := config.GetDB().WithContext(dbCtx).Model(&models.InferenceTask{}).
 				Where("created_at >= ?", start).Where("created_at < ?", end).

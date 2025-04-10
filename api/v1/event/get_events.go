@@ -32,7 +32,7 @@ type GetEventsResponse struct {
 }
 
 func GetEvents(c *gin.Context, in *GetEventsInput) (*GetEventsResponse, error) {
-	dbCtx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
+	dbCtx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 	defer cancel()
 
 	var events []*models.Event
@@ -58,11 +58,11 @@ func GetEvents(c *gin.Context, in *GetEventsInput) (*GetEventsResponse, error) {
 	respEvents := make([]Event, len(events))
 	for i, event := range events {
 		respEvents[i] = Event{
-			ID: event.ID,
-			Type: event.Type,
-			NodeAddress: event.NodeAddress,
+			ID:               event.ID,
+			Type:             event.Type,
+			NodeAddress:      event.NodeAddress,
 			TaskIDCommitment: event.TaskIDCommitment,
-			Args: event.Args,
+			Args:             event.Args,
 		}
 	}
 	return &GetEventsResponse{
