@@ -5,7 +5,6 @@ import (
 	"crynux_relay/config"
 	"crynux_relay/models"
 	"errors"
-	"math"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -59,8 +58,11 @@ func processQueuedTask(ctx context.Context, taskQueue *TaskQueue) error {
 		}
 		if selectedNode == nil {
 			go func(task *models.InferenceTask, retryCount int) {
-				t := time.Duration(math.Min(30, math.Exp2(float64(retryCount+1))))
-				time.Sleep(t * time.Second)
+				t := 5 * (retryCount + 1)
+				if t > 30 {
+					t = 30
+				}
+				time.Sleep(time.Duration(t) * time.Second)
 				taskQueue.PushWithRetry(task, retryCount+1)
 			}(task, retryCount)
 		} else {
