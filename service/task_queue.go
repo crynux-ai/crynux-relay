@@ -3,6 +3,7 @@ package service
 import (
 	"container/heap"
 	"crynux_relay/models"
+	"math/big"
 	"sync"
 )
 
@@ -16,7 +17,17 @@ type taskPriorityQueue []*TaskWithRetry
 func (pq taskPriorityQueue) Len() int { return len(pq) }
 
 func (pq taskPriorityQueue) Less(i, j int) bool {
-	flag := pq[i].Task.TaskFee.Cmp(&pq[j].Task.TaskFee.Int)
+	base := big.NewInt(1000000000000000000)
+	taskFeeI := big.NewInt(0).Sub(&pq[i].Task.TaskFee.Int, big.NewInt(0).Mul(base, big.NewInt(int64(pq[i].RetryCount))))
+	if taskFeeI.Cmp(big.NewInt(0)) < 0 {
+		taskFeeI = big.NewInt(0)
+	}
+	taskFeeJ := big.NewInt(0).Sub(&pq[j].Task.TaskFee.Int, big.NewInt(0).Mul(base, big.NewInt(int64(pq[j].RetryCount))))
+	if taskFeeJ.Cmp(big.NewInt(0)) < 0 {
+		taskFeeJ = big.NewInt(0)
+	}
+
+	flag := taskFeeI.Cmp(taskFeeJ)
 	if flag > 0 {
 		return true
 	} else if flag < 0 {
