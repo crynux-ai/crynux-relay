@@ -4,6 +4,7 @@ import (
 	"context"
 	"crynux_relay/config"
 	"crynux_relay/models"
+	"strings"
 	"time"
 
 	"gonum.org/v1/gonum/stat/sampleuv"
@@ -138,6 +139,19 @@ func selectNodeForInferenceTask(ctx context.Context, task *models.InferenceTask)
 		nodes, err = filterNodesByVram(ctx, task.MinVRAM, taskVersionNumbers)
 		if err != nil {
 			return nil, err
+		}
+		if task.TaskType == models.TaskTypeLLM {
+			var newNodes []models.Node
+			for _, node := range nodes {
+				names := strings.SplitN(node.GPUName, "+", 2)
+				if len(names) == 2 {
+					platform := strings.TrimSpace(names[1])
+					if platform != "Darwin" {
+						newNodes = append(newNodes, node)
+					}
+				}
+			}
+			nodes = newNodes
 		}
 	}
 	if len(nodes) == 0 {
