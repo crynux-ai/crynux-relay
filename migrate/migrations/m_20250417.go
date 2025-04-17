@@ -10,7 +10,7 @@ func M20250417(db *gorm.DB) *gormigrate.Gormigrate {
 
 	type InferenceTask struct {
 		Status       uint8  `json:"status" gorm:"index"`
-		SelectedNode string `json:"selected_node" gorm:"index"`
+		SelectedNode string `json:"selected_node" gorm:"index;type:string;sieze:255"`
 	}
 
 	return gormigrate.New(db, gormigrate.DefaultOptions, []*gormigrate.Migration{
@@ -20,10 +20,13 @@ func M20250417(db *gorm.DB) *gormigrate.Gormigrate {
 			ID: "M20250417",
 
 			Migrate: func(tx *gorm.DB) error {
-				if err := tx.Migrator().CreateIndex(&InferenceTask{}, "Status"); err != nil {
+				if err := tx.Migrator().AlterColumn(&InferenceTask{}, "SelectedNode"); err != nil {
 					return err
 				}
 				if err := tx.Migrator().CreateIndex(&InferenceTask{}, "SelectedNode"); err != nil {
+					return err
+				}
+				if err := tx.Migrator().CreateIndex(&InferenceTask{}, "Status"); err != nil {
 					return err
 				}
 				return nil
