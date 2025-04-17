@@ -17,7 +17,7 @@ func M20250417(db *gorm.DB) *gormigrate.Gormigrate {
 
 		{
 
-			ID: "M20250402",
+			ID: "M20250417",
 
 			Migrate: func(tx *gorm.DB) error {
 				if err := tx.Migrator().CreateIndex(&InferenceTask{}, "Status"); err != nil {
