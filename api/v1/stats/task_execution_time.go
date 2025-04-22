@@ -10,8 +10,9 @@ import (
 )
 
 type GetTaskExecutionTimeHistogramInput struct {
-	TaskType TaskTypeString `query:"task_type" validate:"required" enum:"Image,Text,All"`
-	Period   TimeUnit       `query:"period" validate:"required" enum:"Hour,Day,Week"`
+	TaskType      TaskTypeString `query:"task_type" validate:"required" enum:"Image,Text,All"`
+	Period        TimeUnit       `query:"period" validate:"required" enum:"Hour,Day,Week"`
+	ModelSwitched *bool          `query:"model_switched" enum:"true,false"`
 }
 
 type GetTaskExecutionTimeHistogramData struct {
@@ -41,6 +42,10 @@ func GetTaskExecutionTimeHistogram(_ *gin.Context, input *GetTaskExecutionTimeHi
 		subQuery = subQuery.Where("task_type = ?", models.TaskTypeSD)
 	} else if input.TaskType == TextTaskType {
 		subQuery = subQuery.Where("task_type = ?", models.TaskTypeLLM)
+	}
+
+	if input.ModelSwitched != nil {
+		subQuery = subQuery.Where("model_switched = ?", *input.ModelSwitched)
 	}
 
 	rows, err := config.GetDB().Table("(?) as s", subQuery).Select("s.seconds AS seconds", "SUM(s.count) AS count").Group("seconds").Order("seconds").Rows()

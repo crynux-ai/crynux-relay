@@ -30,6 +30,13 @@ func SetTaskStatusStarted(ctx context.Context, db *gorm.DB, task *models.Inferen
 	if task.Status != models.TaskQueued {
 		return errWrongTaskStatus
 	}
+	var inUseModelIDs []string
+	for _, model := range node.Models {
+		if model.InUse {
+			inUseModelIDs = append(inUseModelIDs, model.ModelID)
+		}
+	}
+
 	// start inference task
 	err := db.Transaction(func(tx *gorm.DB) error {
 		dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -38,6 +45,7 @@ func SetTaskStatusStarted(ctx context.Context, db *gorm.DB, task *models.Inferen
 			"selected_node": node.Address,
 			"start_time":    sql.NullTime{Time: time.Now(), Valid: true},
 			"status":        models.TaskStarted,
+			"model_swtiched": !isSameModels(inUseModelIDs, task.ModelIDs),
 		}); err != nil {
 			return err
 		}

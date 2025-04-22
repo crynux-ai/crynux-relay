@@ -144,39 +144,44 @@ func getTaskExecutionTimeCount(ctx context.Context, start, end time.Time) ([]*mo
 	var results []*models.TaskExecutionTimeCount
 
 	taskTypes := []models.TaskType{models.TaskTypeSD, models.TaskTypeLLM, models.TaskTypeSDFTLora}
+	modelSwitchedEnums := []bool{false, true}
 	binSize := 5
 	for _, taskType := range taskTypes {
-		rows, err := func() (*sql.Rows, error) {
-			dbCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-			defer cancel()
-
-			subQuery := config.GetDB().Table("inference_tasks").
-				Select("id, CAST(TIMESTAMPDIFF(SECOND, start_time, score_ready_time) / ? AS SIGNED) AS time", binSize).
-				Where("created_at >= ?", start).Where("created_at < ?", end).
-				Where("task_type = ?", taskType).
-				Where("score_ready_time IS NOT NULL")
-			return config.GetDB().WithContext(dbCtx).
-				Table("(?) AS s", subQuery).
-				Select("s.time * ? as T, COUNT(s.id) AS count", binSize).
-				Where("s.time >= 0").
-				Group("T").Order("T").Rows()
-		}()
-
-		if err != nil {
-			log.Errorf("Stats: get %d type task execution time error: %v", taskType, err)
-			return nil, err
-		}
-		defer rows.Close()
-		var seconds, count int64
-		for rows.Next() {
-			rows.Scan(&seconds, &count)
-			results = append(results, &models.TaskExecutionTimeCount{
-				Start:    start,
-				End:      end,
-				TaskType: taskType,
-				Seconds:  seconds,
-				Count:    count,
-			})
+		for _, modelSwitched := range modelSwitchedEnums {
+			rows, err := func() (*sql.Rows, error) {
+				dbCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+				defer cancel()
+	
+				subQuery := config.GetDB().Table("inference_tasks").
+					Select("id, CAST(TIMESTAMPDIFF(SECOND, start_time, score_ready_time) / ? AS SIGNED) AS time", binSize).
+					Where("created_at >= ?", start).Where("created_at < ?", end).
+					Where("task_type = ?", taskType).
+					Where("model_swtiched = ?", modelSwitched).
+					Where("score_ready_time IS NOT NULL")
+				return config.GetDB().WithContext(dbCtx).
+					Table("(?) AS s", subQuery).
+					Select("s.time * ? as T, COUNT(s.id) AS count", binSize).
+					Where("s.time >= 0").
+					Group("T").Order("T").Rows()
+			}()
+	
+			if err != nil {
+				log.Errorf("Stats: get %d type task execution time error: %v", taskType, err)
+				return nil, err
+			}
+			defer rows.Close()
+			var seconds, count int64
+			for rows.Next() {
+				rows.Scan(&seconds, &count)
+				results = append(results, &models.TaskExecutionTimeCount{
+					Start:    start,
+					End:      end,
+					TaskType: taskType,
+					Seconds:  seconds,
+					Count:    count,
+					ModelSwitched: modelSwitched,
+				})
+			}
 		}
 	}
 	return results, nil
