@@ -20,11 +20,12 @@ type TaskCount struct {
 type TaskExecutionTimeCount struct {
 	gorm.Model
 
-	Start    time.Time `json:"start"`
-	End      time.Time `json:"end"`
-	TaskType TaskType  `json:"task_type"`
-	Seconds  int64     `json:"seconds"`
-	Count    int64     `json:"count"`
+	Start         time.Time `json:"start"`
+	End           time.Time `json:"end"`
+	TaskType      TaskType  `json:"task_type"`
+	Seconds       int64     `json:"seconds"`
+	Count         int64     `json:"count"`
+	ModelSwitched bool      `json:"model_switched"`
 }
 
 type TaskUploadResultTimeCount struct {

@@ -115,6 +115,7 @@ type InferenceTask struct {
 	QOSScore         uint64          `json:"qos_score"`
 	SelectedNode     string          `json:"selected_node"`
 	TaskID           string          `json:"task_id"`
+	ModelSwtiched    bool            `json:"model_swtiched"`
 	// time when task is created (get from blockchain)
 	CreateTime sql.NullTime `json:"create_time" gorm:"index;null;default:null"`
 	// time when task is started (get from blockchain)
