@@ -12,7 +12,7 @@ import (
 type GetTaskExecutionTimeHistogramInput struct {
 	TaskType      TaskTypeString `query:"task_type" validate:"required" enum:"Image,Text,All"`
 	Period        TimeUnit       `query:"period" validate:"required" enum:"Hour,Day,Week"`
-	ModelSwitched *bool          `query:"model_switched" enum:"true,false"`
+	ModelSwitched *bool          `query:"model_switched" enums:"0,1"`
 }
 
 type GetTaskExecutionTimeHistogramData struct {
