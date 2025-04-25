@@ -32,35 +32,63 @@ func CreateGenesisAccount(ctx context.Context, db *gorm.DB) error {
 func Transfer(ctx context.Context, db *gorm.DB, from, to string, amount *big.Int) error {
 	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	return db.Transaction(func(tx *gorm.DB) error {
-		var fromBalance models.Balance
-		if err := tx.WithContext(dbCtx).Clauses(clause.Locking{Strength: "UPDATE"}).
-			Where("address = ?", from).First(&fromBalance).Error; err != nil {
-			return err
-		}
-		if fromBalance.Balance.Cmp(amount) == -1 {
-			return errors.New("insufficient balance")
-		}
 
-		if err := tx.WithContext(dbCtx).Model(&fromBalance).Update("balance", models.BigInt{Int: *big.NewInt(0).Sub(&fromBalance.Balance.Int, amount)}).Error; err != nil {
-			return err
-		}
-
-		var toBalance models.Balance
-		err := tx.WithContext(dbCtx).Clauses(clause.Locking{Strength: "UPDATE"}).
-			Where("address = ?", to).First(&toBalance).Error
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			toBalance = models.Balance{
-				Address: to,
-				Balance: models.BigInt{Int: *amount},
+	maxRetries := 3
+	for i := 0; i < maxRetries; i++ {
+		err := db.Transaction(func(tx *gorm.DB) error {
+			var fromBalance models.Balance
+			if err := tx.WithContext(dbCtx).
+				Where("address = ?", from).First(&fromBalance).Error; err != nil {
+				return err
 			}
-			return tx.WithContext(dbCtx).Create(&toBalance).Error
-		} else if err == nil {
-			return tx.WithContext(dbCtx).Model(&toBalance).Update("balance", models.BigInt{Int: *big.NewInt(0).Add(&toBalance.Balance.Int, amount)}).Error
-		} else {
+			if fromBalance.Balance.Cmp(amount) == -1 {
+				return errors.New("insufficient balance")
+			}
+
+			result := tx.WithContext(dbCtx).Model(&fromBalance).
+				Where("address = ? AND balance = ?", from, fromBalance.Balance).
+				Update("balance", models.BigInt{Int: *big.NewInt(0).Sub(&fromBalance.Balance.Int, amount)})
+			if result.Error != nil {
+				return result.Error
+			}
+			if result.RowsAffected == 0 {
+				return errors.New("concurrent modification detected")
+			}
+
+			var toBalance models.Balance
+			err := tx.WithContext(dbCtx).
+				Where("address = ?", to).First(&toBalance).Error
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				toBalance = models.Balance{
+					Address: to,
+					Balance: models.BigInt{Int: *amount},
+				}
+				return tx.WithContext(dbCtx).Create(&toBalance).Error
+			} else if err == nil {
+				result := tx.WithContext(dbCtx).Model(&toBalance).
+					Where("address = ? AND balance = ?", to, toBalance.Balance).
+					Update("balance", models.BigInt{Int: *big.NewInt(0).Add(&toBalance.Balance.Int, amount)})
+				if result.Error != nil {
+					return result.Error
+				}
+				if result.RowsAffected == 0 {
+					return errors.New("concurrent modification detected")
+				}
+				return nil
+			} else {
+				return err
+			}
+		})
+
+		if err == nil {
+			return nil
+		}
+		if err.Error() != "concurrent modification detected" {
 			return err
 		}
-	})
+		time.Sleep(time.Millisecond * 100)
+	}
+	return errors.New("max retries exceeded")
 }
 
 func GetBalance(ctx context.Context, db *gorm.DB, address string) (*big.Int, error) {
