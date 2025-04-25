@@ -79,27 +79,47 @@ func StartTaskProcesser(ctx context.Context) {
 	taskQueue := NewTaskQueue()
 
 	go func(ctx context.Context, taskQueue *TaskQueue) {
+		timer := time.NewTimer(2 * time.Second)
+		defer timer.Stop()
+
 		for {
 			err := generateQueuedTasks(ctx, taskQueue)
-			if err == context.DeadlineExceeded || err == context.Canceled {
-				taskQueue.Close()
-				return
-			}
 			if err != nil {
 				log.Errorf("StartTask: generate queued tasks error: %v", err)
 			}
-			time.Sleep(2 * time.Second)
+
+			if !timer.Stop() {
+				<-timer.C
+			}
+			timer.Reset(2 * time.Second)
+
+			select {
+			case <-ctx.Done():
+				taskQueue.Close()
+				return
+			case <-timer.C:
+			}
 		}
 	}(ctx, taskQueue)
 
+	timer := time.NewTimer(2 * time.Second)
+	defer timer.Stop()
+
 	for {
 		err := processQueuedTask(ctx, taskQueue)
-		if err == context.DeadlineExceeded || err == context.Canceled {
-			break
-		}
 		if err != nil {
 			log.Errorf("StartTask: process queued tasks error: %v", err)
 		}
-		time.Sleep(2 * time.Second)
+
+		if !timer.Stop() {
+			<-timer.C
+		}
+		timer.Reset(2 * time.Second)
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-timer.C:
+		}
 	}
 }
