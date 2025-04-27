@@ -44,6 +44,7 @@ func main() {
 	}
 
 	go service.StartTaskProcesser(context.Background())
+	go service.StartBalanceSync(context.Background(), config.GetDB())
 	// go tasks.ProcessTasks(context.Background())
 	go tasks.StartSyncNetwork(context.Background())
 	go tasks.StartStatsTaskCount(context.Background())
