@@ -74,7 +74,7 @@ func getBalanceFromCache(ctx context.Context, db *gorm.DB, address string) (*big
 
 func StartBalanceSync(ctx context.Context, db *gorm.DB) {
 	go func() {
-		ticker := time.NewTicker(5 * time.Second)
+		ticker := time.NewTicker(10 * time.Second)
 		defer ticker.Stop()
 
 		for {
@@ -100,13 +100,13 @@ func syncBalancesToDB(ctx context.Context, db *gorm.DB) error {
 	return db.WithContext(dbCtx).Transaction(func(tx *gorm.DB) error {
 		for address := range changedBalances {
 			balance := balanceCache.balances[address]
-			tx.Clauses(clause.OnConflict{
-				Columns:   []clause.Column{{Name: "address"}},
-				DoUpdates: clause.Assignments(map[string]interface{}{"balance": models.BigInt{Int: *balance}}),
-			}).Create(&models.Balance{
-				Address: address,
-				Balance: models.BigInt{Int: *balance},
-			})
+			r := tx.Model(&models.Balance{}).Where("address = ?", address).Update("balance", balance)
+			if r.Error != nil {
+				return r.Error
+			}
+			if r.RowsAffected == 0 {
+				return tx.Create(&models.Balance{Address: address, Balance: models.BigInt{Int: *balance}}).Error
+			}
 		}
 
 		if err := tx.Model(&models.TransferEvent{}).
