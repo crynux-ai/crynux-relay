@@ -73,21 +73,19 @@ func getBalanceFromCache(ctx context.Context, db *gorm.DB, address string) (*big
 }
 
 func StartBalanceSync(ctx context.Context, db *gorm.DB) {
-	go func() {
-		ticker := time.NewTicker(10 * time.Second)
-		defer ticker.Stop()
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
 
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				if err := syncBalancesToDB(ctx, db); err != nil {
-					log.Printf("Failed to sync balances: %v", err)
-				}
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := syncBalancesToDB(ctx, db); err != nil {
+				log.Printf("Failed to sync balances: %v", err)
 			}
 		}
-	}()
+	}
 }
 
 func syncBalancesToDB(ctx context.Context, db *gorm.DB) error {
@@ -100,7 +98,7 @@ func syncBalancesToDB(ctx context.Context, db *gorm.DB) error {
 	return db.WithContext(dbCtx).Transaction(func(tx *gorm.DB) error {
 		for address := range changedBalances {
 			balance := balanceCache.balances[address]
-			r := tx.Model(&models.Balance{}).Where("address = ?", address).Update("balance", balance)
+			r := tx.Model(&models.Balance{}).Where("address = ?", address).Update("balance", models.BigInt{Int: *balance})
 			if r.Error != nil {
 				return r.Error
 			}
