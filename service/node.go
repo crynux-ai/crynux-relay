@@ -101,16 +101,22 @@ func nodeStartTask(ctx context.Context, db *gorm.DB, node *models.Node, taskIDCo
 	}
 
 	return db.Transaction(func(tx *gorm.DB) error {
-		node.Update(ctx, tx, map[string]interface{}{
+		if err := node.Update(ctx, tx, map[string]interface{}{
 			"status":                     models.NodeStatusBusy,
 			"current_task_id_commitment": sql.NullString{String: taskIDCommitment, Valid: true},
-		})
+		}); err != nil {
+			return err
+		}
 
 		for _, model := range newModels {
-			model.Save(ctx, tx)
+			if err := model.Save(ctx, tx); err != nil {
+				return err
+			}
 		}
 		for _, model := range unusedModels {
-			model.Save(ctx, tx)
+			if err := model.Save(ctx, tx); err != nil {
+				return err
+			}
 		}
 		return nil
 	})
