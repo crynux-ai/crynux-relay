@@ -10,8 +10,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+var startID uint = 0
+
 func generateQueuedTasks(ctx context.Context, taskQueue *TaskQueue) error {
-	startID := uint(0)
 	limit := 100
 
 	for {
