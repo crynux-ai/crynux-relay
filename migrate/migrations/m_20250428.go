@@ -14,10 +14,18 @@ func M20250428(db *gorm.DB) *gormigrate.Gormigrate {
 		{
 			ID: "M20250428",
 			Migrate: func(tx *gorm.DB) error {
-				return tx.AutoMigrate(&InferenceTask{})
+				if tx.Migrator().HasIndex(&InferenceTask{}, "TaskIDCommitment") {
+					if err := tx.Migrator().DropIndex(&InferenceTask{}, "TaskIDCommitment"); err != nil {
+						return err
+					}
+				}
+				return tx.Migrator().CreateIndex(&InferenceTask{}, "TaskIDCommitment")
 			},
 			Rollback: func(tx *gorm.DB) error {
-				return tx.Migrator().DropIndex(&InferenceTask{}, "task_id_commitment")
+				if !tx.Migrator().HasIndex(&InferenceTask{}, "TaskIDCommitment") {
+					return tx.Migrator().CreateIndex(&InferenceTask{}, "TaskIDCommitment")
+				}
+				return nil
 			},
 		},
 	})
