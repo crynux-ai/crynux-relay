@@ -283,48 +283,29 @@ func SetTaskStatusEndAborted(ctx context.Context, db *gorm.DB, task *models.Infe
 		"validated_time": task.ValidatedTime,
 	}
 	appConfig := config.GetConfig()
-	if task.Status != models.TaskQueued {
-		node, err := checkTaskSelectedNode(ctx, db, task)
-		if err != nil {
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := Transfer(ctx, tx, appConfig.Blockchain.Account.Address, task.Creator, &task.TaskFee.Int); err != nil {
 			return err
 		}
 
-		return db.Transaction(func(tx *gorm.DB) error {
-			if err := Transfer(ctx, tx, appConfig.Blockchain.Account.Address, task.Creator, &task.TaskFee.Int); err != nil {
-				return err
+		if len(task.SelectedNode) > 0 {
+			if node, err := checkTaskSelectedNode(ctx, db, task); err == nil {
+				if err := nodeFinishTask(ctx, tx, node); err != nil {
+					return err
+				}
 			}
+		}
 
-			if err := nodeFinishTask(ctx, tx, node); err != nil {
-				return err
-			}
-			if err := task.Update(ctx, tx, newTask); err != nil {
-				return err
-			}
-			return emitEvent(ctx, tx, &models.TaskEndAbortedEvent{
-				TaskIDCommitment: task.TaskIDCommitment,
-				AbortIssuer:      aboutIssuer,
-				AbortReason:      task.AbortReason,
-				LastStatus:       lastStatus,
-			})
+		if err := task.Update(ctx, tx, newTask); err != nil {
+			return err
+		}
+		return emitEvent(ctx, tx, &models.TaskEndAbortedEvent{
+			TaskIDCommitment: task.TaskIDCommitment,
+			AbortIssuer:      aboutIssuer,
+			AbortReason:      task.AbortReason,
+			LastStatus:       lastStatus,
 		})
-	} else {
-		return db.Transaction(func(tx *gorm.DB) error {
-			if err := Transfer(ctx, tx, appConfig.Blockchain.Account.Address, task.Creator, &task.TaskFee.Int); err != nil {
-				return err
-			}
-
-			if err := task.Update(ctx, tx, newTask); err != nil {
-				return err
-			}
-			return emitEvent(ctx, tx, &models.TaskEndAbortedEvent{
-				TaskIDCommitment: task.TaskIDCommitment,
-				AbortIssuer:      aboutIssuer,
-				AbortReason:      task.AbortReason,
-				LastStatus:       lastStatus,
-			})
-		})
-
-	}
+	})
 }
 
 func SetTaskStatusEndSuccess(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
