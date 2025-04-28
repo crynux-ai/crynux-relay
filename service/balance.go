@@ -23,8 +23,6 @@ type BalanceCache struct {
 var balanceCache = &BalanceCache{
 	balances: make(map[string]*big.Int),
 }
-var changedBalances map[string]struct{} = make(map[string]struct{})
-
 
 func InitBalanceCache(ctx context.Context, db *gorm.DB) error {
 	var events []models.TransferEvent
@@ -88,33 +86,81 @@ func StartBalanceSync(ctx context.Context, db *gorm.DB) {
 	}
 }
 
-func syncBalancesToDB(ctx context.Context, db *gorm.DB) error {
-	balanceCache.mu.RLock()
-	defer balanceCache.mu.RUnlock()
-
-	dbCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+func processTransferEvent(ctx context.Context, db *gorm.DB, event *models.TransferEvent) error {
+	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-
+	
 	return db.WithContext(dbCtx).Transaction(func(tx *gorm.DB) error {
-		for address := range changedBalances {
-			balance := balanceCache.balances[address]
-			r := tx.Model(&models.Balance{}).Where("address = ?", address).Update("balance", models.BigInt{Int: *balance})
-			if r.Error != nil {
-				return r.Error
-			}
-			if r.RowsAffected == 0 {
-				return tx.Create(&models.Balance{Address: address, Balance: models.BigInt{Int: *balance}}).Error
-			}
+		fromBalance := &models.Balance{Address: event.FromAddress}
+		toBalance := &models.Balance{Address: event.ToAddress}
+		if err := tx.Model(fromBalance).Where(fromBalance).First(fromBalance).Error; err != nil {
+			return err
+		}
+		fromBalance.Balance.Sub(&fromBalance.Balance.Int, &event.Amount.Int)
+
+		if fromBalance.Balance.Int.Cmp(big.NewInt(0)) < 0 {
+			return errors.New("insufficient balance")
+		}
+		if err := tx.Save(fromBalance).Error; err != nil {
+			return err
 		}
 
-		if err := tx.Model(&models.TransferEvent{}).
-			Where("status = ?", 0).
-			Update("status", 1).Error; err != nil {
+		if err := tx.Model(toBalance).Where(toBalance).Attrs(models.Balance{Balance: models.BigInt{Int: *big.NewInt(0)}}).FirstOrInit(toBalance).Error; err != nil {
+			return err
+		}
+		toBalance.Balance.Add(&toBalance.Balance.Int, &event.Amount.Int)
+		if err := tx.Save(toBalance).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Model(event).Update("status", models.TransferEventStatusProcessed).Error; err != nil {
 			return err
 		}
 
 		return nil
 	})
+}
+
+func syncBalancesToDB(ctx context.Context, db *gorm.DB) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			dbCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			err := db.WithContext(dbCtx).Transaction(func(tx *gorm.DB) error {
+				var events []models.TransferEvent
+				if err := tx.Where("status = ?", models.TransferEventStatusPending).Find(&events).Error; err != nil {
+					return err
+				}
+
+				if len(events) == 0 {
+					return nil
+				}
+
+				for _, event := range events {
+					if err := processTransferEvent(ctx, tx, &event); err != nil {
+						return err
+					}
+				}
+
+				return nil
+			})
+			cancel()
+
+			if err != nil {
+				log.Printf("Failed to sync balances: %v", err)
+			}
+
+			// Wait for 2 seconds before next iteration
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(2 * time.Second):
+				continue
+			}
+		}
+	}
 }
 
 func CreateGenesisAccount(ctx context.Context, db *gorm.DB) error {
@@ -163,9 +209,6 @@ func Transfer(ctx context.Context, db *gorm.DB, from, to string, amount *big.Int
 
 	fromBalance.Sub(fromBalance, amount)
 	toBalance.Add(toBalance, amount)
-
-	changedBalances[from] = struct{}{}
-	changedBalances[to] = struct{}{}
 
 	return nil
 }
