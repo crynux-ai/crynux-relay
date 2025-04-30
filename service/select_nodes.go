@@ -118,6 +118,9 @@ func selectNodesByScore(nodes []models.Node, n int) []models.Node {
 		}
 	}
 	w := sampleuv.NewWeighted(scores, nil)
+	if n > len(nodes) {
+		n = len(nodes)
+	}
 	res := make([]models.Node, n)
 	for i := 0; i < n; i++ {
 		idx, _ := w.Take()
