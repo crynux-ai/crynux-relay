@@ -21,45 +21,27 @@ func getTaskQosScore(order int) uint64 {
 }
 
 func getNodeTaskQosScore(ctx context.Context, node *models.Node) (uint64, error) {
-	dbCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-
-	type Result struct {
-		SelectedNode string
-		Count        uint64
-		Score        uint64
-	}
-
-	res := &Result{}
-	err := config.GetDB().WithContext(dbCtx).Model(&models.InferenceTask{}).
-		Select("selected_node, count(qos_score) as count, sum(qos_score) as score").
-		Where("selected_node = ?", node.Address).
-		Group("selected_node").
-		Scan(res).Error
+	score, count, err := getNodeRecentTaskQosScore(ctx, node, 50)
 	if err != nil {
 		return 0, err
 	}
-
-	if res.Count == 0 {
-		return TASK_SCORE_REWARDS[0], nil
-	}
-	score := res.Score / res.Count
-	if score == 0 {
-		score = 1
-	}
-	return score, nil
+	return score / count, nil
 }
 
-func getNodeRecentTaskQosScore(ctx context.Context, node *models.Node) (uint64, uint64, error) {
+func getNodeRecentTaskQosScore(ctx context.Context, node *models.Node, n int) (uint64, uint64, error) {
 	dbCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	var tasks []models.InferenceTask
+	type TaskScore struct {
+		QOSScore uint64 `json:"qos_score"`
+	}
+
+	var tasks []TaskScore
 	err := config.GetDB().WithContext(dbCtx).Model(&models.InferenceTask{}).
 		Where("selected_node = ?", node.Address).
 		Where("start_time >= ?", node.JoinTime).
 		Order("start_time DESC").
-		Limit(3).
+		Limit(n).
 		Find(&tasks).Error
 	if err != nil {
 		return 0, 0, err
@@ -73,7 +55,7 @@ func getNodeRecentTaskQosScore(ctx context.Context, node *models.Node) (uint64, 
 }
 
 func shouldKickoutNode(ctx context.Context, node *models.Node) (bool, error) {
-	qosScore, count, err := getNodeRecentTaskQosScore(ctx, node)
+	qosScore, count, err := getNodeRecentTaskQosScore(ctx, node, 3)
 	if err != nil {
 		return false, err
 	}
