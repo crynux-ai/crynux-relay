@@ -19,7 +19,7 @@ func CreateTask(ctx context.Context, db *gorm.DB, task *models.InferenceTask) er
 	appConfig := config.GetConfig()
 
 	return db.Transaction(func(tx *gorm.DB) error {
-		if err := task.Save(ctx, tx); err != nil {
+		if err := task.Create(ctx, tx); err != nil {
 			return err
 		}
 		return Transfer(ctx, tx, task.Creator, appConfig.Blockchain.Account.Address, &task.TaskFee.Int)
@@ -42,9 +42,9 @@ func SetTaskStatusStarted(ctx context.Context, db *gorm.DB, task *models.Inferen
 		dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		if err := task.Update(dbCtx, tx, map[string]interface{}{
-			"selected_node": node.Address,
-			"start_time":    sql.NullTime{Time: time.Now(), Valid: true},
-			"status":        models.TaskStarted,
+			"selected_node":  node.Address,
+			"start_time":     sql.NullTime{Time: time.Now(), Valid: true},
+			"status":         models.TaskStarted,
 			"model_swtiched": !isSameModels(inUseModelIDs, task.ModelIDs),
 		}); err != nil {
 			return err

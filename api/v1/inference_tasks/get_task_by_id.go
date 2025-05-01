@@ -55,6 +55,7 @@ func GetTaskById(c *gin.Context, in *GetTaskInputWithSignature) (*TaskResponse, 
 	}
 
 	t := &InferenceTask{
+		Sequence:         uint64(task.ID),
 		TaskArgs:         task.TaskArgs,
 		TaskIDCommitment: task.TaskIDCommitment,
 		Creator:          task.Creator,
