@@ -162,10 +162,10 @@ func (task *InferenceTask) SyncStatus(ctx context.Context, db *gorm.DB) error {
 	return nil
 }
 
-func (task *InferenceTask) Save(ctx context.Context, db *gorm.DB) error {
+func (task *InferenceTask) Create(ctx context.Context, db *gorm.DB) error {
 	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	if err := db.WithContext(dbCtx).Save(task).Error; err != nil {
+	if err := db.WithContext(dbCtx).Create(task).Error; err != nil {
 		return err
 	}
 	return nil
