@@ -29,7 +29,7 @@ func GetCurrentEventID(c *gin.Context, in *GetCurrentEventIDInput) (*GetCurrentE
 
 	var event models.Event
 
-	stmt := config.GetDB().WithContext(dbCtx).Model(&event)
+	stmt := config.GetDB().Unscoped().WithContext(dbCtx).Model(&event)
 	if in.EventType != nil {
 		stmt.Where("event_type = ?", *in.EventType)
 	}

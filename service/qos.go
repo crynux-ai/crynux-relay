@@ -38,7 +38,7 @@ func getNodeRecentTaskQosScore(ctx context.Context, node *models.Node, n int) (u
 	}
 
 	var tasks []TaskScore
-	err := config.GetDB().WithContext(dbCtx).Model(&models.InferenceTask{}).
+	err := config.GetDB().WithContext(dbCtx).Unscoped().Model(&models.InferenceTask{}).
 		Clauses(hints.UseIndex("idx_inference_tasks_selected_node")).
 		Where("selected_node = ?", node.Address).
 		Where("start_time >= ?", node.JoinTime).
