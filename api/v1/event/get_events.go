@@ -37,7 +37,7 @@ func GetEvents(c *gin.Context, in *GetEventsInput) (*GetEventsResponse, error) {
 
 	var events []*models.Event
 
-	stmt := config.GetDB().WithContext(dbCtx).Model(&models.Event{}).Where("id > ?", in.Start)
+	stmt := config.GetDB().Unscoped().WithContext(dbCtx).Model(&models.Event{}).Where("id > ?", in.Start)
 	if in.EventType != nil {
 		stmt.Where("event_type = ?", *in.EventType)
 	}
