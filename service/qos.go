@@ -4,7 +4,9 @@ import (
 	"context"
 	"crynux_relay/config"
 	"crynux_relay/models"
+	"database/sql"
 	"time"
+
 	"gorm.io/hints"
 )
 
@@ -35,13 +37,13 @@ func getNodeRecentTaskQosScore(ctx context.Context, node *models.Node, n int) (u
 
 	type TaskScore struct {
 		QOSScore uint64 `json:"qos_score"`
+		StartTime sql.NullTime `json:"start_time"`
 	}
 
 	var tasks []TaskScore
 	err := config.GetDB().WithContext(dbCtx).Unscoped().Model(&models.InferenceTask{}).
 		Clauses(hints.UseIndex("idx_inference_tasks_selected_node")).
 		Where("selected_node = ?", node.Address).
-		Where("start_time >= ?", node.JoinTime).
 		Order("id DESC").
 		Limit(n).
 		Find(&tasks).Error
@@ -51,7 +53,9 @@ func getNodeRecentTaskQosScore(ctx context.Context, node *models.Node, n int) (u
 
 	var qosScore uint64 = 0
 	for _, task := range tasks {
-		qosScore += task.QOSScore
+		if task.StartTime.Valid && task.StartTime.Time.Before(node.JoinTime) {
+			qosScore += task.QOSScore
+		}
 	}
 	return qosScore, uint64(len(tasks)), nil
 }
