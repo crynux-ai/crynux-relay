@@ -52,12 +52,14 @@ func getNodeRecentTaskQosScore(ctx context.Context, node *models.Node, n int) (u
 	}
 
 	var qosScore uint64 = 0
+	var taskCount uint64 = 0
 	for _, task := range tasks {
 		if task.StartTime.Valid && task.StartTime.Time.Before(node.JoinTime) {
 			qosScore += task.QOSScore
+			taskCount++
 		}
 	}
-	return qosScore, uint64(len(tasks)), nil
+	return qosScore, taskCount, nil
 }
 
 func shouldKickoutNode(ctx context.Context, node *models.Node) (bool, error) {
