@@ -54,7 +54,7 @@ func getNodeRecentTaskQosScore(ctx context.Context, node *models.Node, n int) (u
 	var qosScore uint64 = 0
 	var taskCount uint64 = 0
 	for _, task := range tasks {
-		if task.StartTime.Valid && task.StartTime.Time.Before(node.JoinTime) {
+		if task.StartTime.Valid && node.JoinTime.Before(task.StartTime.Time) {
 			qosScore += task.QOSScore
 			taskCount++
 		}
