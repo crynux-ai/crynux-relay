@@ -52,6 +52,7 @@ type DispatchedTask struct {
 	task    *models.InferenceTask
 	node    *models.Node
 	resChan chan bool
+	createdAt time.Time
 	mu      sync.RWMutex
 }
 
@@ -79,6 +80,7 @@ func (d *TaskDispatcher) Process(ctx context.Context, task *models.InferenceTask
 			task:    task,
 			node:    node,
 			resChan: resChan,
+			createdAt: time.Now(),
 		}
 		d.mu.Unlock()
 		log.Infof("StartTask: waiting for task %s on node %s", task.TaskIDCommitment, node.Address)
@@ -154,7 +156,7 @@ func (d *TaskDispatcher) Dispatch(ctx context.Context, task *models.InferenceTas
 			if selectedNode == nil {
 				log.Errorf("StartTask: no available node for task %s", task.TaskIDCommitment)
 			}
-			randomSleep := rand.Intn(1000) + 1000
+			randomSleep := rand.Intn(500) + 500
 			time.Sleep(time.Duration(randomSleep) * time.Millisecond)
 		}
 	}
@@ -177,6 +179,15 @@ func (d *TaskDispatcher) ProcessDispatchedTasks(ctx context.Context) error {
 			dispatchedTask := d.taskMap[nodeAddress]
 			log.Infof("StartTask: start processing dispatched tasks, task %s started on node %s", dispatchedTask.task.TaskIDCommitment, dispatchedTask.node.Address)
 			d.mu.RUnlock()
+
+			if time.Now().Before(dispatchedTask.createdAt.Add(time.Second)) {
+				log.Infof("StartTask: task %s is still waiting for other tasks, skip", dispatchedTask.task.TaskIDCommitment)
+				d.mu.Lock()
+				d.nodeQueue = d.nodeQueue[1:]
+				d.nodeQueue = append(d.nodeQueue, nodeAddress)
+				d.mu.Unlock()
+				continue
+			}
 
 			dispatchedTask.mu.Lock()
 			err := SetTaskStatusStarted(ctx, config.GetDB(), dispatchedTask.task, dispatchedTask.node)
