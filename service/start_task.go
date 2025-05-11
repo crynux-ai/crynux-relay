@@ -49,11 +49,11 @@ func generateQueuedTasks(ctx context.Context, taskQueue chan<- *models.Inference
 }
 
 type DispatchedTask struct {
-	task    *models.InferenceTask
-	node    *models.Node
-	resChan chan bool
+	task      *models.InferenceTask
+	node      *models.Node
+	resChan   chan bool
 	createdAt time.Time
-	mu      sync.RWMutex
+	mu        sync.RWMutex
 }
 
 type TaskDispatcher struct {
@@ -77,9 +77,9 @@ func (d *TaskDispatcher) Process(ctx context.Context, task *models.InferenceTask
 		d.nodeQueue = append(d.nodeQueue, node.Address)
 		resChan := make(chan bool, 1)
 		d.taskMap[node.Address] = &DispatchedTask{
-			task:    task,
-			node:    node,
-			resChan: resChan,
+			task:      task,
+			node:      node,
+			resChan:   resChan,
 			createdAt: time.Now(),
 		}
 		d.mu.Unlock()
@@ -139,7 +139,7 @@ func (d *TaskDispatcher) Dispatch(ctx context.Context, task *models.InferenceTas
 			}
 
 			selectedNode, err := selectNodeForInferenceTask(ctx, task)
-			
+
 			if err == nil && selectedNode != nil {
 				log.Debugf("StartTask: select node %s for task: %s", selectedNode.Address, task.TaskIDCommitment)
 				ok := d.Process(ctx, task, selectedNode)
@@ -152,7 +152,7 @@ func (d *TaskDispatcher) Dispatch(ctx context.Context, task *models.InferenceTas
 			}
 			if err != nil {
 				log.Errorf("StartTask: select node for task %s error: %v", task.TaskIDCommitment, err)
-			} 
+			}
 			if selectedNode == nil {
 				log.Errorf("StartTask: no available node for task %s", task.TaskIDCommitment)
 			}
@@ -191,25 +191,25 @@ func (d *TaskDispatcher) ProcessDispatchedTasks(ctx context.Context) error {
 
 			dispatchedTask.mu.Lock()
 			err := SetTaskStatusStarted(ctx, config.GetDB(), dispatchedTask.task, dispatchedTask.node)
-			if err == nil {
+			success := err == nil
+
+			d.mu.Lock()
+			delete(d.taskMap, dispatchedTask.node.Address)
+			d.nodeQueue = d.nodeQueue[1:]
+			d.mu.Unlock()
+			dispatchedTask.resChan <- success
+			dispatchedTask.mu.Unlock()
+
+			if success {
 				log.Debugf("StartTask: process dispatched tasks success, task %s started on node %s", dispatchedTask.task.TaskIDCommitment, dispatchedTask.node.Address)
-				d.mu.Lock()
-				delete(d.taskMap, dispatchedTask.node.Address)
-				d.nodeQueue = d.nodeQueue[1:]
-				d.mu.Unlock()
-				dispatchedTask.resChan <- true
-				dispatchedTask.mu.Unlock()
-			} else if errors.Is(err, errWrongTaskStatus) || errors.Is(err, models.ErrTaskStatusChanged) {
-				log.Debugf("StartTask: process dispatched tasks failed, task %s status changed", dispatchedTask.task.TaskIDCommitment)
-				d.mu.Lock()
-				delete(d.taskMap, dispatchedTask.node.Address)
-				d.nodeQueue = d.nodeQueue[1:]
-				d.mu.Unlock()
-				dispatchedTask.mu.Unlock()
-				dispatchedTask.resChan <- false
 			} else {
-				log.Errorf("StartTask: process dispatched tasks error: %v", err)
-				dispatchedTask.mu.Unlock()
+				if errors.Is(err, errWrongTaskStatus) || errors.Is(err, models.ErrTaskStatusChanged) {
+					log.Debugf("StartTask: process dispatched tasks failed, task %s status changed", dispatchedTask.task.TaskIDCommitment)
+				} else if errors.Is(err, models.ErrNodeStatusChanged) {
+					log.Debugf("StartTask: process dispatched tasks failed, node %s status changed", dispatchedTask.node.Address)
+				} else {
+					log.Errorf("StartTask: process dispatched tasks error: %v", err)
+				}
 			}
 		}
 	}
