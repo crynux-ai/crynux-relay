@@ -49,11 +49,11 @@ func generateQueuedTasks(ctx context.Context, taskQueue chan<- *models.Inference
 }
 
 type DispatchedTask struct {
-	task    *models.InferenceTask
-	node    *models.Node
-	resChan chan bool
+	task      *models.InferenceTask
+	node      *models.Node
+	resChan   chan bool
 	createdAt time.Time
-	mu      sync.RWMutex
+	mu        sync.RWMutex
 }
 
 type TaskDispatcher struct {
@@ -73,17 +73,17 @@ func (d *TaskDispatcher) Process(ctx context.Context, task *models.InferenceTask
 	d.mu.Lock()
 	dispatchedTask, exists := d.taskMap[node.Address]
 	if !exists {
-		log.Infof("StartTask: new dispatched task %s on node %s", task.TaskIDCommitment, node.Address)
+		log.Debugf("StartTask: new dispatched task %s on node %s", task.TaskIDCommitment, node.Address)
 		d.nodeQueue = append(d.nodeQueue, node.Address)
 		resChan := make(chan bool, 1)
 		d.taskMap[node.Address] = &DispatchedTask{
-			task:    task,
-			node:    node,
-			resChan: resChan,
+			task:      task,
+			node:      node,
+			resChan:   resChan,
 			createdAt: time.Now(),
 		}
 		d.mu.Unlock()
-		log.Infof("StartTask: waiting for task %s on node %s", task.TaskIDCommitment, node.Address)
+		log.Debugf("StartTask: waiting for task %s on node %s", task.TaskIDCommitment, node.Address)
 		select {
 		case res := <-resChan:
 			return res
@@ -97,19 +97,19 @@ func (d *TaskDispatcher) Process(ctx context.Context, task *models.InferenceTask
 			if originalTask.TaskFee.Cmp(&task.TaskFee.Int) >= 0 {
 				dispatchedTask.mu.Unlock()
 				d.mu.Unlock()
-				log.Infof("StartTask: task %s fee is lower than original task fee, skip", task.TaskIDCommitment)
+				log.Debugf("StartTask: task %s fee is lower than original task fee, skip", task.TaskIDCommitment)
 				return false
 			}
 			// if current task fee is higher than original task fee, replace the original task
-			log.Infof("StartTask: task %s fee is higher than original task fee, replace", task.TaskIDCommitment)
-			log.Infof("StartTask: task %s is replaced by task %s", originalTask.TaskIDCommitment, task.TaskIDCommitment)
+			log.Debugf("StartTask: task %s fee is higher than original task fee, replace", task.TaskIDCommitment)
+			log.Debugf("StartTask: task %s is replaced by task %s", originalTask.TaskIDCommitment, task.TaskIDCommitment)
 			dispatchedTask.task = task
 			dispatchedTask.resChan <- false
 			newResChan := make(chan bool, 1)
 			dispatchedTask.resChan = newResChan
 			dispatchedTask.mu.Unlock()
 			d.mu.Unlock()
-			log.Infof("StartTask: waiting for task %s on node %s", task.TaskIDCommitment, node.Address)
+			log.Debugf("StartTask: waiting for task %s on node %s", task.TaskIDCommitment, node.Address)
 			select {
 			case res := <-newResChan:
 				return res
@@ -118,7 +118,7 @@ func (d *TaskDispatcher) Process(ctx context.Context, task *models.InferenceTask
 			}
 		}
 		d.mu.Unlock()
-		log.Infof("StartTask: node %s is dispatching", node.Address)
+		log.Debugf("StartTask: node %s is dispatching", node.Address)
 		return false
 	}
 
@@ -139,20 +139,20 @@ func (d *TaskDispatcher) Dispatch(ctx context.Context, task *models.InferenceTas
 			}
 
 			selectedNode, err := selectNodeForInferenceTask(ctx, task)
-			
+
 			if err == nil && selectedNode != nil {
-				log.Infof("StartTask: select node %s for task: %s", selectedNode.Address, task.TaskIDCommitment)
+				log.Debugf("StartTask: select node %s for task: %s", selectedNode.Address, task.TaskIDCommitment)
 				ok := d.Process(ctx, task, selectedNode)
 				if ok {
-					log.Infof("StartTask: dispatch task %s to node %s success", task.TaskIDCommitment, selectedNode.Address)
+					log.Debugf("StartTask: dispatch task %s to node %s success", task.TaskIDCommitment, selectedNode.Address)
 					return
 				} else {
-					log.Infof("StartTask: dispatch task %s to node %s failed", task.TaskIDCommitment, selectedNode.Address)
+					log.Debugf("StartTask: dispatch task %s to node %s failed", task.TaskIDCommitment, selectedNode.Address)
 				}
 			}
 			if err != nil {
 				log.Errorf("StartTask: select node for task %s error: %v", task.TaskIDCommitment, err)
-			} 
+			}
 			if selectedNode == nil {
 				log.Errorf("StartTask: no available node for task %s", task.TaskIDCommitment)
 			}
@@ -177,11 +177,11 @@ func (d *TaskDispatcher) ProcessDispatchedTasks(ctx context.Context) error {
 			}
 			nodeAddress := d.nodeQueue[0]
 			dispatchedTask := d.taskMap[nodeAddress]
-			log.Infof("StartTask: start processing dispatched tasks, task %s started on node %s", dispatchedTask.task.TaskIDCommitment, dispatchedTask.node.Address)
+			log.Debugf("StartTask: start processing dispatched tasks, task %s started on node %s", dispatchedTask.task.TaskIDCommitment, dispatchedTask.node.Address)
 			d.mu.RUnlock()
 
 			if time.Now().Before(dispatchedTask.createdAt.Add(time.Second)) {
-				log.Infof("StartTask: task %s is still waiting for other tasks, skip", dispatchedTask.task.TaskIDCommitment)
+				log.Debugf("StartTask: task %s is still waiting for other tasks, skip", dispatchedTask.task.TaskIDCommitment)
 				d.mu.Lock()
 				d.nodeQueue = d.nodeQueue[1:]
 				d.nodeQueue = append(d.nodeQueue, nodeAddress)
@@ -191,25 +191,25 @@ func (d *TaskDispatcher) ProcessDispatchedTasks(ctx context.Context) error {
 
 			dispatchedTask.mu.Lock()
 			err := SetTaskStatusStarted(ctx, config.GetDB(), dispatchedTask.task, dispatchedTask.node)
-			if err == nil {
-				log.Infof("StartTask: process dispatched tasks success, task %s started on node %s", dispatchedTask.task.TaskIDCommitment, dispatchedTask.node.Address)
-				d.mu.Lock()
-				delete(d.taskMap, dispatchedTask.node.Address)
-				d.nodeQueue = d.nodeQueue[1:]
-				d.mu.Unlock()
-				dispatchedTask.resChan <- true
-				dispatchedTask.mu.Unlock()
-			} else if errors.Is(err, errWrongTaskStatus) || errors.Is(err, models.ErrTaskStatusChanged) {
-				log.Infof("StartTask: process dispatched tasks failed, task %s status changed", dispatchedTask.task.TaskIDCommitment)
-				d.mu.Lock()
-				delete(d.taskMap, dispatchedTask.node.Address)
-				d.nodeQueue = d.nodeQueue[1:]
-				d.mu.Unlock()
-				dispatchedTask.mu.Unlock()
-				dispatchedTask.resChan <- false
+			success := err == nil
+
+			d.mu.Lock()
+			delete(d.taskMap, dispatchedTask.node.Address)
+			d.nodeQueue = d.nodeQueue[1:]
+			d.mu.Unlock()
+			dispatchedTask.resChan <- success
+			dispatchedTask.mu.Unlock()
+
+			if success {
+				log.Debugf("StartTask: process dispatched tasks success, task %s started on node %s", dispatchedTask.task.TaskIDCommitment, dispatchedTask.node.Address)
 			} else {
-				log.Errorf("StartTask: process dispatched tasks error: %v", err)
-				dispatchedTask.mu.Unlock()
+				if errors.Is(err, errWrongTaskStatus) || errors.Is(err, models.ErrTaskStatusChanged) {
+					log.Debugf("StartTask: process dispatched tasks failed, task %s status changed", dispatchedTask.task.TaskIDCommitment)
+				} else if errors.Is(err, models.ErrNodeStatusChanged) {
+					log.Debugf("StartTask: process dispatched tasks failed, node %s status changed", dispatchedTask.node.Address)
+				} else {
+					log.Errorf("StartTask: process dispatched tasks error: %v", err)
+				}
 			}
 		}
 	}
@@ -257,7 +257,7 @@ func StartTaskProcesser(ctx context.Context) {
 				}
 				ctx1, cancel := context.WithDeadline(ctx, deadline)
 				defer cancel()
-				log.Infof("StartTask: dispatch task %s", task.TaskIDCommitment)
+				log.Debugf("StartTask: dispatch task %s", task.TaskIDCommitment)
 				taskDispatcher.Dispatch(ctx1, task)
 			}(task)
 		}

@@ -11,6 +11,8 @@ import (
 
 type NodeStatus uint8
 
+var ErrNodeStatusChanged = errors.New("Node status changed during update")
+
 const (
 	NodeStatusQuit = iota
 	NodeStatusAvailable
@@ -54,7 +56,11 @@ func (node *Node) Update(ctx context.Context, db *gorm.DB, values map[string]int
 	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if err := db.WithContext(dbCtx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(node).Updates(values).Error; err != nil {
+		result := tx.Model(node).Where("status = ?", node.Status).Updates(values)
+		if result.RowsAffected == 0 {
+			return ErrNodeStatusChanged
+		}
+		if err := result.Error; err != nil {
 			return err
 		}
 		if err := tx.Model(node).First(node).Error; err != nil {
