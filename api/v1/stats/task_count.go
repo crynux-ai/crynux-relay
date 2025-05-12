@@ -58,7 +58,7 @@ func GetTaskCountLineChart(_ *gin.Context, input *GetTaskCountLineChartParams) (
 	} else {
 		end = now.Truncate(duration)
 	}
-	start = now.Truncate(duration).Add(-time.Duration(count) * duration)
+	start = end.Add(-time.Duration(count) * duration)
 
 
 	var allTaskCounts []models.TaskCount
