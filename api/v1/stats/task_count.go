@@ -13,6 +13,8 @@ import (
 type GetTaskCountLineChartParams struct {
 	TaskType TaskTypeString `query:"task_type" validate:"required" enum:"Image,Text,All"`
 	Period   TimeUnit       `query:"period" validate:"required" enum:"Hour,Day,Week"`
+	End    *int64   `query:"end"`
+	Count  *int     `query:"count"`
 }
 
 type GetTaskCountLineChartData struct {
@@ -31,19 +33,33 @@ func GetTaskCountLineChart(_ *gin.Context, input *GetTaskCountLineChartParams) (
 	now := time.Now().UTC()
 	var start, end time.Time
 	var duration time.Duration
+	var count int
 	if input.Period == UnitHour {
 		duration = time.Hour
-		start = now.Truncate(duration).Add(-24 * duration)
-		end = now.Truncate(duration)
+		count = 24
+		if input.Count != nil {
+			count = *input.Count
+		}
 	} else if input.Period == UnitDay {
 		duration = 24 * time.Hour
-		start = now.Truncate(duration).Add(-15 * duration)
-		end = now.Truncate(duration)
+		count = 15
+		if input.Count != nil {
+			count = *input.Count
+		}
 	} else {
 		duration = 7 * 24 * time.Hour
-		start = now.Truncate(duration).Add(-8 * duration)
+		count = 8
+		if input.Count != nil {
+			count = *input.Count
+		}
+	}
+	if input.End != nil {
+		end = time.Unix(*input.End, 0).Truncate(duration)
+	} else {
 		end = now.Truncate(duration)
 	}
+	start = now.Truncate(duration).Add(-time.Duration(count) * duration)
+
 
 	var allTaskCounts []models.TaskCount
 	stmt := config.GetDB().Model(&models.TaskCount{}).Where("start >= ?", start).Where("start < ?", end)

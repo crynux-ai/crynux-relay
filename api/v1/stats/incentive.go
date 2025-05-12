@@ -12,6 +12,8 @@ import (
 
 type GetIncentiveLineChartParams struct {
 	Period TimeUnit `query:"period" validate:"required" enum:"Day,Week,Month"`
+	End    *int64   `query:"end"`
+	Count  *int     `query:"count"`
 }
 
 type GetIncentiveLineChartData struct {
@@ -31,24 +33,50 @@ func GetIncentiveLineChart(_ *gin.Context, input *GetIncentiveLineChartParams) (
 	if input.Period == UnitDay {
 		// 14 days
 		duration := 24 * time.Hour
-		start := now.Truncate(duration).Add(-14 * duration)
-		for i := 0; i < 15; i++ {
+		var start time.Time
+		count := 14
+		if input.Count != nil {
+			count = *input.Count
+		}
+		if input.End != nil {
+			start = time.Unix(*input.End, 0).Truncate(duration).Add(-time.Duration(count) * duration)
+		} else {
+			start = now.Truncate(duration).Add(-time.Duration(count) * duration)
+		}
+		for i := 0; i < count+1; i++ {
 			times = append(times, start)
 			start = start.Add(duration)
 		}
 	} else if input.Period == UnitWeek {
 		// 8 weeks
 		duration := 7 * 24 * time.Hour
-		start := now.Truncate(duration).Add(-8 * duration)
-		for i := 0; i < 9; i++ {
+		var start time.Time
+		count := 8
+		if input.Count != nil {
+			count = *input.Count
+		}
+		if input.End != nil {
+			start = time.Unix(*input.End, 0).Truncate(duration).Add(-time.Duration(count) * duration)
+		} else {
+			start = now.Truncate(duration).Add(-time.Duration(count) * duration)
+		}
+		for i := 0; i < count+1; i++ {
 			times = append(times, start)
 			start = start.Add(duration)
 		}
 	} else {
 		// 12 months
-		year, month, _ := now.Date()
-		year -= 1
-		for i := 0; i < 13; i++ {
+		end := now
+		if input.End != nil {
+			end = time.Unix(*input.End, 0)
+		}
+		count := 12
+		if input.Count != nil {
+			count = *input.Count
+		}
+		year, month, _ := end.Date()
+		month -= time.Month(count)
+		for i := 0; i < count+1; i++ {
 			t := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 			times = append(times, t)
 			month += 1
