@@ -232,7 +232,10 @@ func StartTaskProcesser(ctx context.Context) {
 			}
 
 			if !timer.Stop() {
-				<-timer.C
+				select {
+				case <-timer.C:
+				default:
+				}
 			}
 			timer.Reset(2 * time.Second)
 
