@@ -7,7 +7,6 @@ import (
 	"crynux_relay/utils"
 	"database/sql"
 	"errors"
-	"math/big"
 	"sort"
 	"time"
 
@@ -70,12 +69,11 @@ func validateVRFProof(samplingSeed, vrfProof, publicKey string, creator string, 
 	if err != nil {
 		return err
 	}
-	number := big.NewInt(0).SetBytes(beta)
-	r := big.NewInt(0).Mod(number, big.NewInt(10)).Uint64()
-	if grouped && r != 0 {
+	needValidation := utils.VrfNeedValidation(beta)
+	if grouped && !needValidation {
 		return errors.New("task is not selected for validation")
 	}
-	if !grouped && r == 0 {
+	if !grouped && needValidation {
 		return errors.New("task is selected for validation")
 	}
 	return nil
