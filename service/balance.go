@@ -25,25 +25,42 @@ var balanceCache = &BalanceCache{
 }
 
 func InitBalanceCache(ctx context.Context, db *gorm.DB) error {
-	var events []models.TransferEvent
-	if err := db.Where("status = ?", 0).Find(&events).Error; err != nil {
-		return err
-	}
-
-	for _, event := range events {
-		fromAmount, err := getBalanceFromCache(ctx, db, event.FromAddress)
-		if err != nil {
-			return err
-		}
-		toAmount, err := getBalanceFromCache(ctx, db, event.ToAddress)
+	for {
+		events, err := getPendingTransferEvents(ctx, db, 1000)
 		if err != nil {
 			return err
 		}
 
-		fromAmount.Sub(fromAmount, &event.Amount.Int)
-		toAmount.Add(toAmount, &event.Amount.Int)
+		if len(events) == 0 {
+			break
+		}
+	
+		for _, event := range events {
+			fromAmount, err := getBalanceFromCache(ctx, db, event.FromAddress)
+			if err != nil {
+				return err
+			}
+			toAmount, err := getBalanceFromCache(ctx, db, event.ToAddress)
+			if err != nil {
+				return err
+			}
+	
+			fromAmount.Sub(fromAmount, &event.Amount.Int)
+			toAmount.Add(toAmount, &event.Amount.Int)
+		}
 	}
 	return nil
+}
+
+func getPendingTransferEvents(ctx context.Context, db *gorm.DB, limit int) ([]models.TransferEvent, error) {
+	var events []models.TransferEvent
+	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	err := db.WithContext(dbCtx).Where("status = ?", models.TransferEventStatusPending).Order("id").Limit(limit).Find(&events).Error
+	if err != nil {
+		return nil, err
+	}
+	return events, nil
 }
 
 func getBalanceFromCache(ctx context.Context, db *gorm.DB, address string) (*big.Int, error) {
@@ -127,26 +144,25 @@ func syncBalancesToDB(ctx context.Context, db *gorm.DB) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			dbCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-			err := db.WithContext(dbCtx).Transaction(func(tx *gorm.DB) error {
-				var events []models.TransferEvent
-				if err := tx.Where("status = ?", models.TransferEventStatusPending).Find(&events).Error; err != nil {
-					return err
-				}
-
-				if len(events) == 0 {
-					return nil
-				}
-
-				for _, event := range events {
-					if err := processTransferEvent(ctx, tx, &event); err != nil {
+			err := func() error {
+				for {
+					events, err := getPendingTransferEvents(ctx, db, 1000)
+					if err != nil {
 						return err
 					}
+	
+					if len(events) == 0 {
+						break
+					}
+	
+					for _, event := range events {
+						if err := processTransferEvent(ctx, db, &event); err != nil {
+							return err
+						}
+					}
 				}
-
 				return nil
-			})
-			cancel()
+			}()
 
 			if err != nil {
 				log.Printf("Failed to sync balances: %v", err)
