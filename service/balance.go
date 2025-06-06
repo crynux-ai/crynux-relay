@@ -25,8 +25,9 @@ var balanceCache = &BalanceCache{
 }
 
 func InitBalanceCache(ctx context.Context, db *gorm.DB) error {
+	offset := 0
 	for {
-		events, err := getPendingTransferEvents(ctx, db, 1000)
+		events, err := getPendingTransferEvents(ctx, db, 1000, offset)
 		if err != nil {
 			return err
 		}
@@ -48,11 +49,12 @@ func InitBalanceCache(ctx context.Context, db *gorm.DB) error {
 			fromAmount.Sub(fromAmount, &event.Amount.Int)
 			toAmount.Add(toAmount, &event.Amount.Int)
 		}
+		offset += len(events)
 	}
 	return nil
 }
 
-func getPendingTransferEvents(ctx context.Context, db *gorm.DB, limit int) ([]models.TransferEvent, error) {
+func getPendingTransferEvents(ctx context.Context, db *gorm.DB, limit, offset int) ([]models.TransferEvent, error) {
 	var events []models.TransferEvent
 	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -146,7 +148,7 @@ func syncBalancesToDB(ctx context.Context, db *gorm.DB) error {
 		default:
 			err := func() error {
 				for {
-					events, err := getPendingTransferEvents(ctx, db, 1000)
+					events, err := getPendingTransferEvents(ctx, db, 1000, 0)
 					if err != nil {
 						return err
 					}
