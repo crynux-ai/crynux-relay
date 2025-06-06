@@ -11,7 +11,7 @@ import (
 )
 
 func StartSyncNetwork(ctx context.Context) {
-	ticker := time.NewTicker(time.Minute)
+	ticker := time.NewTicker(3*time.Minute)
 
 	for {
 		select {
@@ -22,7 +22,7 @@ func StartSyncNetwork(ctx context.Context) {
 			return
 		case <-ticker.C:
 			func() {
-				ctx1, cancel := context.WithTimeout(ctx, time.Minute)
+				ctx1, cancel := context.WithTimeout(ctx, 3*time.Minute)
 				defer cancel()
 				if err := SyncNetwork(ctx1); err != nil {
 					log.Errorf("SyncNetwork: sync network error %v", err)
@@ -78,7 +78,7 @@ func SyncNetwork(ctx context.Context) error {
 	}
 
 	if err := func() error {
-		dbCtx, cancel := context.WithTimeout(ctx, time.Second)
+		dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		return config.GetDB().WithContext(dbCtx).Model(&nodeNumber).Where("id = ?", 1).Assign(nodeNumber).FirstOrCreate(&models.NetworkNodeNumber{}).Error
 	}(); err != nil {
@@ -109,7 +109,7 @@ func SyncNetwork(ctx context.Context) error {
 	}
 
 	if err := func() error {
-		dbCtx, cancel := context.WithTimeout(ctx, time.Second)
+		dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		return config.GetDB().WithContext(dbCtx).Model(&taskNumber).Where("id = ?", 1).Assign(taskNumber).FirstOrCreate(&models.NetworkTaskNumber{}).Error
 	}(); err != nil {
@@ -131,7 +131,7 @@ func SyncNetwork(ctx context.Context) error {
 		for _, data := range nodeDatas {
 			totalGFLOPS += models.GetGPUGFLOPS(data.CardModel)
 			if err := func() error {
-				dbCtx, cancel := context.WithTimeout(ctx, time.Second)
+				dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 				defer cancel()
 				return config.GetDB().WithContext(dbCtx).Model(&data).Where("address = ?", data.Address).Assign(data).FirstOrCreate(&models.NetworkNodeData{}).Error
 			}(); err != nil {
@@ -139,7 +139,7 @@ func SyncNetwork(ctx context.Context) error {
 				return err
 			}
 		}
-		if len(nodeDatas) < limit {
+		if len(nodeDatas) == 0 {
 			break
 		}
 		offset += limit
@@ -147,7 +147,7 @@ func SyncNetwork(ctx context.Context) error {
 
 	networkFLOPS := models.NetworkFLOPS{GFLOPS: totalGFLOPS}
 	if err := func() error {
-		dbCtx, cancel := context.WithTimeout(ctx, time.Second)
+		dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		return config.GetDB().WithContext(dbCtx).Model(&networkFLOPS).Where("id = ?", 1).Assign(networkFLOPS).FirstOrCreate(&models.NetworkFLOPS{}).Error
 	}(); err != nil {
