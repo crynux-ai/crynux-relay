@@ -26,6 +26,11 @@ type GetIncentiveLineChartOutput struct {
 	Data *GetIncentiveLineChartData `json:"data"`
 }
 
+type IncentiveResult struct {
+	Index     int
+	Incentive sql.NullFloat64
+}
+
 func GetIncentiveLineChart(_ *gin.Context, input *GetIncentiveLineChartParams) (*GetIncentiveLineChartOutput, error) {
 	var times []time.Time
 	now := time.Now().UTC()
@@ -83,21 +88,45 @@ func GetIncentiveLineChart(_ *gin.Context, input *GetIncentiveLineChartParams) (
 		}
 	}
 
-	var timestamps []int64
-	var incentives []float64
-	for i := 0; i < len(times)-1; i++ {
-		start := times[i]
-		end := times[i+1]
-		timestamps = append(timestamps, start.Unix())
+	// 构建时间范围条件
+	args := make([]interface{}, 0)
 
-		var incentive sql.NullFloat64
-		if err := config.GetDB().Model(&models.NodeIncentive{}).Select("SUM(incentive) AS incentive").Where("time >= ?", start).Where("time < ?", end).Scan(&incentive).Error; err != nil {
-			return nil, response.NewExceptionResponse(err)
-		}
-		if incentive.Valid {
-			incentives = append(incentives, incentive.Float64)
-		} else {
-			incentives = append(incentives, 0)
+	// 构建CASE WHEN语句
+	caseWhen := "CASE "
+	for i := 0; i < len(times)-1; i++ {
+		caseWhen += "WHEN time >= ? AND time < ? THEN ? "
+		args = append(args, times[i], times[i+1], i)
+	}
+	caseWhen += "END AS `index`"
+
+	caseWhenExpr := config.GetDB().Dialector.Explain(caseWhen, args...)
+
+	// 执行单个SQL查询
+	var results []IncentiveResult
+	query := config.GetDB().Model(&models.NodeIncentive{}).
+		Select([]string{"SUM(incentive) as incentive", caseWhenExpr}).
+		Where("time >= ? AND time < ?", times[0], times[len(times)-1]).
+		Group("`index`").
+		Order("`index`")
+
+	if err := query.Scan(&results).Error; err != nil {
+		return nil, response.NewExceptionResponse(err)
+	}
+
+	// 处理结果
+	timestamps := make([]int64, len(times)-1)
+	incentives := make([]float64, len(times)-1)
+
+	// 初始化所有时间段为0
+	for i := 0; i < len(times)-1; i++ {
+		timestamps[i] = times[i].Unix()
+		incentives[i] = 0
+	}
+
+	// 填充有数据的时间段
+	for _, result := range results {
+		if result.Index >= 0 && result.Index < len(incentives) && result.Incentive.Valid {
+			incentives[result.Index] = result.Incentive.Float64
 		}
 	}
 

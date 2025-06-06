@@ -16,7 +16,7 @@ type GetIncentiveOutput struct {
 
 func GetTotalIncentive(_ *gin.Context) (*GetIncentiveOutput, error) {
 	var incentive sql.NullFloat64
-	if err := config.GetDB().Model(&models.NodeIncentive{}).Select("SUM(incentive) as incentive").Scan(&incentive).Error; err != nil {
+	if err := config.GetDB().Unscoped().Model(&models.NodeIncentive{}).Select("SUM(incentive) as incentive").Scan(&incentive).Error; err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 
