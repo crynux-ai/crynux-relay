@@ -25,31 +25,23 @@ var balanceCache = &BalanceCache{
 }
 
 func InitBalanceCache(ctx context.Context, db *gorm.DB) error {
-	offset := 0
-	for {
-		events, err := getPendingTransferEvents(ctx, db, 1000, offset)
+	var events []models.TransferEvent
+	if err := db.Where("status = ?", models.TransferEventStatusPending).Find(&events).Error; err != nil {
+		return err
+	}
+
+	for _, event := range events {
+		fromAmount, err := getBalanceFromCache(ctx, db, event.FromAddress)
+		if err != nil {
+			return err
+		}
+		toAmount, err := getBalanceFromCache(ctx, db, event.ToAddress)
 		if err != nil {
 			return err
 		}
 
-		if len(events) == 0 {
-			break
-		}
-	
-		for _, event := range events {
-			fromAmount, err := getBalanceFromCache(ctx, db, event.FromAddress)
-			if err != nil {
-				return err
-			}
-			toAmount, err := getBalanceFromCache(ctx, db, event.ToAddress)
-			if err != nil {
-				return err
-			}
-	
-			fromAmount.Sub(fromAmount, &event.Amount.Int)
-			toAmount.Add(toAmount, &event.Amount.Int)
-		}
-		offset += len(events)
+		fromAmount.Sub(fromAmount, &event.Amount.Int)
+		toAmount.Add(toAmount, &event.Amount.Int)
 	}
 	return nil
 }
@@ -108,7 +100,7 @@ func StartBalanceSync(ctx context.Context, db *gorm.DB) {
 func processTransferEvent(ctx context.Context, db *gorm.DB, event *models.TransferEvent) error {
 	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	
+
 	return db.WithContext(dbCtx).Transaction(func(tx *gorm.DB) error {
 		fromBalance := &models.Balance{Address: event.FromAddress}
 		toBalance := &models.Balance{Address: event.ToAddress}
@@ -152,11 +144,11 @@ func syncBalancesToDB(ctx context.Context, db *gorm.DB) error {
 					if err != nil {
 						return err
 					}
-	
+
 					if len(events) == 0 {
 						break
 					}
-	
+
 					for _, event := range events {
 						if err := processTransferEvent(ctx, db, &event); err != nil {
 							return err
