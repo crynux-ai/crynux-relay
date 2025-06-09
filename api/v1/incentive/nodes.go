@@ -86,17 +86,17 @@ func GetNodeIncentive(_ *gin.Context, input *GetNodeIncentiveParams) (*GetNodeIn
 		nodeIncentiveMap[nodeAddress] = nodeIncentive
 	}
 
-	var nodeDatas []models.NetworkNodeData
-	if err := config.GetDB().Model(&models.NetworkNodeData{}).Where("address IN (?)", nodeAddresses).Find(&nodeDatas).Error; err != nil {
+	var nodes []models.Node
+	if err := config.GetDB().Model(&models.Node{}).Where("address IN (?)", nodeAddresses).Find(&nodes).Error; err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 
-	for _, nodeData := range nodeDatas {
-		if nodeIncentive, ok := nodeIncentiveMap[nodeData.Address]; ok {
-			nodeIncentive.CardModel = nodeData.CardModel
-			nodeIncentive.QoS = nodeData.QoS
+	for _, node := range nodes {
+		if nodeIncentive, ok := nodeIncentiveMap[node.Address]; ok {
+			nodeIncentive.CardModel = node.GPUName
+			nodeIncentive.QoS = int64(node.QOSScore)
 
-			nodeIncentiveMap[nodeData.Address] = nodeIncentive
+			nodeIncentiveMap[node.Address] = nodeIncentive
 		}
 	}
 
