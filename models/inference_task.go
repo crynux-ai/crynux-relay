@@ -226,11 +226,15 @@ func GetTotalTaskCount(ctx context.Context, db *gorm.DB) (int64, error) {
 	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	var res int64
-	if err := db.WithContext(dbCtx).Model(&InferenceTask{}).Count(&res).Error; err != nil {
+	type result struct {
+		Count int64 `json:"count"`
+	}
+
+	var res result
+	if err := db.WithContext(dbCtx).Model(&InferenceTask{}).Select("max(id) as count").First(&res).Error; err != nil {
 		return 0, err
 	}
-	return res, nil
+	return res.Count, nil
 }
 
 func GetRunningTaskCount(ctx context.Context, db *gorm.DB) (int64, error) {

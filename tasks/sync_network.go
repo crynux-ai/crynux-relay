@@ -4,6 +4,7 @@ import (
 	"context"
 	"crynux_relay/config"
 	"crynux_relay/models"
+	"sync"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -11,7 +12,8 @@ import (
 )
 
 func StartSyncNetwork(ctx context.Context) {
-	ticker := time.NewTicker(3*time.Minute)
+	duration := 3 * time.Minute
+	ticker := time.NewTicker(duration)
 
 	for {
 		select {
@@ -22,7 +24,7 @@ func StartSyncNetwork(ctx context.Context) {
 			return
 		case <-ticker.C:
 			func() {
-				ctx1, cancel := context.WithTimeout(ctx, 3*time.Minute)
+				ctx1, cancel := context.WithTimeout(ctx, duration)
 				defer cancel()
 				if err := SyncNetwork(ctx1); err != nil {
 					log.Errorf("SyncNetwork: sync network error %v", err)
@@ -54,7 +56,7 @@ func getNodeData(ctx context.Context, db *gorm.DB, offset, limit int) ([]models.
 	return res, nil
 }
 
-func SyncNetwork(ctx context.Context) error {
+func syncNodeNumber(ctx context.Context) error {
 	busyNodes, err := models.GetBusyNodeCount(ctx, config.GetDB())
 	if err != nil {
 		log.Errorf("SyncNetwork: error getting busy nodes count %v", err)
@@ -85,7 +87,10 @@ func SyncNetwork(ctx context.Context) error {
 		log.Errorf("SyncNetwork: error update NetworkNodeNumber %v", err)
 		return err
 	}
+	return nil
+}
 
+func syncTaskNumber(ctx context.Context) error {
 	totalTasks, err := models.GetTotalTaskCount(ctx, config.GetDB())
 	if err != nil {
 		log.Errorf("SyncNetwork: error getting total task count %v", err)
@@ -117,7 +122,10 @@ func SyncNetwork(ctx context.Context) error {
 		log.Error(err)
 		return err
 	}
+	return nil
+}
 
+func syncNodeData(ctx context.Context) error {
 	limit := 100
 	offset := 0
 	var totalGFLOPS float64 = 0
@@ -130,11 +138,7 @@ func SyncNetwork(ctx context.Context) error {
 
 		for _, data := range nodeDatas {
 			totalGFLOPS += models.GetGPUGFLOPS(data.CardModel)
-			if err := func() error {
-				dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-				defer cancel()
-				return config.GetDB().WithContext(dbCtx).Model(&data).Where("address = ?", data.Address).Assign(data).FirstOrCreate(&models.NetworkNodeData{}).Error
-			}(); err != nil {
+			if err := config.GetDB().WithContext(ctx).Model(&data).Where("address = ?", data.Address).Assign(data).FirstOrCreate(&models.NetworkNodeData{}).Error; err != nil {
 				log.Errorf("SyncNetwork: error updating NetworkNodeData %v", err)
 				return err
 			}
@@ -146,13 +150,52 @@ func SyncNetwork(ctx context.Context) error {
 	}
 
 	networkFLOPS := models.NetworkFLOPS{GFLOPS: totalGFLOPS}
-	if err := func() error {
-		dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		defer cancel()
-		return config.GetDB().WithContext(dbCtx).Model(&networkFLOPS).Where("id = ?", 1).Assign(networkFLOPS).FirstOrCreate(&models.NetworkFLOPS{}).Error
-	}(); err != nil {
+	if err := config.GetDB().WithContext(ctx).Model(&networkFLOPS).Where("id = ?", 1).Assign(networkFLOPS).FirstOrCreate(&models.NetworkFLOPS{}).Error; err != nil {
 		log.Errorf("SyncNetwork: error updating NetworkFLOPS %v", err)
 		return err
+	}
+	return nil
+}
+
+func SyncNetwork(ctx context.Context) error {
+	var wg sync.WaitGroup
+	errChan := make(chan error, 3)
+
+	wg.Add(3)
+
+	go func() {
+		defer wg.Done()
+		if err := syncNodeNumber(ctx); err != nil {
+			log.Errorf("SyncNetwork: error syncing node number %v", err)
+			errChan <- err
+		}
+		errChan <- nil
+	}()
+
+	go func() {
+		defer wg.Done()
+		if err := syncTaskNumber(ctx); err != nil {
+			log.Errorf("SyncNetwork: error syncing task number %v", err)
+			errChan <- err
+		}
+		errChan <- nil
+	}()
+
+	go func() {
+		defer wg.Done()
+		if err := syncNodeData(ctx); err != nil {
+			log.Errorf("SyncNetwork: error syncing node data %v", err)
+			errChan <- err
+		}
+		errChan <- nil
+	}()
+
+	wg.Wait()
+	close(errChan)
+	for err := range errChan {
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
