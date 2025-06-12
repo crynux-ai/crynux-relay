@@ -167,29 +167,29 @@ func SyncNetwork(ctx context.Context) error {
 
 	go func() {
 		defer wg.Done()
-		if err := syncNodeNumber(ctx); err != nil {
+		err := syncNodeNumber(ctx)
+		if err != nil {
 			log.Errorf("SyncNetwork: error syncing node number %v", err)
-			errChan <- err
 		}
-		errChan <- nil
+		errChan <- err
 	}()
 
 	go func() {
 		defer wg.Done()
-		if err := syncTaskNumber(ctx); err != nil {
+		err := syncTaskNumber(ctx)
+		if err != nil {
 			log.Errorf("SyncNetwork: error syncing task number %v", err)
-			errChan <- err
 		}
-		errChan <- nil
+		errChan <- err
 	}()
 
 	go func() {
 		defer wg.Done()
-		if err := syncNodeData(ctx); err != nil {
+		err := syncNodeData(ctx)
+		if err != nil {
 			log.Errorf("SyncNetwork: error syncing node data %v", err)
-			errChan <- err
 		}
-		errChan <- nil
+		errChan <- err
 	}()
 
 	wg.Wait()
