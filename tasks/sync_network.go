@@ -26,9 +26,11 @@ func StartSyncNetwork(ctx context.Context) {
 			func() {
 				ctx1, cancel := context.WithTimeout(ctx, duration)
 				defer cancel()
+				log.Infof("SyncNetwork: start syncing network")
 				if err := SyncNetwork(ctx1); err != nil {
 					log.Errorf("SyncNetwork: sync network error %v", err)
 				}
+				log.Infof("SyncNetwork: end syncing network")
 			}()
 		}
 	}
