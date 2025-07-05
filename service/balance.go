@@ -97,6 +97,47 @@ func StartBalanceSync(ctx context.Context, db *gorm.DB) {
 	}
 }
 
+func mergeTransferEvents(events []models.TransferEvent) map[string]*big.Int {
+	mergedEvents := make(map[string]*big.Int)
+	for _, event := range events {
+		if _, exists := mergedEvents[event.FromAddress]; !exists {
+			mergedEvents[event.FromAddress] = big.NewInt(0).Sub(big.NewInt(0), &event.Amount.Int)
+		} else {
+			mergedEvents[event.FromAddress].Sub(mergedEvents[event.FromAddress], &event.Amount.Int)
+		}
+		if _, exists := mergedEvents[event.ToAddress]; !exists {
+			mergedEvents[event.ToAddress] = big.NewInt(0).Set(&event.Amount.Int)
+		} else {
+			mergedEvents[event.ToAddress].Add(mergedEvents[event.ToAddress], &event.Amount.Int)
+		}
+	}
+	return mergedEvents
+}
+
+func processMergedEvents(ctx context.Context, db *gorm.DB, events map[string]*big.Int, startID, endID uint) error {
+	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	return db.WithContext(dbCtx).Transaction(func(tx *gorm.DB) error {
+		for address, amount := range events {
+			balance := &models.Balance{Address: address}
+			if err := tx.Model(balance).Where(balance).Attrs(models.Balance{Balance: models.BigInt{Int: *big.NewInt(0)}}).FirstOrInit(balance).Error; err != nil {
+				return err
+			}
+			balance.Balance.Add(&balance.Balance.Int, amount)
+			if err := tx.Save(balance).Error; err != nil {
+				return err
+			}
+		}
+
+		if err := tx.Model(&models.TransferEvent{}).Where("status = ? AND id >= ? AND id <= ?", models.TransferEventStatusPending, startID, endID).Update("status", models.TransferEventStatusProcessed).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
 func processTransferEvent(ctx context.Context, db *gorm.DB, event *models.TransferEvent) error {
 	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -149,10 +190,10 @@ func syncBalancesToDB(ctx context.Context, db *gorm.DB) error {
 						break
 					}
 
-					for _, event := range events {
-						if err := processTransferEvent(ctx, db, &event); err != nil {
-							return err
-						}
+					mergedEvents := mergeTransferEvents(events)
+
+					if err := processMergedEvents(ctx, db, mergedEvents, events[0].ID, events[len(events)-1].ID); err != nil {
+						return err
 					}
 				}
 				return nil

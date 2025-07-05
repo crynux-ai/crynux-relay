@@ -9,7 +9,6 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"errors"
-	"mime/multipart"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -86,25 +85,23 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 		if err != nil {
 			return nil, response.NewExceptionResponse(err)
 		}
-		var checkpoint *multipart.FileHeader
-		if files, ok := form.File["checkpoint"]; !ok {
-			return nil, response.NewValidationErrorResponse("checkpoint", "Checkpoint not uploaded")
-		} else {
+		if files, ok := form.File["checkpoint"]; ok {
 			if len(files) != 1 {
-				return nil, response.NewValidationErrorResponse("checkpoint", "More than one checkpoint file")
+				return nil, response.NewValidationErrorResponse("checkpoint", "More than one checkpoint file uploaded")
 			}
-			checkpoint = files[0]
-		}
+			checkpoint := files[0]
+		
 
-		appConfig := config.GetConfig()
+			appConfig := config.GetConfig()
 
-		taskDir := filepath.Join(appConfig.DataDir.InferenceTasks, in.TaskIDCommitment, "input")
-		if err = os.MkdirAll(taskDir, 0o711); err != nil {
-			return nil, response.NewExceptionResponse(err)
-		}
-		checkpointFilename := filepath.Join(taskDir, "checkpoint.zip")
-		if err := c.SaveUploadedFile(checkpoint, checkpointFilename); err != nil {
-			return nil, response.NewExceptionResponse(err)
+			taskDir := filepath.Join(appConfig.DataDir.InferenceTasks, in.TaskIDCommitment, "input")
+			if err = os.MkdirAll(taskDir, 0o711); err != nil {
+				return nil, response.NewExceptionResponse(err)
+			}
+			checkpointFilename := filepath.Join(taskDir, "checkpoint.zip")
+			if err := c.SaveUploadedFile(checkpoint, checkpointFilename); err != nil {
+				return nil, response.NewExceptionResponse(err)
+			}
 		}
 	}
 
