@@ -24,15 +24,16 @@ import (
 type TaskInput struct {
 	TaskIDCommitment string           `path:"task_id_commitment" json:"task_id_commitment" description:"Task id commitment" validate:"required"`
 	TaskArgs         string           `form:"task_args" json:"task_args" description:"Task arguments" validate:"required"`
-	TaskType         *models.TaskType `form:"task_type" json:"task_type" description:"Task type" validate:"required"`
+	TaskType         models.TaskType `form:"task_type" json:"task_type" description:"Task type"`
 	Nonce            string           `form:"nonce" json:"nonce" description:"nonce" validate:"required"`
 	TaskModelIDs     []string         `form:"task_model_ids" json:"task_model_ids" description:"task model ids" validate:"required"`
-	MinVram          *uint64          `form:"min_vram" json:"min_vram" description:"min vram" validate:"required"`
-	RequiredGPU      *string          `form:"required_gpu" json:"required_gpu" description:"required gpu name" validate:"required"`
-	RequiredGPUVram  *uint64          `form:"required_gpu_vram" json:"required_gpu_vram" description:"required gpu vram" validate:"required"`
+	MinVram          *uint64          `form:"min_vram" json:"min_vram" description:"min vram"`
+	RequiredGPU      *string          `form:"required_gpu" json:"required_gpu" description:"required gpu name"`
+	RequiredGPUVram  *uint64          `form:"required_gpu_vram" json:"required_gpu_vram" description:"required gpu vram"`
 	TaskVersion      string           `form:"task_version" json:"task_version" description:"task version" validate:"required"`
-	TaskSize         *uint64          `form:"task_size" json:"task_size" description:"task size" validate:"required"`
+	TaskSize         *uint64          `form:"task_size" json:"task_size" description:"task size"`
 	TaskFee          models.BigInt    `form:"task_fee" json:"task_fee" description:"task fee, in unit wei" validate:"required"`
+	Timeout          uint64          `form:"timeout" json:"timeout" description:"timeout, in minutes" validate:"required"`
 }
 
 type TaskInputWithSignature struct {
@@ -54,7 +55,7 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 		return nil, validationErr
 	}
 
-	validationErr, err := models.ValidateTaskArgsJsonStr(in.TaskArgs, *in.TaskType)
+	validationErr, err := models.ValidateTaskArgsJsonStr(in.TaskArgs, in.TaskType)
 	if err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
@@ -80,7 +81,7 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 		return nil, response.NewExceptionResponse(err)
 	}
 
-	if *in.TaskType == models.TaskTypeSDFTLora {
+	if in.TaskType == models.TaskTypeSDFTLora && c.ContentType() == "multipart/form-data" {
 		form, err := c.MultipartForm()
 		if err != nil {
 			return nil, response.NewExceptionResponse(err)
@@ -111,7 +112,6 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 	}
 	samplingSeed := hexutil.Encode(samplingSeedBytes)
 
-	appConfig := config.GetConfig()
 
 	task := &models.InferenceTask{
 		TaskArgs:         in.TaskArgs,
@@ -120,7 +120,7 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 		SamplingSeed:     samplingSeed,
 		Nonce:            in.Nonce,
 		Status:           models.TaskQueued,
-		TaskType:         *in.TaskType,
+		TaskType:         in.TaskType,
 		TaskVersion:      in.TaskVersion,
 		MinVRAM:          *in.MinVram,
 		RequiredGPU:      *in.RequiredGPU,
@@ -132,7 +132,7 @@ func CreateTask(c *gin.Context, in *TaskInputWithSignature) (*TaskResponse, erro
 			Time:  time.Now(),
 			Valid: true,
 		},
-		Timeout: appConfig.Task.Timeout * 60, // appConfig.Task.Timeout is in minutes
+		Timeout: in.Timeout,
 	}
 
 	if err := service.CreateTask(c.Request.Context(), config.GetDB(), task); err != nil {
