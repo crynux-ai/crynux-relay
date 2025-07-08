@@ -60,7 +60,7 @@ func SubmitScore(c *gin.Context, in *SubmitScoreInputWithSignature) (*response.R
 	if err != nil {
 		return nil, response.NewValidationErrorResponse("score", "invalid score")
 	}
-	if (task.TaskType == models.TaskTypeSD || task.TaskType == models.TaskTypeSDFTLora) && len(scoreBytes) != 8 {
+	if (task.TaskType == models.TaskTypeSD || task.TaskType == models.TaskTypeSDFTLora) && len(scoreBytes) % 8 != 0 {
 		return nil, response.NewValidationErrorResponse("score", "invalid score")
 	}
 
