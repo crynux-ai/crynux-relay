@@ -6,6 +6,7 @@ import (
 	"crynux_relay/config"
 	"crynux_relay/models"
 	"crynux_relay/service"
+	"crynux_relay/utils"
 	"errors"
 	"math/big"
 	"strconv"
@@ -90,7 +91,7 @@ func NodeJoin(c *gin.Context, in *NodeJoinInputWithSignature) (*response.Respons
 	stakeAmount := &in.Staking.Int
 	if stakeAmount.Sign() == 0 {
 		appConfig := config.GetConfig()
-		stakeAmount = big.NewInt(int64(appConfig.Task.StakeAmount))
+		stakeAmount = utils.EtherToWei(big.NewInt(int64(appConfig.Task.StakeAmount)))
 	}
 
 	balance, err := service.GetBalance(c.Request.Context(), config.GetDB(), in.Address)
