@@ -4,7 +4,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
 type NetworkNodeNumber struct {
 	gorm.Model
 	AllNodes    uint64 `json:"all_nodes"`
@@ -21,9 +20,9 @@ type NetworkTaskNumber struct {
 
 type NetworkNodeData struct {
 	gorm.Model
-	Address   string `json:"address" gorm:"index"`
-	CardModel string `json:"card_model"`
-	VRam      int    `json:"v_ram"`
-	Balance   BigInt `json:"balance" gorm:"type:string;size:255"`
-	QoS       int64  `json:"qos"`
+	Address   string  `json:"address" gorm:"index"`
+	CardModel string  `json:"card_model"`
+	VRam      int     `json:"v_ram"`
+	Balance   BigInt  `json:"balance" gorm:"type:string;size:255"`
+	QoS       float64 `json:"qos"`
 }

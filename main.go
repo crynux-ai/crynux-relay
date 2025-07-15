@@ -46,6 +46,9 @@ func main() {
 	if err := service.InitBalanceCache(context.Background(), config.GetDB()); err != nil {
 		log.Fatalln(err)
 	}
+	if err := service.InitSelectingProb(context.Background(), config.GetDB()); err != nil {
+		log.Fatalln(err)
+	}
 	go service.StartTaskProcesser(context.Background())
 	go service.StartBalanceSync(context.Background(), config.GetDB())
 	// go tasks.ProcessTasks(context.Background())

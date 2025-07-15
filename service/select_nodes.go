@@ -108,15 +108,7 @@ func isSameModels(nodeModelIDs, taskModelIDs []string) bool {
 	return matchModels(nodeModelIDs, taskModelIDs) == len(nodeModelIDs)
 }
 
-func selectNodesByScore(nodes []models.Node, n int) []models.Node {
-	scores := make([]float64, len(nodes))
-	for i, node := range nodes {
-		if node.QOSScore > 0 {
-			scores[i] = float64(node.QOSScore)
-		} else {
-			scores[i] = float64(TASK_SCORE_REWARDS[0])
-		}
-	}
+func selectNodesByScore(nodes []models.Node, scores []float64, n int) []models.Node {
 	w := sampleuv.NewWeighted(scores, nil)
 	if n > len(nodes) {
 		n = len(nodes)
@@ -160,9 +152,17 @@ func selectNodeForInferenceTask(ctx context.Context, task *models.InferenceTask)
 	if len(nodes) == 0 {
 		return nil, nil
 	}
+	maxStaking := GetMaxStaking()
+	maxQosScore := GetMaxQosScore()
+	scores := make([]float64, len(nodes))
+	for i, node := range nodes {
+		_, _, prob := CalculateSelectingProb(&node.StakeAmount.Int, maxStaking, node.QOSScore, maxQosScore)
+		scores[i] = prob
+	}
 
 	changedNodes := make([]models.Node, 0)
-	for _, node := range nodes {
+	changedScores := make([]float64, 0)
+	for i, node := range nodes {
 		localModelIDs := make([]string, 0)
 		inUseModelIDs := make([]string, 0)
 		for _, model := range node.Models {
@@ -172,29 +172,27 @@ func selectNodeForInferenceTask(ctx context.Context, task *models.InferenceTask)
 			}
 		}
 
-		changed := false
 		// add additional qos score to nodes with local task models
 		cnt := matchModels(localModelIDs, task.ModelIDs)
 		if cnt > 0 {
-			node.QOSScore *= uint64(cnt)
-			changed = true
-		}
-		// add additional qos score to nodes with the same last models as task models
-		if isSameModels(inUseModelIDs, task.ModelIDs) {
-			node.QOSScore *= 2
-			changed = true
+			changedNodes = append(changedNodes, node)
+			changedScore := scores[i]
+			if isSameModels(inUseModelIDs, task.ModelIDs) {
+				changedScore *= 2
+			} else {
+				changedScore *= (1 + float64(cnt) / float64(len(task.ModelIDs)))
+			}
+			changedScores = append(changedScores, changedScore)
 		}
 
-		if changed {
-			changedNodes = append(changedNodes, node)
-		}
 	}
 
 	if len(changedNodes) > 0 {
 		nodes = changedNodes
+		scores = changedScores
 	}
 
-	node := selectNodesByScore(nodes, 1)[0]
+	node := selectNodesByScore(nodes, scores, 1)[0]
 	return &node, nil
 }
 
@@ -233,8 +231,15 @@ func selectNodesForDownloadTask(ctx context.Context, task *models.InferenceTask,
 	if len(validNodes) == 0 {
 		return nil, nil
 	}
+	maxStaking := GetMaxStaking()
+	maxQosScore := GetMaxQosScore()
+	scores := make([]float64, len(validNodes))
+	for i, node := range validNodes {
+		_, _, prob := CalculateSelectingProb(&node.StakeAmount.Int, maxStaking, node.QOSScore, maxQosScore)
+		scores[i] = prob
+	}
 
-	res := selectNodesByScore(validNodes, n)
+	res := selectNodesByScore(validNodes, scores, n)
 	return res, nil
 }
 

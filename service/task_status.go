@@ -127,7 +127,6 @@ func SetTaskStatusScoreReady(ctx context.Context, db *gorm.DB, task *models.Infe
 			"status":           models.TaskScoreReady,
 			"score":            task.Score,
 			"score_ready_time": sql.NullTime{Time: time.Now(), Valid: true},
-			"qos_score":        getTaskQosScore(0),
 		})
 		if err != nil {
 			return err
@@ -153,7 +152,6 @@ func SetTaskStatusErrorReported(ctx context.Context, db *gorm.DB, task *models.I
 			"status":           models.TaskErrorReported,
 			"task_error":       task.TaskError,
 			"score_ready_time": sql.NullTime{Time: time.Now(), Valid: true},
-			"qos_score":        getTaskQosScore(0),
 		})
 		if err != nil {
 			return err
@@ -179,7 +177,6 @@ func SetTaskStatusValidated(ctx context.Context, db *gorm.DB, task *models.Infer
 		err = task.Update(ctx, tx, map[string]interface{}{
 			"status":         models.TaskValidated,
 			"validated_time": sql.NullTime{Time: time.Now(), Valid: true},
-			"qos_score":      task.QOSScore,
 		})
 		if err != nil {
 			return err
@@ -279,6 +276,7 @@ func SetTaskStatusEndAborted(ctx context.Context, db *gorm.DB, task *models.Infe
 		"status":         models.TaskEndAborted,
 		"abort_reason":   task.AbortReason,
 		"validated_time": task.ValidatedTime,
+		"qos_score":      task.QOSScore,
 	}
 	appConfig := config.GetConfig()
 	return db.Transaction(func(tx *gorm.DB) error {
@@ -317,26 +315,22 @@ func SetTaskStatusEndSuccess(ctx context.Context, db *gorm.DB, task *models.Infe
 		return err
 	}
 	status := models.TaskEndSuccess
+	payments := map[string]*big.Int{}
 	if len(tasks) > 1 {
 		status = models.TaskEndGroupSuccess
-	}
-	// calculate each task's payment
-	var totalScore uint64 = 0
-	var validTasks []models.InferenceTask
-	for _, t := range tasks {
-		if t.Status == models.TaskValidated || t.Status == models.TaskGroupValidated || t.Status == models.TaskEndGroupRefund {
-			totalScore += t.QOSScore
-			validTasks = append(validTasks, t)
+		// calculate each task's payment
+		var totalScore uint64 = 0
+		var validTasks []models.InferenceTask
+		for _, t := range tasks {
+			if t.Status == models.TaskGroupValidated || t.Status == models.TaskEndGroupRefund {
+				// qos of task in group validated or group refunded task is valid
+				totalScore += uint64(t.QOSScore.Int64)
+				validTasks = append(validTasks, t)
+			}
 		}
-	}
-
-	payments := map[string]*big.Int{}
-	if status == models.TaskEndSuccess {
-		payments[task.SelectedNode] = &task.TaskFee.Int
-	} else {
 		totalRem := big.NewInt(0)
 		for i, t := range validTasks {
-			payment := big.NewInt(0).Mul(&t.TaskFee.Int, big.NewInt(0).SetUint64(t.QOSScore))
+			payment := big.NewInt(0).Mul(&t.TaskFee.Int, big.NewInt(0).SetInt64(t.QOSScore.Int64))
 			payment, rem := big.NewInt(0).QuoRem(payment, big.NewInt(0).SetUint64(totalScore), big.NewInt(0))
 			totalRem.Add(totalRem, rem)
 			if i == len(validTasks)-1 {
@@ -344,6 +338,9 @@ func SetTaskStatusEndSuccess(ctx context.Context, db *gorm.DB, task *models.Infe
 			}
 			payments[t.SelectedNode] = payment
 		}
+
+	} else {
+		payments[task.SelectedNode] = &task.TaskFee.Int
 	}
 
 	appConfig := config.GetConfig()

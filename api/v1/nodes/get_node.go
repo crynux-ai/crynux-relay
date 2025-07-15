@@ -4,6 +4,7 @@ import (
 	"crynux_relay/api/v1/response"
 	"crynux_relay/config"
 	"crynux_relay/models"
+	"crynux_relay/service"
 	"errors"
 	"fmt"
 
@@ -25,6 +26,8 @@ func GetNode(c *gin.Context, input *GetNodeInput) (*NodeResponse, error) {
 				GPUName:       "",
 				GPUVram:       0,
 				QOSScore:      0,
+				StakingScore:  0,
+				ProbWeight:    0,
 				Version:       "",
 				InUseModelIDs: []string{},
 				ModelIDs:      []string{},
@@ -51,13 +54,17 @@ func GetNode(c *gin.Context, input *GetNodeInput) (*NodeResponse, error) {
 
 	nodeVersion := fmt.Sprintf("%d.%d.%d", node.MajorVersion, node.MinorVersion, node.PatchVersion)
 
+	stakingScore, qosScore, probWeight := service.CalculateSelectingProb(&node.StakeAmount.Int, service.GetMaxStaking(), node.QOSScore, service.GetMaxQosScore())
+
 	return &NodeResponse{
 		Data: &Node{
 			Address:       node.Address,
 			Status:        node.Status,
 			GPUName:       node.GPUName,
 			GPUVram:       node.GPUVram,
-			QOSScore:      node.QOSScore,
+			QOSScore:      qosScore,
+			StakingScore:  stakingScore,
+			ProbWeight:    probWeight,
 			Version:       nodeVersion,
 			InUseModelIDs: inUseModelIDs,
 			ModelIDs:      modelIDs,

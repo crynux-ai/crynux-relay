@@ -4,6 +4,7 @@ import (
 	"crynux_relay/api/v1/response"
 	"crynux_relay/config"
 	"crynux_relay/models"
+	"crynux_relay/service"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -19,7 +20,7 @@ type NodeIncentive struct {
 	Incentive   float64 `json:"incentive"`
 	TaskCount   int64   `json:"task_count"`
 	CardModel   string  `json:"card_model"`
-	QoS         int64   `json:"qos"`
+	QoS         float64 `json:"qos"`
 }
 
 type GetNodeIncentiveData struct {
@@ -94,7 +95,7 @@ func GetNodeIncentive(_ *gin.Context, input *GetNodeIncentiveParams) (*GetNodeIn
 	for _, node := range nodes {
 		if nodeIncentive, ok := nodeIncentiveMap[node.Address]; ok {
 			nodeIncentive.CardModel = node.GPUName
-			nodeIncentive.QoS = int64(node.QOSScore)
+			nodeIncentive.QoS = service.CalculateQosScore(node.QOSScore, service.GetMaxQosScore())
 
 			nodeIncentiveMap[node.Address] = nodeIncentive
 		}
