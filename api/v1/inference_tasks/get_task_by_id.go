@@ -54,6 +54,11 @@ func GetTaskById(c *gin.Context, in *GetTaskInputWithSignature) (*TaskResponse, 
 		return nil, response.NewValidationErrorResponse("signature", "Signer not allowed")
 	}
 
+	qosScore := uint64(0)
+	if task.QOSScore.Valid {
+		qosScore = uint64(task.QOSScore.Int64)
+	}
+
 	t := &InferenceTask{
 		Sequence:         uint64(task.ID),
 		TaskArgs:         task.TaskArgs,
@@ -74,7 +79,7 @@ func GetTaskById(c *gin.Context, in *GetTaskInputWithSignature) (*TaskResponse, 
 		AbortReason:      task.AbortReason,
 		TaskError:        task.TaskError,
 		Score:            task.Score,
-		QOSScore:         task.QOSScore,
+		QOSScore:         qosScore,
 		SelectedNode:     task.SelectedNode,
 	}
 	if task.CreateTime.Valid {

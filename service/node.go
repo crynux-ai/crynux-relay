@@ -32,6 +32,7 @@ func SetNodeStatusJoin(ctx context.Context, db *gorm.DB, node *models.Node, mode
 		if err := models.CreateNodeModels(ctx, tx, nodeModels); err != nil {
 			return err
 		}
+		UpdateMaxStaking(&node.StakeAmount.Int)
 		return nil
 	})
 }
@@ -57,6 +58,9 @@ func SetNodeStatusQuit(ctx context.Context, db *gorm.DB, node *models.Node, slas
 			"current_task_id_commitment": sql.NullString{Valid: false},
 			"stake_amount":               models.BigInt{Int: *big.NewInt(0)},
 		}); err != nil {
+			return err
+		}
+		if err := RefreshMaxStaking(ctx, tx); err != nil {
 			return err
 		}
 		return nil

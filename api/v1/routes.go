@@ -8,6 +8,7 @@ import (
 	"crynux_relay/api/v1/network"
 	"crynux_relay/api/v1/nodes"
 	"crynux_relay/api/v1/response"
+	"crynux_relay/api/v1/staking"
 	"crynux_relay/api/v1/stats"
 	"crynux_relay/api/v1/time"
 	"crynux_relay/api/v1/worker"
@@ -118,6 +119,12 @@ func InitRoutes(r *fizz.Fizz) {
 		fizz.Summary("Transfer balance of account"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(balance.Transfer, 200))
+
+	stakingGroup := v1g.Group("staking", "staking", "staking related APIs")
+	stakingGroup.GET("/:address", []fizz.OperationOption{
+		fizz.Summary("Get staking of node"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(staking.GetStaking, 200))
 
 	eventsGroup := v1g.Group("events", "events", "events related APIs")
 	eventsGroup.GET("", []fizz.OperationOption{

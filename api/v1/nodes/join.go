@@ -18,11 +18,12 @@ import (
 )
 
 type NodeJoinInput struct {
-	Address  string   `json:"address" path:"address" description:"address" validate:"required"`
-	GPUName  string   `json:"gpu_name" description:"gpu_name" validate:"required"`
-	GPUVram  uint64   `json:"gpu_vram" description:"gpu_vram" validate:"required"`
-	Version  string   `json:"version" description:"version" validate:"required"`
-	ModelIDs []string `json:"model_ids" description:"node local model ids" validate:"required"`
+	Address  string        `json:"address" path:"address" description:"address" validate:"required"`
+	GPUName  string        `json:"gpu_name" description:"gpu_name" validate:"required"`
+	GPUVram  uint64        `json:"gpu_vram" description:"gpu_vram" validate:"required"`
+	Version  string        `json:"version" description:"version" validate:"required"`
+	ModelIDs []string      `json:"model_ids" description:"node local model ids" validate:"required"`
+	Staking  models.BigInt `json:"staking,omitempty" description:"staking amount"`
 }
 
 type NodeJoinInputWithSignature struct {
@@ -87,8 +88,11 @@ func NodeJoin(c *gin.Context, in *NodeJoinInputWithSignature) (*response.Respons
 		return nil, response.NewValidationErrorResponse("address", "Node already joined")
 	}
 
-	appConfig := config.GetConfig()
-	stakeAmount := utils.EtherToWei(big.NewInt(int64(appConfig.Task.StakeAmount)))
+	stakeAmount := &in.Staking.Int
+	if stakeAmount.Sign() == 0 {
+		appConfig := config.GetConfig()
+		stakeAmount = utils.EtherToWei(big.NewInt(int64(appConfig.Task.StakeAmount)))
+	}
 
 	balance, err := service.GetBalance(c.Request.Context(), config.GetDB(), in.Address)
 	if err != nil {

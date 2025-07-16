@@ -112,7 +112,7 @@ type InferenceTask struct {
 	AbortReason      TaskAbortReason `json:"abort_reason"`
 	TaskError        TaskError       `json:"task_error"`
 	Score            string          `json:"score" gorm:"type:text"`
-	QOSScore         uint64          `json:"qos_score"`
+	QOSScore         sql.NullInt64   `json:"qos_score"`
 	SelectedNode     string          `json:"selected_node"`
 	TaskID           string          `json:"task_id"`
 	ModelSwtiched    bool            `json:"model_swtiched"`

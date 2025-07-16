@@ -190,10 +190,14 @@ func ValidateTaskGroup(ctx context.Context, tasks []*models.InferenceTask, taskI
 		return ti < tj
 	})
 	// set task qos score
-	for i, task := range tasks {
+	order := 0
+	for _, task := range tasks {
 		if task.Status != models.TaskEndAborted {
-			score := getTaskQosScore(i)
-			task.QOSScore = score
+			score := getTaskQosScore(order)
+			task.QOSScore = sql.NullInt64{Int64: int64(score), Valid: true}
+			order++
+		} else {
+			task.QOSScore = sql.NullInt64{Int64: 0, Valid: true}
 		}
 	}
 
@@ -241,6 +245,11 @@ func ValidateTaskGroup(ctx context.Context, tasks []*models.InferenceTask, taskI
 			}
 			nextStatusMap[finishedTasks[0].TaskIDCommitment] = models.TaskEndInvalidated
 		}
+	} else if len(finishedTasks) == 0 {
+		// all tasks are aborted, set all qos score to null
+		for _, task := range tasks {
+			task.QOSScore = sql.NullInt64{Int64: 0, Valid: false}
+		}
 	}
 
 	return config.GetDB().Transaction(func(tx *gorm.DB) error {
@@ -260,10 +269,19 @@ func ValidateTaskGroup(ctx context.Context, tasks []*models.InferenceTask, taskI
 					return err
 				}
 			} else {
-				task.AbortReason = models.TaskAbortIncorrectResult
-				task.ValidatedTime = sql.NullTime{Time: time.Now(), Valid: true}
-				if err := SetTaskStatusEndAborted(ctx, tx, task, task.Creator); err != nil {
-					return err
+				if task.Status != models.TaskEndAborted {
+					task.AbortReason = models.TaskAbortIncorrectResult
+
+					task.ValidatedTime = sql.NullTime{Time: time.Now(), Valid: true}
+					if err := SetTaskStatusEndAborted(ctx, tx, task, task.Creator); err != nil {
+						return err
+					}
+				} else {
+					if err := task.Update(ctx, tx, map[string]interface{}{
+						"qos_score": task.QOSScore,
+					}); err != nil {
+						return err
+					}
 				}
 			}
 		}

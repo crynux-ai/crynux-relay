@@ -4,6 +4,7 @@ import (
 	"context"
 	"crynux_relay/config"
 	"crynux_relay/models"
+	"crynux_relay/service"
 	"sync"
 	"time"
 
@@ -52,7 +53,7 @@ func getNodeData(ctx context.Context, db *gorm.DB, offset, limit int) ([]models.
 			CardModel: node.GPUName,
 			VRam:      int(node.GPUVram),
 			Balance:   node.Balance.Balance,
-			QoS:       int64(node.QOSScore),
+			QoS:       service.CalculateQosScore(node.QOSScore, service.GetMaxQosScore()),
 		})
 	}
 	return res, nil
