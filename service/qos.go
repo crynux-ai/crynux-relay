@@ -37,8 +37,9 @@ func getNodeRecentTaskQosScore(ctx context.Context, node *models.Node, n int) (u
 	defer cancel()
 
 	type TaskScore struct {
-		QOSScore sql.NullInt64 `json:"qos_score"`
-		StartTime sql.NullTime `json:"start_time"`
+		ID        uint          `json:"id"`
+		QOSScore  sql.NullInt64 `json:"qos_score"`
+		StartTime sql.NullTime  `json:"start_time"`
 	}
 
 	var tasks []TaskScore
@@ -46,7 +47,7 @@ func getNodeRecentTaskQosScore(ctx context.Context, node *models.Node, n int) (u
 		Where("selected_node = ?", node.Address).
 		Where("start_time > ?", node.JoinTime).
 		Where("qos_score IS NOT NULL").
-		Order("start_time DESC").
+		Order("id DESC").
 		Limit(n).
 		Find(&tasks).Error
 	if err != nil {
