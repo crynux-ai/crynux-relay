@@ -3,6 +3,7 @@ package api
 import (
 	v1 "crynux_relay/api/v1"
 	responseV1 "crynux_relay/api/v1/response"
+	v2 "crynux_relay/api/v2"
 	"crynux_relay/config"
 	"reflect"
 	"regexp"
@@ -53,6 +54,9 @@ func GetHttpApplication(appConfig *config.AppConfig) *gin.Engine {
 
 	// v1 api
 	v1.InitRoutes(fizzEngine)
+
+	// v2 api
+	v2.InitRoutes(fizzEngine)
 
 	// Serve OpenAPI specifications
 	infos := &openapi.Info{
