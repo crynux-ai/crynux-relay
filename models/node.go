@@ -55,19 +55,11 @@ func (node *Node) Update(ctx context.Context, db *gorm.DB, values map[string]int
 	}
 	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	if err := db.WithContext(dbCtx).Transaction(func(tx *gorm.DB) error {
-		result := tx.Model(node).Where("status = ?", node.Status).Updates(values)
-		if result.RowsAffected == 0 {
-			return ErrNodeStatusChanged
-		}
-		if err := result.Error; err != nil {
-			return err
-		}
-		if err := tx.Model(node).First(node).Error; err != nil {
-			return err
-		}
-		return nil
-	}); err != nil {
+	result := db.WithContext(dbCtx).Model(node).Where("status = ?", node.Status).Updates(values)
+	if result.RowsAffected == 0 {
+		return ErrNodeStatusChanged
+	}
+	if err := result.Error; err != nil {
 		return err
 	}
 	return nil
@@ -106,15 +98,7 @@ func (nodeModel *NodeModel) Update(ctx context.Context, db *gorm.DB, values map[
 	}
 	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	if err := db.WithContext(dbCtx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Model(nodeModel).Updates(values).Error; err != nil {
-			return err
-		}
-		if err := tx.Model(nodeModel).First(nodeModel).Error; err != nil {
-			return err
-		}
-		return nil
-	}); err != nil {
+	if err := db.WithContext(dbCtx).Model(nodeModel).Updates(values).Error; err != nil {
 		return err
 	}
 	return nil
