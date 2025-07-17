@@ -1,9 +1,10 @@
 package network
 
 import (
-	"crynux_relay/api/v1/response"
+	"crynux_relay/api/v2/response"
 	"crynux_relay/config"
 	"crynux_relay/models"
+	"crynux_relay/service"
 	"math/big"
 
 	"github.com/gin-gonic/gin"
@@ -19,7 +20,7 @@ type NetworkNodeData struct {
 	CardModel string   `json:"card_model"`
 	VRam      int      `json:"v_ram"`
 	Balance   *big.Int `json:"balance"`
-	QoS       uint64   `json:"qos"`
+	QoS       float64  `json:"qos"`
 }
 
 type GetAllNodesDataResponse struct {
@@ -40,7 +41,7 @@ func GetAllNodeData(_ *gin.Context, in *GetAllNodesDataParams) (*GetAllNodesData
 			CardModel: node.CardModel,
 			VRam:      node.VRam,
 			Balance:   &node.Balance.Int,
-			QoS:       uint64(node.QoS),
+			QoS:       service.CalculateQosScore(node.QoS, service.GetMaxQosScore()),
 		})
 	}
 	return &GetAllNodesDataResponse{
