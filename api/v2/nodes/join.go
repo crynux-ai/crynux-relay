@@ -1,8 +1,8 @@
 package nodes
 
 import (
-	"crynux_relay/api/v1/response"
-	"crynux_relay/api/v1/validate"
+	"crynux_relay/api/v2/response"
+	"crynux_relay/api/v2/validate"
 	"crynux_relay/config"
 	"crynux_relay/models"
 	"crynux_relay/service"
@@ -23,6 +23,7 @@ type NodeJoinInput struct {
 	GPUVram  uint64        `json:"gpu_vram" description:"gpu_vram" validate:"required"`
 	Version  string        `json:"version" description:"version" validate:"required"`
 	ModelIDs []string      `json:"model_ids" description:"node local model ids" validate:"required"`
+	Staking  models.BigInt `json:"staking" description:"staking amount" validate:"required"`
 }
 
 type NodeJoinInputWithSignature struct {
@@ -87,8 +88,11 @@ func NodeJoin(c *gin.Context, in *NodeJoinInputWithSignature) (*response.Respons
 		return nil, response.NewValidationErrorResponse("address", "Node already joined")
 	}
 
-	appConfig := config.GetConfig()
-	stakeAmount := utils.EtherToWei(big.NewInt(int64(appConfig.Task.StakeAmount)))
+	stakeAmount := &in.Staking.Int
+	if stakeAmount.Sign() == 0 {
+		appConfig := config.GetConfig()
+		stakeAmount = utils.EtherToWei(big.NewInt(int64(appConfig.Task.StakeAmount)))
+	}
 
 	balance, err := service.GetBalance(c.Request.Context(), config.GetDB(), in.Address)
 	if err != nil {
