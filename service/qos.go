@@ -4,7 +4,6 @@ import (
 	"context"
 	"crynux_relay/config"
 	"crynux_relay/models"
-	"database/sql"
 	"sync"
 	"time"
 )
@@ -31,16 +30,17 @@ type NodeQosScorePool struct {
 	pool map[string][]uint64
 }
 
-func getNodeTaskQosScore(ctx context.Context, node *models.Node, qos uint64) (float64, error) {
+func getNodeTaskQosScore(node *models.Node, qos uint64) (float64, error) {
 	nodeQoSScorePool.mu.RLock()
 	qosScorePool, ok := nodeQoSScorePool.pool[node.Address]
 	nodeQoSScorePool.mu.RUnlock()
 	if !ok {
-		qosScores, err := getNodeRecentTaskQosScore(ctx, node, int(NODE_QOS_SCORE_POOL_SIZE))
-		if err != nil {
-			return 0, err
+		qosScorePool = make([]uint64, 0)
+		if node.QOSScore > 0 {
+			for i := 0; i < int(NODE_QOS_SCORE_POOL_SIZE) - 1; i++ {
+				qosScorePool = append(qosScorePool, uint64(node.QOSScore))
+			}
 		}
-		qosScorePool = qosScores
 	}
 	qosScorePool = append(qosScorePool, qos)
 	if len(qosScorePool) > int(NODE_QOS_SCORE_POOL_SIZE) {
@@ -55,37 +55,6 @@ func getNodeTaskQosScore(ctx context.Context, node *models.Node, qos uint64) (fl
 		sum += score
 	}
 	return float64(sum) / float64(len(qosScorePool)), nil
-}
-
-func getNodeRecentTaskQosScore(ctx context.Context, node *models.Node, n int) ([]uint64, error) {
-	dbCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-
-	type TaskScore struct {
-		QOSScore  sql.NullInt64 `json:"qos_score"`
-	}
-
-	var tasks []TaskScore
-	err := config.GetDB().WithContext(dbCtx).Unscoped().Model(&models.InferenceTask{}).
-		Where("qos_score IS NOT NULL").
-		Where("selected_node = ?", node.Address).
-		Where("start_time > ?", node.JoinTime).
-		Order("start_time DESC").
-		Limit(n).
-		Find(&tasks).Error
-	if err != nil {
-		return nil, err
-	}
-
-	if len(tasks) == 0 {
-		return []uint64{}, nil
-	}
-
-	scores := make([]uint64, len(tasks))
-	for i, task := range tasks {
-		scores[len(tasks) - i - 1] = uint64(task.QOSScore.Int64)
-	}
-	return scores, nil
 }
 
 func shouldKickoutNode(ctx context.Context, node *models.Node) (bool, error) {
