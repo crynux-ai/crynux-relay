@@ -143,15 +143,10 @@ func nodeFinishTask(ctx context.Context, db *gorm.DB, node *models.Node) error {
 		})
 	}
 
-	qosScore, err := getNodeTaskQosScore(ctx, node)
-	if err != nil {
-		return err
-	}
 	if node.Status == models.NodeStatusBusy {
 		return node.Update(ctx, db, map[string]interface{}{
 			"status":                     models.NodeStatusAvailable,
 			"current_task_id_commitment": sql.NullString{Valid: false},
-			"qos_score":                  qosScore,
 		})
 	} else if node.Status == models.NodeStatusPendingQuit {
 		return SetNodeStatusQuit(ctx, db, node, false)
@@ -159,7 +154,6 @@ func nodeFinishTask(ctx context.Context, db *gorm.DB, node *models.Node) error {
 		return node.Update(ctx, db, map[string]interface{}{
 			"status":                     models.NodeStatusPaused,
 			"current_task_id_commitment": sql.NullString{Valid: false},
-			"qos_score":                  qosScore,
 		})
 	}
 	return nil
@@ -174,5 +168,15 @@ func nodeSlash(ctx context.Context, db *gorm.DB, node *models.Node) error {
 			return err
 		}
 		return emitEvent(ctx, db, &models.NodeSlashedEvent{NodeAddress: node.Address})
+	})
+}
+
+func updateNodeQosScore(ctx context.Context, db *gorm.DB, node *models.Node, qos uint64) error {
+	qosScore, err := getNodeTaskQosScore(ctx, node, qos)
+	if err != nil {
+		return err
+	}
+	return node.Update(ctx, db, map[string]interface{}{
+		"qos_score": qosScore,
 	})
 }
