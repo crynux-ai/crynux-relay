@@ -60,11 +60,15 @@ type DispatchedTask struct {
 type TaskDispatcher struct {
 	nodeQueue chan string
 	taskMap   sync.Map
+	dispatchLimiter chan struct{}
+	startTaskLimiter chan struct{}
 }
 
 func NewTaskDispatcher() *TaskDispatcher {
 	return &TaskDispatcher{
 		nodeQueue: make(chan string, 100),
+		dispatchLimiter: make(chan struct{}, 100),
+		startTaskLimiter: make(chan struct{}, 100),
 	}
 }
 
@@ -181,6 +185,11 @@ func (d *TaskDispatcher) ProcessDispatchedTasks(ctx context.Context) error {
 				d.nodeQueue <- nodeAddress
 			} else {
 				go func() {
+					d.startTaskLimiter <- struct{}{}
+					defer func() {
+						<-d.startTaskLimiter
+					}()
+
 					dispatchedTask.mu.Lock()
 					err := SetTaskStatusStarted(ctx, config.GetDB(), dispatchedTask.task, dispatchedTask.node)
 					success := err == nil
@@ -248,6 +257,11 @@ func StartTaskProcesser(ctx context.Context) {
 			return
 		case task := <-taskQueue:
 			go func(task *models.InferenceTask) {
+				taskDispatcher.dispatchLimiter <- struct{}{}
+				defer func() {
+					<-taskDispatcher.dispatchLimiter
+				}()
+
 				deadline := task.CreateTime.Time.Add(3 * time.Minute + time.Duration(task.Timeout) * time.Minute)
 				if deadline.Before(time.Now()) {
 					log.Debugf("StartTask: task %s timeout, abort", task.TaskIDCommitment)
