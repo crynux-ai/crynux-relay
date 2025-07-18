@@ -172,7 +172,7 @@ func nodeSlash(ctx context.Context, db *gorm.DB, node *models.Node) error {
 }
 
 func updateNodeQosScore(ctx context.Context, db *gorm.DB, node *models.Node, qos uint64) error {
-	qosScore, err := getNodeTaskQosScore(ctx, node, qos)
+	qosScore, err := getNodeTaskQosScore(node, qos)
 	if err != nil {
 		return err
 	}
