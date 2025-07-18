@@ -59,31 +59,26 @@ type DispatchedTask struct {
 
 type TaskDispatcher struct {
 	nodeQueue chan string
-	taskMap   map[string]*DispatchedTask
-	mu        sync.RWMutex
+	taskMap   sync.Map
 }
 
 func NewTaskDispatcher() *TaskDispatcher {
 	return &TaskDispatcher{
 		nodeQueue: make(chan string, 100),
-		taskMap:   make(map[string]*DispatchedTask),
 	}
 }
 
 func (d *TaskDispatcher) Process(ctx context.Context, task *models.InferenceTask, node *models.Node) bool {
-	d.mu.Lock()
-	dispatchedTask, exists := d.taskMap[node.Address]
-	if !exists {
+	dispatchedTask, loaded := d.taskMap.LoadOrStore(node.Address, &DispatchedTask{
+		task:      task,
+		node:      node,
+		resChan:   make(chan bool, 1),
+		createdAt: time.Now(),
+		finished:  false,
+	})
+	if !loaded {
 		log.Debugf("StartTask: new dispatched task %s on node %s", task.TaskIDCommitment, node.Address)
-		resChan := make(chan bool, 1)
-		d.taskMap[node.Address] = &DispatchedTask{
-			task:      task,
-			node:      node,
-			resChan:   resChan,
-			createdAt: time.Now(),
-			finished:  false,
-		}
-		d.mu.Unlock()
+		resChan := dispatchedTask.(*DispatchedTask).resChan
 		d.nodeQueue <- node.Address
 		log.Debugf("StartTask: waiting for task %s on node %s", task.TaskIDCommitment, node.Address)
 		select {
@@ -94,7 +89,7 @@ func (d *TaskDispatcher) Process(ctx context.Context, task *models.InferenceTask
 		}
 
 	} else {
-		d.mu.Unlock()
+		dispatchedTask, _ := dispatchedTask.(*DispatchedTask)
 		if dispatchedTask.mu.TryLock() {
 			if dispatchedTask.finished {
 				dispatchedTask.mu.Unlock()
@@ -159,7 +154,7 @@ func (d *TaskDispatcher) Dispatch(ctx context.Context, task *models.InferenceTas
 				log.Errorf("StartTask: select node for task %s error: %v", task.TaskIDCommitment, err)
 			}
 			if selectedNode == nil {
-				log.Errorf("StartTask: no available node for task %s", task.TaskIDCommitment)
+				log.Debugf("StartTask: no available node for task %s", task.TaskIDCommitment)
 			}
 			randomSleep := rand.Intn(500) + 500
 			time.Sleep(time.Duration(randomSleep) * time.Millisecond)
@@ -173,10 +168,13 @@ func (d *TaskDispatcher) ProcessDispatchedTasks(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case nodeAddress := <-d.nodeQueue:
-			d.mu.RLock()
-			dispatchedTask := d.taskMap[nodeAddress]
+			t, exists := d.taskMap.Load(nodeAddress)
+			if !exists {
+				log.Debugf("StartTask: node %s is not dispatching any task, skip", nodeAddress)
+				continue
+			}
+			dispatchedTask, _ := t.(*DispatchedTask)
 			log.Debugf("StartTask: start processing dispatched tasks, task %s started on node %s", dispatchedTask.task.TaskIDCommitment, dispatchedTask.node.Address)
-			d.mu.RUnlock()
 
 			if time.Now().Before(dispatchedTask.createdAt.Add(time.Second)) {
 				log.Debugf("StartTask: task %s is still waiting for other tasks, skip", dispatchedTask.task.TaskIDCommitment)
@@ -191,9 +189,7 @@ func (d *TaskDispatcher) ProcessDispatchedTasks(ctx context.Context) error {
 					dispatchedTask.finished = true
 					dispatchedTask.mu.Unlock()
 
-					d.mu.Lock()
-					delete(d.taskMap, dispatchedTask.node.Address)
-					d.mu.Unlock()
+					d.taskMap.Delete(dispatchedTask.node.Address)
 
 					if success {
 						log.Debugf("StartTask: process dispatched tasks success, task %s started on node %s", dispatchedTask.task.TaskIDCommitment, dispatchedTask.node.Address)
