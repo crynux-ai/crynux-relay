@@ -53,18 +53,19 @@ type DispatchedTask struct {
 	node      *models.Node
 	resChan   chan bool
 	createdAt time.Time
+	finished  bool
 	mu        sync.RWMutex
 }
 
 type TaskDispatcher struct {
-	nodeQueue []string
+	nodeQueue chan string
 	taskMap   map[string]*DispatchedTask
 	mu        sync.RWMutex
 }
 
 func NewTaskDispatcher() *TaskDispatcher {
 	return &TaskDispatcher{
-		nodeQueue: make([]string, 0),
+		nodeQueue: make(chan string, 100),
 		taskMap:   make(map[string]*DispatchedTask),
 	}
 }
@@ -74,15 +75,16 @@ func (d *TaskDispatcher) Process(ctx context.Context, task *models.InferenceTask
 	dispatchedTask, exists := d.taskMap[node.Address]
 	if !exists {
 		log.Debugf("StartTask: new dispatched task %s on node %s", task.TaskIDCommitment, node.Address)
-		d.nodeQueue = append(d.nodeQueue, node.Address)
 		resChan := make(chan bool, 1)
 		d.taskMap[node.Address] = &DispatchedTask{
 			task:      task,
 			node:      node,
 			resChan:   resChan,
 			createdAt: time.Now(),
+			finished:  false,
 		}
 		d.mu.Unlock()
+		d.nodeQueue <- node.Address
 		log.Debugf("StartTask: waiting for task %s on node %s", task.TaskIDCommitment, node.Address)
 		select {
 		case res := <-resChan:
@@ -92,11 +94,16 @@ func (d *TaskDispatcher) Process(ctx context.Context, task *models.InferenceTask
 		}
 
 	} else {
+		d.mu.Unlock()
 		if dispatchedTask.mu.TryLock() {
+			if dispatchedTask.finished {
+				dispatchedTask.mu.Unlock()
+				log.Debugf("StartTask: node %s has been dispatched a task, skip", node.Address)
+				return false
+			}
 			originalTask := dispatchedTask.task
 			if originalTask.TaskFee.Cmp(&task.TaskFee.Int) >= 0 {
 				dispatchedTask.mu.Unlock()
-				d.mu.Unlock()
 				log.Debugf("StartTask: task %s fee is lower than original task fee, skip", task.TaskIDCommitment)
 				return false
 			}
@@ -108,7 +115,6 @@ func (d *TaskDispatcher) Process(ctx context.Context, task *models.InferenceTask
 			newResChan := make(chan bool, 1)
 			dispatchedTask.resChan = newResChan
 			dispatchedTask.mu.Unlock()
-			d.mu.Unlock()
 			log.Debugf("StartTask: waiting for task %s on node %s", task.TaskIDCommitment, node.Address)
 			select {
 			case res := <-newResChan:
@@ -117,7 +123,6 @@ func (d *TaskDispatcher) Process(ctx context.Context, task *models.InferenceTask
 				return false
 			}
 		}
-		d.mu.Unlock()
 		log.Debugf("StartTask: node %s is dispatching", node.Address)
 		return false
 	}
@@ -167,50 +172,43 @@ func (d *TaskDispatcher) ProcessDispatchedTasks(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return nil
-		default:
+		case nodeAddress := <-d.nodeQueue:
 			d.mu.RLock()
-			if len(d.nodeQueue) == 0 {
-				d.mu.RUnlock()
-				time.Sleep(1 * time.Second)
-				log.Infoln("StartTask: no dispatched tasks")
-				continue
-			}
-			nodeAddress := d.nodeQueue[0]
 			dispatchedTask := d.taskMap[nodeAddress]
 			log.Debugf("StartTask: start processing dispatched tasks, task %s started on node %s", dispatchedTask.task.TaskIDCommitment, dispatchedTask.node.Address)
 			d.mu.RUnlock()
 
 			if time.Now().Before(dispatchedTask.createdAt.Add(time.Second)) {
 				log.Debugf("StartTask: task %s is still waiting for other tasks, skip", dispatchedTask.task.TaskIDCommitment)
-				d.mu.Lock()
-				d.nodeQueue = d.nodeQueue[1:]
-				d.nodeQueue = append(d.nodeQueue, nodeAddress)
-				d.mu.Unlock()
-				continue
-			}
-
-			dispatchedTask.mu.Lock()
-			err := SetTaskStatusStarted(ctx, config.GetDB(), dispatchedTask.task, dispatchedTask.node)
-			success := err == nil
-
-			d.mu.Lock()
-			delete(d.taskMap, dispatchedTask.node.Address)
-			d.nodeQueue = d.nodeQueue[1:]
-			d.mu.Unlock()
-			dispatchedTask.resChan <- success
-			dispatchedTask.mu.Unlock()
-
-			if success {
-				log.Debugf("StartTask: process dispatched tasks success, task %s started on node %s", dispatchedTask.task.TaskIDCommitment, dispatchedTask.node.Address)
+				d.nodeQueue <- nodeAddress
 			} else {
-				if errors.Is(err, errWrongTaskStatus) || errors.Is(err, models.ErrTaskStatusChanged) {
-					log.Debugf("StartTask: process dispatched tasks failed, task %s status changed", dispatchedTask.task.TaskIDCommitment)
-				} else if errors.Is(err, models.ErrNodeStatusChanged) {
-					log.Debugf("StartTask: process dispatched tasks failed, node %s status changed", dispatchedTask.node.Address)
-				} else {
-					log.Errorf("StartTask: process dispatched tasks error: %v", err)
-				}
+				go func() {
+					dispatchedTask.mu.Lock()
+					err := SetTaskStatusStarted(ctx, config.GetDB(), dispatchedTask.task, dispatchedTask.node)
+					success := err == nil
+
+					dispatchedTask.resChan <- success
+					dispatchedTask.finished = true
+					dispatchedTask.mu.Unlock()
+
+					d.mu.Lock()
+					delete(d.taskMap, dispatchedTask.node.Address)
+					d.mu.Unlock()
+
+					if success {
+						log.Debugf("StartTask: process dispatched tasks success, task %s started on node %s", dispatchedTask.task.TaskIDCommitment, dispatchedTask.node.Address)
+					} else {
+						if errors.Is(err, errWrongTaskStatus) || errors.Is(err, models.ErrTaskStatusChanged) {
+							log.Debugf("StartTask: process dispatched tasks failed, task %s status changed", dispatchedTask.task.TaskIDCommitment)
+						} else if errors.Is(err, models.ErrNodeStatusChanged) {
+							log.Debugf("StartTask: process dispatched tasks failed, node %s status changed", dispatchedTask.node.Address)
+						} else {
+							log.Errorf("StartTask: process dispatched tasks error: %v", err)
+						}
+					}
+				}()
 			}
+
 		}
 	}
 }
@@ -254,8 +252,16 @@ func StartTaskProcesser(ctx context.Context) {
 			return
 		case task := <-taskQueue:
 			go func(task *models.InferenceTask) {
-				deadline := task.CreateTime.Time.Add(3 * time.Minute)
+				deadline := task.CreateTime.Time.Add(3 * time.Minute + time.Duration(task.Timeout) * time.Minute)
 				if deadline.Before(time.Now()) {
+					log.Debugf("StartTask: task %s timeout, abort", task.TaskIDCommitment)
+					task.AbortReason = models.TaskAbortTimeout
+					ctx1, cancel := context.WithTimeout(ctx, 10 * time.Second)
+					defer cancel()
+					appConfig := config.GetConfig()
+					if err := SetTaskStatusEndAborted(ctx1, config.GetDB(), task, appConfig.Blockchain.Account.Address); err != nil {
+						log.Errorf("StartTask: abort task %s error: %v", task.TaskIDCommitment, err)
+					}
 					return
 				}
 				ctx1, cancel := context.WithDeadline(ctx, deadline)
