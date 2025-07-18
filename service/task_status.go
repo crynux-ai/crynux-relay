@@ -189,20 +189,25 @@ func SetTaskStatusGroupValidated(ctx context.Context, db *gorm.DB, task *models.
 	if task.Status != models.TaskScoreReady {
 		return errWrongTaskStatus
 	}
-	_, err := checkTaskSelectedNode(ctx, db, task)
+	node, err := checkTaskSelectedNode(ctx, db, task)
 	if err != nil {
 		return err
 	}
 
 	return db.Transaction(func(tx *gorm.DB) error {
-		err = task.Update(ctx, tx, map[string]interface{}{
+		if err = task.Update(ctx, tx, map[string]interface{}{
 			"status":         models.TaskGroupValidated,
 			"validated_time": sql.NullTime{Time: time.Now(), Valid: true},
 			"qos_score":      task.QOSScore,
-		})
-		if err != nil {
+		}); err != nil {
 			return err
 		}
+		if task.QOSScore.Valid {
+			if err := updateNodeQosScore(ctx, tx, node, uint64(task.QOSScore.Int64)); err != nil {
+				return err
+			}
+		}
+
 		return emitEvent(ctx, tx, &models.TaskValidatedEvent{TaskIDCommitment: task.TaskIDCommitment, SelectedNode: task.SelectedNode})
 	})
 }
@@ -221,7 +226,7 @@ func SetTaskStatusEndInvalidated(ctx context.Context, db *gorm.DB, task *models.
 		err = task.Update(ctx, tx, map[string]interface{}{
 			"status":         models.TaskEndInvalidated,
 			"validated_time": sql.NullTime{Time: time.Now(), Valid: true},
-			"qos_score":      task.QOSScore,
+			"qos_score":      0,
 		})
 		if err != nil {
 			return err
@@ -246,7 +251,11 @@ func SetTaskStatusEndGroupRefund(ctx context.Context, db *gorm.DB, task *models.
 		if err := Transfer(ctx, tx, appConfig.Blockchain.Account.Address, task.Creator, &task.TaskFee.Int); err != nil {
 			return err
 		}
-
+		if task.QOSScore.Valid {
+			if err := updateNodeQosScore(ctx, tx, node, uint64(task.QOSScore.Int64)); err != nil {
+				return err
+			}
+		}
 		if err := nodeFinishTask(ctx, tx, node); err != nil {
 			return err
 		}
@@ -286,6 +295,11 @@ func SetTaskStatusEndAborted(ctx context.Context, db *gorm.DB, task *models.Infe
 
 		if len(task.SelectedNode) > 0 {
 			if node, err := checkTaskSelectedNode(ctx, db, task); err == nil {
+				if task.QOSScore.Valid {
+					if err := updateNodeQosScore(ctx, tx, node, uint64(task.QOSScore.Int64)); err != nil {
+						return err
+					}
+				}
 				if err := nodeFinishTask(ctx, tx, node); err != nil {
 					return err
 				}
