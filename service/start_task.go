@@ -12,42 +12,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var startID uint = 0
-
-func generateQueuedTasks(ctx context.Context, taskQueue chan<- *models.InferenceTask) error {
-	limit := 100
-
-	for {
-		tasks, err := func(ctx context.Context, startID uint, limit int) ([]*models.InferenceTask, error) {
-			tasks := make([]*models.InferenceTask, 0)
-
-			dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-			defer cancel()
-			err := config.GetDB().WithContext(dbCtx).Model(&models.InferenceTask{}).
-				Where("status = ?", models.TaskQueued).
-				Where("id > ?", startID).
-				Order("id").
-				Limit(limit).
-				Find(&tasks).Error
-			if err != nil {
-				return nil, err
-			}
-			return tasks, nil
-		}(ctx, startID, limit)
-		if err != nil {
-			return err
-		}
-		if len(tasks) == 0 {
-			time.Sleep(2 * time.Second)
-			continue
-		}
-		for _, task := range tasks {
-			taskQueue <- task
-		}
-		startID = tasks[len(tasks)-1].ID
-	}
-}
-
 type DispatchedTask struct {
 	task      *models.InferenceTask
 	node      *models.Node
@@ -58,17 +22,98 @@ type DispatchedTask struct {
 }
 
 type TaskDispatcher struct {
-	nodeQueue chan string
-	taskMap   sync.Map
-	dispatchLimiter chan struct{}
+	nodeQueue        chan string
+	taskMap          sync.Map
+	processingTasks  sync.Map
+	dispatchLimiter  chan struct{}
 	startTaskLimiter chan struct{}
 }
 
 func NewTaskDispatcher() *TaskDispatcher {
 	return &TaskDispatcher{
-		nodeQueue: make(chan string, 100),
-		dispatchLimiter: make(chan struct{}, 100),
+		nodeQueue:        make(chan string, 100),
+		dispatchLimiter:  make(chan struct{}, 100),
 		startTaskLimiter: make(chan struct{}, 100),
+	}
+}
+
+func (d *TaskDispatcher) getQueuedTasks(ctx context.Context) {
+	timer := time.NewTimer(2 * time.Second)
+	defer timer.Stop()
+
+	limit := 100
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			tasks, err := func(ctx context.Context) ([]*models.InferenceTask, error) {
+				tasks := make([]*models.InferenceTask, 0)
+
+				dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+				defer cancel()
+				err := config.GetDB().WithContext(dbCtx).Model(&models.InferenceTask{}).
+					Where("status = ?", models.TaskQueued).
+					Order("id").
+					Limit(limit).
+					Find(&tasks).Error
+				if err != nil {
+					return nil, err
+				}
+				return tasks, nil
+			}(ctx)
+			if err == nil && len(tasks) > 0 {
+				for _, task := range tasks {
+					if _, loaded := d.processingTasks.LoadOrStore(task.ID, struct{}{}); loaded {
+						continue
+					}
+					go func(task *models.InferenceTask) {
+						d.dispatchLimiter <- struct{}{}
+						defer func() {
+							<-d.dispatchLimiter
+							d.processingTasks.Delete(task.ID)
+						}()
+
+						deadline := task.CreateTime.Time.Add(3*time.Minute + time.Duration(task.Timeout)*time.Minute)
+						if deadline.Before(time.Now()) {
+							log.Debugf("StartTask: task %s timeout, abort", task.TaskIDCommitment)
+							task.AbortReason = models.TaskAbortTimeout
+							ctx1, cancel := context.WithTimeout(ctx, 10*time.Second)
+							defer cancel()
+							appConfig := config.GetConfig()
+							if err := SetTaskStatusEndAborted(ctx1, config.GetDB(), task, appConfig.Blockchain.Account.Address); err != nil {
+								log.Errorf("StartTask: abort task %s error: %v", task.TaskIDCommitment, err)
+							}
+							return
+						}
+						ctx1, cancel := context.WithDeadline(ctx, deadline)
+						defer cancel()
+						log.Debugf("StartTask: dispatch task %s", task.TaskIDCommitment)
+						d.Dispatch(ctx1, task)
+					}(task)
+
+				}
+			} else {
+				if err != nil {
+					log.Errorf("StartTask: get queued tasks error: %v", err)
+
+				}
+				
+				if !timer.Stop() {
+					select {
+					case <-timer.C:
+					default:
+					}
+				}
+				timer.Reset(2 * time.Second)
+
+				select {
+				case <-ctx.Done():
+					return
+				case <-timer.C:
+				}
+			}
+		}
 	}
 }
 
@@ -153,11 +198,9 @@ func (d *TaskDispatcher) Dispatch(ctx context.Context, task *models.InferenceTas
 				} else {
 					log.Debugf("StartTask: dispatch task %s to node %s failed", task.TaskIDCommitment, selectedNode.Address)
 				}
-			}
-			if err != nil {
+			} else if err != nil {
 				log.Errorf("StartTask: select node for task %s error: %v", task.TaskIDCommitment, err)
-			}
-			if selectedNode == nil {
+			} else if selectedNode == nil {
 				log.Debugf("StartTask: no available node for task %s", task.TaskIDCommitment)
 			}
 			randomSleep := rand.Intn(500) + 500
@@ -166,7 +209,7 @@ func (d *TaskDispatcher) Dispatch(ctx context.Context, task *models.InferenceTas
 	}
 }
 
-func (d *TaskDispatcher) ProcessDispatchedTasks(ctx context.Context) error {
+func (d *TaskDispatcher) processDispatchedTasks(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
@@ -219,66 +262,8 @@ func (d *TaskDispatcher) ProcessDispatchedTasks(ctx context.Context) error {
 }
 
 func StartTaskProcesser(ctx context.Context) {
-	taskQueue := make(chan *models.InferenceTask)
 	taskDispatcher := NewTaskDispatcher()
 
-	go taskDispatcher.ProcessDispatchedTasks(ctx)
-
-	go func(ctx context.Context, taskQueue chan *models.InferenceTask) {
-		timer := time.NewTimer(2 * time.Second)
-		defer timer.Stop()
-
-		for {
-			err := generateQueuedTasks(ctx, taskQueue)
-			if err != nil {
-				log.Errorf("StartTask: generate queued tasks error: %v", err)
-			}
-
-			if !timer.Stop() {
-				select {
-				case <-timer.C:
-				default:
-				}
-			}
-			timer.Reset(2 * time.Second)
-
-			select {
-			case <-ctx.Done():
-				close(taskQueue)
-				return
-			case <-timer.C:
-			}
-		}
-	}(ctx, taskQueue)
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case task := <-taskQueue:
-			go func(task *models.InferenceTask) {
-				taskDispatcher.dispatchLimiter <- struct{}{}
-				defer func() {
-					<-taskDispatcher.dispatchLimiter
-				}()
-
-				deadline := task.CreateTime.Time.Add(3 * time.Minute + time.Duration(task.Timeout) * time.Minute)
-				if deadline.Before(time.Now()) {
-					log.Debugf("StartTask: task %s timeout, abort", task.TaskIDCommitment)
-					task.AbortReason = models.TaskAbortTimeout
-					ctx1, cancel := context.WithTimeout(ctx, 10 * time.Second)
-					defer cancel()
-					appConfig := config.GetConfig()
-					if err := SetTaskStatusEndAborted(ctx1, config.GetDB(), task, appConfig.Blockchain.Account.Address); err != nil {
-						log.Errorf("StartTask: abort task %s error: %v", task.TaskIDCommitment, err)
-					}
-					return
-				}
-				ctx1, cancel := context.WithDeadline(ctx, deadline)
-				defer cancel()
-				log.Debugf("StartTask: dispatch task %s", task.TaskIDCommitment)
-				taskDispatcher.Dispatch(ctx1, task)
-			}(task)
-		}
-	}
+	go taskDispatcher.processDispatchedTasks(ctx)
+	go taskDispatcher.getQueuedTasks(ctx)
 }
