@@ -74,7 +74,7 @@ func (d *TaskDispatcher) getQueuedTasks(ctx context.Context) {
 							d.processingTasks.Delete(task.ID)
 						}()
 
-						deadline := task.CreateTime.Time.Add(3*time.Minute + time.Duration(task.Timeout)*time.Minute)
+						deadline := task.CreateTime.Time.Add(3*time.Minute + time.Duration(task.Timeout)*time.Second)
 						if deadline.Before(time.Now()) {
 							log.Debugf("StartTask: task %s timeout, abort", task.TaskIDCommitment)
 							task.AbortReason = models.TaskAbortTimeout
