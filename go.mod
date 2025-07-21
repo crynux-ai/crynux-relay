@@ -87,7 +87,6 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	gorm.io/hints v1.1.2
 )
 
 replace github.com/loopfz/gadgeto v0.9.0 => github.com/we-miks/gadgeto v0.10.3
