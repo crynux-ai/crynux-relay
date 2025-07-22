@@ -148,14 +148,14 @@ func (task *InferenceTask) VersionNumbers() [3]uint64 {
 	return [3]uint64{taskMajorVersion, taskMinorVersion, taskPatchVersion}
 }
 
-func (task *InferenceTask) SyncStatus(ctx context.Context, db *gorm.DB) error {
+func (task *InferenceTask) Sync(ctx context.Context, db *gorm.DB) error {
 	if task.ID == 0 {
 		return ErrTaskIDEmpty
 	}
 	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	var res InferenceTask
-	if err := db.WithContext(dbCtx).Model(task).Select("status").First(&res, task.ID).Error; err != nil {
+	if err := db.WithContext(dbCtx).Model(task).First(&res, task.ID).Error; err != nil {
 		return err
 	}
 	task.Status = res.Status

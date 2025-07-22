@@ -55,7 +55,7 @@ retryLoop:
 			if err := service.SetNodeStatusQuit(c.Request.Context(), config.GetDB(), node, false); err == nil {
 				break retryLoop
 			} else if errors.Is(err, models.ErrNodeStatusChanged) {
-				if err := node.SyncStatus(c.Request.Context(), config.GetDB()); err != nil {
+				if err := node.Sync(c.Request.Context(), config.GetDB()); err != nil {
 					return nil, response.NewExceptionResponse(err)
 				}
 			} else {
@@ -65,7 +65,7 @@ retryLoop:
 			if err := node.Update(c.Request.Context(), config.GetDB(), map[string]interface{}{"status": models.NodeStatusPendingQuit}); err == nil {
 				break retryLoop
 			} else if errors.Is(err, models.ErrNodeStatusChanged) {
-				if err := node.SyncStatus(c.Request.Context(), config.GetDB()); err != nil {
+				if err := node.Sync(c.Request.Context(), config.GetDB()); err != nil {
 					return nil, response.NewExceptionResponse(err)
 				}
 			} else {
