@@ -177,9 +177,15 @@ func (task *InferenceTask) Update(ctx context.Context, db *gorm.DB, values map[s
 	}
 	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	result := db.WithContext(dbCtx).Model(task).Where("status = ?", task.Status).Updates(values)
-	if result.RowsAffected == 0 {
-		return ErrTaskStatusChanged
+
+	var result *gorm.DB
+	if _, ok := values["status"]; ok {
+		result = db.WithContext(dbCtx).Model(task).Where("status = ?", task.Status).Updates(values)
+		if result.RowsAffected == 0 {
+			return ErrTaskStatusChanged
+		}
+	} else {
+		result = db.WithContext(dbCtx).Model(task).Updates(values)
 	}
 	if err := result.Error; err != nil {
 		return err

@@ -127,48 +127,72 @@ func nodeStartTask(ctx context.Context, db *gorm.DB, node *models.Node, taskIDCo
 }
 
 func nodeFinishTask(ctx context.Context, db *gorm.DB, node *models.Node) error {
-	if !(node.Status == models.NodeStatusBusy || node.Status == models.NodeStatusPendingPause || node.Status == models.NodeStatusPendingQuit) {
-		return errors.New("illegal node status")
-	}
 	kickout, err := shouldKickoutNode(ctx, node)
 	if err != nil {
 		return err
 	}
-	if kickout {
-		return db.Transaction(func(tx *gorm.DB) error {
-			if err := SetNodeStatusQuit(ctx, db, node, false); err != nil {
+	for range 3 {
+		if !(node.Status == models.NodeStatusBusy || node.Status == models.NodeStatusPendingPause || node.Status == models.NodeStatusPendingQuit) {
+			return errors.New("illegal node status")
+		}
+		if kickout {
+			err = db.Transaction(func(tx *gorm.DB) error {
+				if err := SetNodeStatusQuit(ctx, db, node, false); err != nil {
+					return err
+				}
+				return emitEvent(ctx, db, &models.NodeKickedOutEvent{NodeAddress: node.Address})
+			})
+		} else {
+			switch node.Status {
+			case models.NodeStatusBusy:
+				err = node.Update(ctx, db, map[string]interface{}{
+					"status":                     models.NodeStatusAvailable,
+					"current_task_id_commitment": sql.NullString{Valid: false},
+				})
+			case models.NodeStatusPendingQuit:
+				err = SetNodeStatusQuit(ctx, db, node, false)
+			case models.NodeStatusPendingPause:
+				err = node.Update(ctx, db, map[string]interface{}{
+					"status":                     models.NodeStatusPaused,
+					"current_task_id_commitment": sql.NullString{Valid: false},
+				})
+			}
+		}
+		if err == nil {
+			break
+		} else if errors.Is(err, models.ErrNodeStatusChanged) {
+			if err := node.SyncStatus(ctx, db); err != nil {
 				return err
 			}
-			return emitEvent(ctx, db, &models.NodeKickedOutEvent{NodeAddress: node.Address})
-		})
-	}
-
-	if node.Status == models.NodeStatusBusy {
-		return node.Update(ctx, db, map[string]interface{}{
-			"status":                     models.NodeStatusAvailable,
-			"current_task_id_commitment": sql.NullString{Valid: false},
-		})
-	} else if node.Status == models.NodeStatusPendingQuit {
-		return SetNodeStatusQuit(ctx, db, node, false)
-	} else if node.Status == models.NodeStatusPendingPause {
-		return node.Update(ctx, db, map[string]interface{}{
-			"status":                     models.NodeStatusPaused,
-			"current_task_id_commitment": sql.NullString{Valid: false},
-		})
+		} else {
+			return err
+		}
 	}
 	return nil
 }
 
 func nodeSlash(ctx context.Context, db *gorm.DB, node *models.Node) error {
-	if !(node.Status == models.NodeStatusBusy || node.Status == models.NodeStatusPendingPause || node.Status == models.NodeStatusPendingQuit) {
-		return errors.New("illegal node status")
-	}
-	return db.Transaction(func(tx *gorm.DB) error {
-		if err := SetNodeStatusQuit(ctx, db, node, true); err != nil {
+	for range 3 {
+		if !(node.Status == models.NodeStatusBusy || node.Status == models.NodeStatusPendingPause || node.Status == models.NodeStatusPendingQuit) {
+			return errors.New("illegal node status")
+		}
+		err := db.Transaction(func(tx *gorm.DB) error {
+			if err := SetNodeStatusQuit(ctx, db, node, true); err != nil {
+				return err
+			}
+			return emitEvent(ctx, db, &models.NodeSlashedEvent{NodeAddress: node.Address})
+		})
+		if err == nil {
+			break
+		} else if errors.Is(err, models.ErrNodeStatusChanged) {
+			if err := node.SyncStatus(ctx, db); err != nil {
+				return err
+			}
+		} else {
 			return err
 		}
-		return emitEvent(ctx, db, &models.NodeSlashedEvent{NodeAddress: node.Address})
-	})
+	}
+	return nil
 }
 
 func updateNodeQosScore(ctx context.Context, db *gorm.DB, node *models.Node, qos uint64) error {
