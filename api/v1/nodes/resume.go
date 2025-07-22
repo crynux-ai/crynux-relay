@@ -56,7 +56,7 @@ func NodeResume(c *gin.Context, in *ResumeInputWithSignature) (*response.Respons
 		if err := node.Update(c.Request.Context(), config.GetDB(), map[string]interface{}{"status": models.NodeStatusAvailable}); err == nil {
 			break
 		} else if errors.Is(err, models.ErrNodeStatusChanged) {
-			if err := node.SyncStatus(c.Request.Context(), config.GetDB()); err != nil {
+			if err := node.Sync(c.Request.Context(), config.GetDB()); err != nil {
 				return nil, response.NewExceptionResponse(err)
 			}
 		} else {

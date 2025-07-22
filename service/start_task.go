@@ -4,6 +4,7 @@ import (
 	"context"
 	"crynux_relay/config"
 	"crynux_relay/models"
+	"database/sql"
 	"errors"
 	"math/rand"
 	"sync"
@@ -74,10 +75,19 @@ func (d *TaskDispatcher) getQueuedTasks(ctx context.Context) {
 							d.processingTasks.Delete(task.ID)
 						}()
 
+						if err := task.Sync(ctx, config.GetDB()); err != nil {
+							log.Errorf("StartTask: sync task status error: %v", err)
+							return
+						}
+						if task.Status != models.TaskQueued {
+							return
+						}
+
 						deadline := task.CreateTime.Time.Add(3*time.Minute + time.Duration(task.Timeout)*time.Second)
 						if deadline.Before(time.Now()) {
 							log.Debugf("StartTask: task %s timeout, abort", task.TaskIDCommitment)
 							task.AbortReason = models.TaskAbortTimeout
+							task.ValidatedTime = sql.NullTime{Time: time.Now(), Valid: true}
 							ctx1, cancel := context.WithTimeout(ctx, 10*time.Second)
 							defer cancel()
 							appConfig := config.GetConfig()
@@ -98,7 +108,7 @@ func (d *TaskDispatcher) getQueuedTasks(ctx context.Context) {
 					log.Errorf("StartTask: get queued tasks error: %v", err)
 
 				}
-				
+
 				if !timer.Stop() {
 					select {
 					case <-timer.C:
@@ -179,14 +189,6 @@ func (d *TaskDispatcher) Dispatch(ctx context.Context, task *models.InferenceTas
 		case <-ctx.Done():
 			return
 		default:
-			if err := task.SyncStatus(ctx, config.GetDB()); err != nil {
-				log.Errorf("StartTask: sync task status error: %v", err)
-				continue
-			}
-			if task.Status != models.TaskQueued {
-				return
-			}
-
 			selectedNode, err := selectNodeForInferenceTask(ctx, task)
 
 			if err == nil && selectedNode != nil {

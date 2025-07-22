@@ -161,7 +161,7 @@ func nodeFinishTask(ctx context.Context, db *gorm.DB, node *models.Node) error {
 		if err == nil {
 			break
 		} else if errors.Is(err, models.ErrNodeStatusChanged) {
-			if err := node.SyncStatus(ctx, db); err != nil {
+			if err := node.Sync(ctx, db); err != nil {
 				return err
 			}
 		} else {
@@ -185,7 +185,7 @@ func nodeSlash(ctx context.Context, db *gorm.DB, node *models.Node) error {
 		if err == nil {
 			break
 		} else if errors.Is(err, models.ErrNodeStatusChanged) {
-			if err := node.SyncStatus(ctx, db); err != nil {
+			if err := node.Sync(ctx, db); err != nil {
 				return err
 			}
 		} else {
