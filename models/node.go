@@ -55,13 +55,30 @@ func (node *Node) Update(ctx context.Context, db *gorm.DB, values map[string]int
 	}
 	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	result := db.WithContext(dbCtx).Model(node).Where("status = ?", node.Status).Updates(values)
-	if result.RowsAffected == 0 {
-		return ErrNodeStatusChanged
+
+	var result *gorm.DB
+	if _, ok := values["status"]; ok {
+		result = db.WithContext(dbCtx).Model(node).Where("status = ?", node.Status).Updates(values)
+		if result.RowsAffected == 0 {
+			return ErrNodeStatusChanged
+		}
+	} else {
+		result = db.WithContext(dbCtx).Model(node).Updates(values)
 	}
 	if err := result.Error; err != nil {
 		return err
 	}
+	return nil
+}
+
+func (node *Node) SyncStatus(ctx context.Context, db *gorm.DB) error {
+	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	var res Node
+	if err := db.WithContext(dbCtx).Model(node).Select("status").First(&res, node.ID).Error; err != nil {
+		return err
+	}
+	node.Status = res.Status
 	return nil
 }
 

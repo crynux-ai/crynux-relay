@@ -48,17 +48,32 @@ func NodeQuit(c *gin.Context, in *QuitInputWithSignature) (*response.Response, e
 		}
 		return nil, response.NewExceptionResponse(err)
 	}
-
-	if node.Status == models.NodeStatusAvailable || node.Status == models.NodeStatusPaused {
-		if err := service.SetNodeStatusQuit(c.Request.Context(), config.GetDB(), node, false); err != nil {
-			return nil, response.NewExceptionResponse(err)
+retryLoop:
+	for range 3 {
+		switch node.Status {
+		case models.NodeStatusAvailable, models.NodeStatusPaused:
+			if err := service.SetNodeStatusQuit(c.Request.Context(), config.GetDB(), node, false); err == nil {
+				break retryLoop
+			} else if errors.Is(err, models.ErrNodeStatusChanged) {
+				if err := node.SyncStatus(c.Request.Context(), config.GetDB()); err != nil {
+					return nil, response.NewExceptionResponse(err)
+				}
+			} else {
+				return nil, response.NewExceptionResponse(err)
+			}
+		case models.NodeStatusBusy:
+			if err := node.Update(c.Request.Context(), config.GetDB(), map[string]interface{}{"status": models.NodeStatusPendingQuit}); err == nil {
+				break retryLoop
+			} else if errors.Is(err, models.ErrNodeStatusChanged) {
+				if err := node.SyncStatus(c.Request.Context(), config.GetDB()); err != nil {
+					return nil, response.NewExceptionResponse(err)
+				}
+			} else {
+				return nil, response.NewExceptionResponse(err)
+			}
+		default:
+			return nil, response.NewValidationErrorResponse("address", "Illegal node status")
 		}
-	} else if node.Status == models.NodeStatusBusy {
-		if err := node.Update(c.Request.Context(), config.GetDB(), map[string]interface{}{"status": models.NodeStatusPendingQuit}); err != nil {
-			return nil, response.NewExceptionResponse(err)
-		}
-	} else {
-		return nil, response.NewValidationErrorResponse("address", "Illegal node status")
 	}
 	return &response.Response{}, nil
 }

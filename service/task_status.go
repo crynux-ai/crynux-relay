@@ -114,208 +114,291 @@ func checkTaskSelectedNode(ctx context.Context, db *gorm.DB, task *models.Infere
 }
 
 func SetTaskStatusScoreReady(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
-	if task.Status != models.TaskStarted {
-		return errWrongTaskStatus
-	}
-	_, err := checkTaskSelectedNode(ctx, db, task)
-	if err != nil {
-		return err
-	}
-
-	return db.Transaction(func(tx *gorm.DB) error {
-		err = task.Update(ctx, tx, map[string]interface{}{
-			"status":           models.TaskScoreReady,
-			"score":            task.Score,
-			"score_ready_time": sql.NullTime{Time: time.Now(), Valid: true},
-		})
+	for range 3 {
+		if task.Status != models.TaskStarted {
+			return errWrongTaskStatus
+		}
+		_, err := checkTaskSelectedNode(ctx, db, task)
 		if err != nil {
 			return err
 		}
-		return emitEvent(ctx, tx, &models.TaskScoreReadyEvent{
-			TaskIDCommitment: task.TaskIDCommitment,
-			SelectedNode:     task.SelectedNode,
-			Score:            task.Score,
+	
+		err = db.Transaction(func(tx *gorm.DB) error {
+			err = task.Update(ctx, tx, map[string]interface{}{
+				"status":           models.TaskScoreReady,
+				"score":            task.Score,
+				"score_ready_time": sql.NullTime{Time: time.Now(), Valid: true},
+			})
+			if err != nil {
+				return err
+			}
+			return emitEvent(ctx, tx, &models.TaskScoreReadyEvent{
+				TaskIDCommitment: task.TaskIDCommitment,
+				SelectedNode:     task.SelectedNode,
+				Score:            task.Score,
+			})
 		})
-	})
+		if err == nil {
+			break
+		} else if errors.Is(err, models.ErrTaskStatusChanged) {
+			if err := task.SyncStatus(ctx, db); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+	return nil
 }
 
 func SetTaskStatusErrorReported(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
-	if task.Status != models.TaskStarted {
-		return errWrongTaskStatus
-	}
-	_, err := checkTaskSelectedNode(ctx, db, task)
-	if err != nil {
-		return err
-	}
-	return db.Transaction(func(tx *gorm.DB) error {
-		err = task.Update(ctx, tx, map[string]interface{}{
-			"status":           models.TaskErrorReported,
-			"task_error":       task.TaskError,
-			"score_ready_time": sql.NullTime{Time: time.Now(), Valid: true},
-		})
+	for range 3 {
+		if task.Status != models.TaskStarted {
+			return errWrongTaskStatus
+		}
+		_, err := checkTaskSelectedNode(ctx, db, task)
 		if err != nil {
 			return err
 		}
-		return emitEvent(ctx, tx, &models.TaskErrorReportedEvent{
-			TaskIDCommitment: task.TaskIDCommitment,
-			SelectedNode:     task.SelectedNode,
-			TaskError:        task.TaskError,
+		err = db.Transaction(func(tx *gorm.DB) error {
+			err = task.Update(ctx, tx, map[string]interface{}{
+				"status":           models.TaskErrorReported,
+				"task_error":       task.TaskError,
+				"score_ready_time": sql.NullTime{Time: time.Now(), Valid: true},
+			})
+			if err != nil {
+				return err
+			}
+			return emitEvent(ctx, tx, &models.TaskErrorReportedEvent{
+				TaskIDCommitment: task.TaskIDCommitment,
+				SelectedNode:     task.SelectedNode,
+				TaskError:        task.TaskError,
+			})
 		})
-	})
+		if err == nil {
+			break
+		} else if errors.Is(err, models.ErrTaskStatusChanged) {
+			if err := task.SyncStatus(ctx, db); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+	return nil
 }
 
 func SetTaskStatusValidated(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
-	if task.Status != models.TaskScoreReady {
-		return errWrongTaskStatus
-	}
-	_, err := checkTaskSelectedNode(ctx, db, task)
-	if err != nil {
-		return err
-	}
-
-	return db.Transaction(func(tx *gorm.DB) error {
-		err = task.Update(ctx, tx, map[string]interface{}{
-			"status":         models.TaskValidated,
-			"validated_time": sql.NullTime{Time: time.Now(), Valid: true},
-		})
+	for range 3 {
+		if task.Status != models.TaskScoreReady {
+			return errWrongTaskStatus
+		}
+		_, err := checkTaskSelectedNode(ctx, db, task)
 		if err != nil {
 			return err
 		}
-		return emitEvent(ctx, tx, &models.TaskValidatedEvent{TaskIDCommitment: task.TaskIDCommitment, SelectedNode: task.SelectedNode})
-	})
+	
+		err = db.Transaction(func(tx *gorm.DB) error {
+			err = task.Update(ctx, tx, map[string]interface{}{
+				"status":         models.TaskValidated,
+				"validated_time": sql.NullTime{Time: time.Now(), Valid: true},
+			})
+			if err != nil {
+				return err
+			}
+			return emitEvent(ctx, tx, &models.TaskValidatedEvent{TaskIDCommitment: task.TaskIDCommitment, SelectedNode: task.SelectedNode})
+		})
+		if err == nil {
+			break
+		} else if errors.Is(err, models.ErrTaskStatusChanged) {
+			if err := task.SyncStatus(ctx, db); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+	return nil
 }
 
 func SetTaskStatusGroupValidated(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
-	if task.Status != models.TaskScoreReady {
-		return errWrongTaskStatus
-	}
-	node, err := checkTaskSelectedNode(ctx, db, task)
-	if err != nil {
-		return err
-	}
-
-	return db.Transaction(func(tx *gorm.DB) error {
-		if err = task.Update(ctx, tx, map[string]interface{}{
-			"status":         models.TaskGroupValidated,
-			"validated_time": sql.NullTime{Time: time.Now(), Valid: true},
-			"qos_score":      task.QOSScore,
-		}); err != nil {
-			return err
+	for range 3 {
+		if task.Status != models.TaskScoreReady {
+			return errWrongTaskStatus
 		}
-		if task.QOSScore.Valid {
-			if err := updateNodeQosScore(ctx, tx, node, uint64(task.QOSScore.Int64)); err != nil {
-				return err
-			}
-		}
-
-		return emitEvent(ctx, tx, &models.TaskValidatedEvent{TaskIDCommitment: task.TaskIDCommitment, SelectedNode: task.SelectedNode})
-	})
-}
-
-func SetTaskStatusEndInvalidated(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
-	if task.Status != models.TaskScoreReady && task.Status != models.TaskEndAborted && task.Status != models.TaskErrorReported {
-		return errWrongTaskStatus
-	}
-
-	node, err := checkTaskSelectedNode(ctx, db, task)
-	if err != nil {
-		return err
-	}
-
-	return db.Transaction(func(tx *gorm.DB) error {
-		err = task.Update(ctx, tx, map[string]interface{}{
-			"status":         models.TaskEndInvalidated,
-			"validated_time": sql.NullTime{Time: time.Now(), Valid: true},
-			"qos_score":      0,
-		})
+		node, err := checkTaskSelectedNode(ctx, db, task)
 		if err != nil {
 			return err
 		}
-		nodeSlash(ctx, tx, node)
-		return emitEvent(ctx, tx, &models.TaskEndInvalidatedEvent{TaskIDCommitment: task.TaskIDCommitment, SelectedNode: task.SelectedNode})
-	})
-}
-
-func SetTaskStatusEndGroupRefund(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
-	if task.Status != models.TaskScoreReady {
-		return errWrongTaskStatus
-	}
-
-	node, err := checkTaskSelectedNode(ctx, db, task)
-	if err != nil {
-		return err
-	}
-
-	appConfig := config.GetConfig()
-	return db.Transaction(func(tx *gorm.DB) error {
-		if err := Transfer(ctx, tx, appConfig.Blockchain.Account.Address, task.Creator, &task.TaskFee.Int); err != nil {
-			return err
-		}
-		if task.QOSScore.Valid {
-			if err := updateNodeQosScore(ctx, tx, node, uint64(task.QOSScore.Int64)); err != nil {
+		err = db.Transaction(func(tx *gorm.DB) error {
+			if err = task.Update(ctx, tx, map[string]interface{}{
+				"status":         models.TaskGroupValidated,
+				"validated_time": sql.NullTime{Time: time.Now(), Valid: true},
+				"qos_score":      task.QOSScore,
+			}); err != nil {
 				return err
 			}
-		}
-		if err := nodeFinishTask(ctx, tx, node); err != nil {
-			return err
-		}
-
-		err = task.Update(ctx, tx, map[string]interface{}{
-			"status":         models.TaskEndGroupRefund,
-			"validated_time": sql.NullTime{Time: time.Now(), Valid: true},
-			"qos_score":      task.QOSScore,
-		})
-		if err != nil {
-			return err
-		}
-		return emitEvent(ctx, tx, &models.TaskEndGroupRefundEvent{TaskIDCommitment: task.TaskIDCommitment, SelectedNode: task.SelectedNode})
-	})
-}
-
-func SetTaskStatusEndAborted(ctx context.Context, db *gorm.DB, task *models.InferenceTask, aboutIssuer string) error {
-	if task.Status == models.TaskEndAborted {
-		return nil
-	}
-	if task.Status == models.TaskEndSuccess || task.Status == models.TaskEndInvalidated || task.Status == models.TaskEndGroupSuccess || task.Status == models.TaskEndGroupRefund {
-		return errWrongTaskStatus
-	}
-	lastStatus := task.Status
-
-	newTask := map[string]interface{}{
-		"status":         models.TaskEndAborted,
-		"abort_reason":   task.AbortReason,
-		"validated_time": task.ValidatedTime,
-		"qos_score":      task.QOSScore,
-	}
-	appConfig := config.GetConfig()
-	return db.Transaction(func(tx *gorm.DB) error {
-		if err := Transfer(ctx, tx, appConfig.Blockchain.Account.Address, task.Creator, &task.TaskFee.Int); err != nil {
-			return err
-		}
-
-		if len(task.SelectedNode) > 0 {
-			if node, err := checkTaskSelectedNode(ctx, db, task); err == nil {
-				if task.QOSScore.Valid {
-					if err := updateNodeQosScore(ctx, tx, node, uint64(task.QOSScore.Int64)); err != nil {
-						return err
-					}
-				}
-				if err := nodeFinishTask(ctx, tx, node); err != nil {
+			if task.QOSScore.Valid {
+				if err := updateNodeQosScore(ctx, tx, node, uint64(task.QOSScore.Int64)); err != nil {
 					return err
 				}
 			}
-		}
 
-		if err := task.Update(ctx, tx, newTask); err != nil {
+			return emitEvent(ctx, tx, &models.TaskValidatedEvent{TaskIDCommitment: task.TaskIDCommitment, SelectedNode: task.SelectedNode})
+		})
+		if err == nil {
+			break
+		} else if errors.Is(err, models.ErrTaskStatusChanged) {
+			if err := task.SyncStatus(ctx, db); err != nil {
+				return err
+			}
+		} else {
 			return err
 		}
-		return emitEvent(ctx, tx, &models.TaskEndAbortedEvent{
-			TaskIDCommitment: task.TaskIDCommitment,
-			AbortIssuer:      aboutIssuer,
-			AbortReason:      task.AbortReason,
-			LastStatus:       lastStatus,
+	}
+	return nil
+}
+
+func SetTaskStatusEndInvalidated(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
+	for range 3 {
+		if task.Status != models.TaskScoreReady && task.Status != models.TaskEndAborted && task.Status != models.TaskErrorReported {
+			return errWrongTaskStatus
+		}
+	
+		node, err := checkTaskSelectedNode(ctx, db, task)
+		if err != nil {
+			return err
+		}
+	
+		err = db.Transaction(func(tx *gorm.DB) error {
+			err = task.Update(ctx, tx, map[string]interface{}{
+				"status":         models.TaskEndInvalidated,
+				"validated_time": sql.NullTime{Time: time.Now(), Valid: true},
+				"qos_score":      0,
+			})
+			if err != nil {
+				return err
+			}
+			nodeSlash(ctx, tx, node)
+			return emitEvent(ctx, tx, &models.TaskEndInvalidatedEvent{TaskIDCommitment: task.TaskIDCommitment, SelectedNode: task.SelectedNode})
 		})
-	})
+		if err == nil {
+			break
+		} else if errors.Is(err, models.ErrTaskStatusChanged) {
+			if err := task.SyncStatus(ctx, db); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+	return nil
+}
+
+func SetTaskStatusEndGroupRefund(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
+	for range 3 {
+		if task.Status != models.TaskScoreReady {
+			return errWrongTaskStatus
+		}
+	
+		node, err := checkTaskSelectedNode(ctx, db, task)
+		if err != nil {
+			return err
+		}
+	
+		appConfig := config.GetConfig()
+		err = db.Transaction(func(tx *gorm.DB) error {
+			if err := Transfer(ctx, tx, appConfig.Blockchain.Account.Address, task.Creator, &task.TaskFee.Int); err != nil {
+				return err
+			}
+			if task.QOSScore.Valid {
+				if err := updateNodeQosScore(ctx, tx, node, uint64(task.QOSScore.Int64)); err != nil {
+					return err
+				}
+			}
+			if err := nodeFinishTask(ctx, tx, node); err != nil {
+				return err
+			}
+	
+			err = task.Update(ctx, tx, map[string]interface{}{
+				"status":         models.TaskEndGroupRefund,
+				"validated_time": sql.NullTime{Time: time.Now(), Valid: true},
+				"qos_score":      task.QOSScore,
+			})
+			if err != nil {
+				return err
+			}
+			return emitEvent(ctx, tx, &models.TaskEndGroupRefundEvent{TaskIDCommitment: task.TaskIDCommitment, SelectedNode: task.SelectedNode})
+		})
+		if err == nil {
+			break
+		} else if errors.Is(err, models.ErrTaskStatusChanged) {
+			if err := task.SyncStatus(ctx, db); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+	return nil
+}
+
+func SetTaskStatusEndAborted(ctx context.Context, db *gorm.DB, task *models.InferenceTask, aboutIssuer string) error {
+	for range 3 {
+		if task.Status == models.TaskEndAborted {
+			return nil
+		}
+		if task.Status == models.TaskEndSuccess || task.Status == models.TaskEndInvalidated || task.Status == models.TaskEndGroupSuccess || task.Status == models.TaskEndGroupRefund {
+			return errWrongTaskStatus
+		}
+		lastStatus := task.Status
+	
+		newTask := map[string]interface{}{
+			"status":         models.TaskEndAborted,
+			"abort_reason":   task.AbortReason,
+			"validated_time": task.ValidatedTime,
+			"qos_score":      task.QOSScore,
+		}
+		appConfig := config.GetConfig()
+		err := db.Transaction(func(tx *gorm.DB) error {
+			if err := Transfer(ctx, tx, appConfig.Blockchain.Account.Address, task.Creator, &task.TaskFee.Int); err != nil {
+				return err
+			}
+	
+			if len(task.SelectedNode) > 0 {
+				if node, err := checkTaskSelectedNode(ctx, db, task); err == nil {
+					if task.QOSScore.Valid {
+						if err := updateNodeQosScore(ctx, tx, node, uint64(task.QOSScore.Int64)); err != nil {
+							return err
+						}
+					}
+					if err := nodeFinishTask(ctx, tx, node); err != nil {
+						return err
+					}
+				}
+			}
+	
+			if err := task.Update(ctx, tx, newTask); err != nil {
+				return err
+			}
+			return emitEvent(ctx, tx, &models.TaskEndAbortedEvent{
+				TaskIDCommitment: task.TaskIDCommitment,
+				AbortIssuer:      aboutIssuer,
+				AbortReason:      task.AbortReason,
+				LastStatus:       lastStatus,
+			})
+		})
+		if err == nil {
+			break
+		} else if errors.Is(err, models.ErrTaskStatusChanged) {
+			if err := task.SyncStatus(ctx, db); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
+	}
+	return nil
 }
 
 func SetTaskStatusEndSuccess(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
@@ -358,35 +441,46 @@ func SetTaskStatusEndSuccess(ctx context.Context, db *gorm.DB, task *models.Infe
 	}
 
 	appConfig := config.GetConfig()
-	return db.Transaction(func(tx *gorm.DB) error {
-		for address, payment := range payments {
-			if err := Transfer(ctx, tx, appConfig.Blockchain.Account.Address, address, payment); err != nil {
+	for range 3 {
+		if err := db.Transaction(func(tx *gorm.DB) error {
+			for address, payment := range payments {
+				if err := Transfer(ctx, tx, appConfig.Blockchain.Account.Address, address, payment); err != nil {
+					return err
+				}
+			}
+	
+			for address, payment := range payments {
+				incentive, _ := utils.WeiToEther(payment).Float64()
+				if err := addNodeIncentive(ctx, tx, address, incentive); err != nil {
+					return err
+				}
+			}
+	
+			if err := nodeFinishTask(ctx, tx, node); err != nil {
 				return err
 			}
-		}
-
-		for address, payment := range payments {
-			incentive, _ := utils.WeiToEther(payment).Float64()
-			if err := addNodeIncentive(ctx, tx, address, incentive); err != nil {
+	
+			err = task.Update(ctx, tx, map[string]interface{}{
+				"status":               status,
+				"result_uploaded_time": sql.NullTime{Time: time.Now(), Valid: true},
+			})
+			if err != nil {
 				return err
 			}
-		}
-
-		if err := nodeFinishTask(ctx, tx, node); err != nil {
-			return err
-		}
-
-		err = task.Update(ctx, tx, map[string]interface{}{
-			"status":               status,
-			"result_uploaded_time": sql.NullTime{Time: time.Now(), Valid: true},
-		})
-		if err != nil {
-			return err
-		}
-		if status == models.TaskEndSuccess {
-			return emitEvent(ctx, tx, &models.TaskEndSuccessEvent{TaskIDCommitment: task.TaskIDCommitment, SelectedNode: task.SelectedNode})
+			if status == models.TaskEndSuccess {
+				return emitEvent(ctx, tx, &models.TaskEndSuccessEvent{TaskIDCommitment: task.TaskIDCommitment, SelectedNode: task.SelectedNode})
+			} else {
+				return emitEvent(ctx, tx, &models.TaskEndGroupSuccessEvent{TaskIDCommitment: task.TaskIDCommitment, SelectedNode: task.SelectedNode})
+			}
+		}); err == nil {
+			break
+		} else if errors.Is(err, models.ErrTaskStatusChanged) {
+			if err := task.SyncStatus(ctx, db); err != nil {
+				return err
+			}
 		} else {
-			return emitEvent(ctx, tx, &models.TaskEndGroupSuccessEvent{TaskIDCommitment: task.TaskIDCommitment, SelectedNode: task.SelectedNode})
+			return err
 		}
-	})
+	}
+	return nil
 }

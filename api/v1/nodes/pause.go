@@ -48,17 +48,27 @@ func NodePause(c *gin.Context, in *PauseInputWithSignature) (*response.Response,
 		return nil, response.NewExceptionResponse(err)
 	}
 
-	var status models.NodeStatus
-	if node.Status == models.NodeStatusAvailable {
-		status = models.NodeStatusPaused
-	} else if node.Status == models.NodeStatusBusy {
-		status = models.NodeStatusPendingPause
-	} else {
-		return nil, response.NewValidationErrorResponse("address", "Illegal node status")
-	}
+	for range 3 {
+		var status models.NodeStatus
+		switch node.Status {
+		case models.NodeStatusAvailable:
+			status = models.NodeStatusPaused
+		case models.NodeStatusBusy:
+			status = models.NodeStatusPendingPause
+		default:
+			return nil, response.NewValidationErrorResponse("address", "Illegal node status")
+		}
 
-	if err := node.Update(c.Request.Context(), config.GetDB(), map[string]interface{}{"status": status}); err != nil {
-		return nil, response.NewExceptionResponse(err)
+		err := node.Update(c.Request.Context(), config.GetDB(), map[string]interface{}{"status": status})
+		if err == nil {
+			break
+		} else if errors.Is(err, models.ErrNodeStatusChanged) {
+			if err := node.SyncStatus(c.Request.Context(), config.GetDB()); err != nil {
+				return nil, response.NewExceptionResponse(err)
+			}
+		} else {
+			return nil, response.NewExceptionResponse(err)
+		}
 	}
 	return &response.Response{}, nil
 }

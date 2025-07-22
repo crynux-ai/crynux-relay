@@ -48,12 +48,20 @@ func NodeResume(c *gin.Context, in *ResumeInputWithSignature) (*response.Respons
 		return nil, response.NewExceptionResponse(err)
 	}
 
-	if node.Status != models.NodeStatusPaused {
-		return nil, response.NewValidationErrorResponse("address", "Illegal node status")
-	}
+	for range 3 {
+		if node.Status != models.NodeStatusPaused {
+			return nil, response.NewValidationErrorResponse("address", "Illegal node status")
+		}
 
-	if err := node.Update(c.Request.Context(), config.GetDB(), map[string]interface{}{"status": models.NodeStatusAvailable}); err != nil {
-		return nil, response.NewExceptionResponse(err)
+		if err := node.Update(c.Request.Context(), config.GetDB(), map[string]interface{}{"status": models.NodeStatusAvailable}); err == nil {
+			break
+		} else if errors.Is(err, models.ErrNodeStatusChanged) {
+			if err := node.SyncStatus(c.Request.Context(), config.GetDB()); err != nil {
+				return nil, response.NewExceptionResponse(err)
+			}
+		} else {
+			return nil, response.NewExceptionResponse(err)
+		}
 	}
 	return &response.Response{}, nil
 }
