@@ -146,8 +146,18 @@ func UploadResult(c *gin.Context, in *ResultInputWithSignature) (*response.Respo
 			return nil, response.NewExceptionResponse(err)
 		}
 	}
-
-	err = service.SetTaskStatusEndSuccess(c.Request.Context(), config.GetDB(), task)
+	for range 3 {
+		err = service.SetTaskStatusEndSuccess(c.Request.Context(), config.GetDB(), task)
+		if err == nil {
+			break
+		} else if errors.Is(err, models.ErrTaskStatusChanged) || errors.Is(err, models.ErrNodeStatusChanged) {
+			if err := task.SyncStatus(c.Request.Context(), config.GetDB()); err != nil {
+				return nil, response.NewExceptionResponse(err)
+			}
+		} else {
+			return nil, response.NewExceptionResponse(err)
+		}
+	}
 	if err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}

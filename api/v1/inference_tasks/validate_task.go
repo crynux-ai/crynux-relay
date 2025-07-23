@@ -6,6 +6,7 @@ import (
 	"crynux_relay/config"
 	"crynux_relay/models"
 	"crynux_relay/service"
+	"errors"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -56,14 +57,26 @@ func ValidateTask(c *gin.Context, in *ValidateTaskInputWithSignature) (*response
 		tasks = append(tasks, task)
 	}
 
-	if len(tasks) == 1 {
-		if err := service.ValidateSingleTask(c.Request.Context(), tasks[0], in.TaskID, in.VrfProof, in.PublicKey); err != nil {
+	for range 3 {
+		if len(tasks) == 1 {
+			err = service.ValidateSingleTask(c.Request.Context(), tasks[0], in.TaskID, in.VrfProof, in.PublicKey)
+		} else if len(tasks) == 3 {
+			err = service.ValidateTaskGroup(c.Request.Context(), tasks, in.TaskID, in.VrfProof, in.PublicKey)
+		}
+		if err == nil {
+			break
+		} else if errors.Is(err, models.ErrTaskStatusChanged) || errors.Is(err, models.ErrNodeStatusChanged) {
+			for _, task := range tasks {
+				if err := task.SyncStatus(c.Request.Context(), config.GetDB()); err != nil {
+					return nil, response.NewExceptionResponse(err)
+				}
+			}
+		} else {
 			return nil, response.NewExceptionResponse(err)
 		}
-	} else if len(tasks) == 3 {
-		if err := service.ValidateTaskGroup(c.Request.Context(), tasks, in.TaskID, in.VrfProof, in.PublicKey); err != nil {
-			return nil, response.NewExceptionResponse(err)
-		}
+	}
+	if err != nil {
+		return nil, response.NewExceptionResponse(err)
 	}
 	return &response.Response{}, nil
 }
