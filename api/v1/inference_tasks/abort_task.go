@@ -53,7 +53,7 @@ func AbortTask(c *gin.Context, in *AbortTaskInputWithSignature) (*response.Respo
 		return nil, response.NewValidationErrorResponse("signature", "Signer not allowed")
 	}
 
-	if task.StartTime.Valid && task.StartTime.Time.Add(time.Duration(task.Timeout) * time.Second).Compare(time.Now()) > 0 {
+	if task.StartTime.Valid && task.StartTime.Time.Add(time.Duration(task.Timeout)*time.Second).Compare(time.Now()) > 0 {
 		return nil, response.NewValidationErrorResponse("task_id_commitment", "Timeout not reached")
 	}
 
@@ -61,7 +61,19 @@ func AbortTask(c *gin.Context, in *AbortTaskInputWithSignature) (*response.Respo
 	if !task.ValidatedTime.Valid {
 		task.ValidatedTime = sql.NullTime{Time: time.Now(), Valid: true}
 	}
-	if err := service.SetTaskStatusEndAborted(c.Request.Context(), config.GetDB(), task, address); err != nil {
+	for range 3 {
+		err = service.SetTaskStatusEndAborted(c.Request.Context(), config.GetDB(), task, address)
+		if err == nil {
+			break
+		} else if errors.Is(err, models.ErrTaskStatusChanged) || errors.Is(err, models.ErrNodeStatusChanged) {
+			if err := task.SyncStatus(c.Request.Context(), config.GetDB()); err != nil {
+				return nil, response.NewExceptionResponse(err)
+			}
+		} else {
+			return nil, response.NewExceptionResponse(err)
+		}
+	}
+	if err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 	return &response.Response{}, nil

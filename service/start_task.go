@@ -75,7 +75,7 @@ func (d *TaskDispatcher) getQueuedTasks(ctx context.Context) {
 							d.processingTasks.Delete(task.ID)
 						}()
 
-						if err := task.Sync(ctx, config.GetDB()); err != nil {
+						if err := task.SyncStatus(ctx, config.GetDB()); err != nil {
 							log.Errorf("StartTask: sync task status error: %v", err)
 							return
 						}
