@@ -40,7 +40,9 @@ func CalculateStakingScore(staking, maxStaking *big.Int) float64 {
 	if maxStaking.Sign() == 0 {
 		return 0
 	}
-	stakingProb, _ := big.NewFloat(0).Quo(big.NewFloat(0).SetInt(staking), big.NewFloat(0).SetInt(maxStaking)).Float64()
+	p := big.NewFloat(0).Quo(big.NewFloat(0).SetInt(staking), big.NewFloat(0).SetInt(maxStaking))
+	p = big.NewFloat(0).Sqrt(p)
+	stakingProb, _ := p.Float64()
 	return stakingProb
 }
 
