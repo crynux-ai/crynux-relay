@@ -46,7 +46,7 @@ func InitBalanceCache(ctx context.Context, db *gorm.DB) error {
 	return nil
 }
 
-func getPendingTransferEvents(ctx context.Context, db *gorm.DB, limit, offset int) ([]models.TransferEvent, error) {
+func getPendingTransferEvents(ctx context.Context, db *gorm.DB, limit int) ([]models.TransferEvent, error) {
 	var events []models.TransferEvent
 	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -114,12 +114,19 @@ func mergeTransferEvents(events []models.TransferEvent) map[string]*big.Int {
 	return mergedEvents
 }
 
-func processMergedEvents(ctx context.Context, db *gorm.DB, events map[string]*big.Int, startID, endID uint) error {
+func processPendingTransferEvents(ctx context.Context, db *gorm.DB, events []models.TransferEvent) error {
+	mergedEvents := mergeTransferEvents(events)
+
+	var eventIDs []uint
+	for _, event := range events {
+		eventIDs = append(eventIDs, event.ID)
+	}
+
 	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	return db.WithContext(dbCtx).Transaction(func(tx *gorm.DB) error {
-		for address, amount := range events {
+		for address, amount := range mergedEvents {
 			balance := &models.Balance{Address: address}
 			if err := tx.Model(balance).Where(balance).Attrs(models.Balance{Balance: models.BigInt{Int: *big.NewInt(0)}}).FirstOrInit(balance).Error; err != nil {
 				return err
@@ -130,42 +137,7 @@ func processMergedEvents(ctx context.Context, db *gorm.DB, events map[string]*bi
 			}
 		}
 
-		if err := tx.Model(&models.TransferEvent{}).Where("status = ? AND id >= ? AND id <= ?", models.TransferEventStatusPending, startID, endID).Update("status", models.TransferEventStatusProcessed).Error; err != nil {
-			return err
-		}
-
-		return nil
-	})
-}
-
-func processTransferEvent(ctx context.Context, db *gorm.DB, event *models.TransferEvent) error {
-	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	return db.WithContext(dbCtx).Transaction(func(tx *gorm.DB) error {
-		fromBalance := &models.Balance{Address: event.FromAddress}
-		toBalance := &models.Balance{Address: event.ToAddress}
-		if err := tx.Model(fromBalance).Where(fromBalance).First(fromBalance).Error; err != nil {
-			return err
-		}
-		fromBalance.Balance.Sub(&fromBalance.Balance.Int, &event.Amount.Int)
-
-		if fromBalance.Balance.Int.Cmp(big.NewInt(0)) < 0 {
-			return errors.New("insufficient balance")
-		}
-		if err := tx.Save(fromBalance).Error; err != nil {
-			return err
-		}
-
-		if err := tx.Model(toBalance).Where(toBalance).Attrs(models.Balance{Balance: models.BigInt{Int: *big.NewInt(0)}}).FirstOrInit(toBalance).Error; err != nil {
-			return err
-		}
-		toBalance.Balance.Add(&toBalance.Balance.Int, &event.Amount.Int)
-		if err := tx.Save(toBalance).Error; err != nil {
-			return err
-		}
-
-		if err := tx.Model(event).Update("status", models.TransferEventStatusProcessed).Error; err != nil {
+		if err := tx.Model(&models.TransferEvent{}).Where("id IN (?)", eventIDs).Where("status = ?", models.TransferEventStatusPending).Update("status", models.TransferEventStatusProcessed).Error; err != nil {
 			return err
 		}
 
@@ -181,7 +153,7 @@ func syncBalancesToDB(ctx context.Context, db *gorm.DB) error {
 		default:
 			err := func() error {
 				for {
-					events, err := getPendingTransferEvents(ctx, db, 1000, 0)
+					events, err := getPendingTransferEvents(ctx, db, 100)
 					if err != nil {
 						return err
 					}
@@ -190,9 +162,7 @@ func syncBalancesToDB(ctx context.Context, db *gorm.DB) error {
 						break
 					}
 
-					mergedEvents := mergeTransferEvents(events)
-
-					if err := processMergedEvents(ctx, db, mergedEvents, events[0].ID, events[len(events)-1].ID); err != nil {
+					if err := processPendingTransferEvents(ctx, db, events); err != nil {
 						return err
 					}
 				}
