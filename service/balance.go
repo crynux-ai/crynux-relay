@@ -68,6 +68,13 @@ func getBalanceFromCache(ctx context.Context, db *gorm.DB, address string) (*big
 		return balance, nil
 	}
 
+	balanceCache.mu.Lock()
+	defer balanceCache.mu.Unlock()
+
+	if balance, exists := balanceCache.balances[address]; exists {
+		return balance, nil
+	}
+
 	var dbBalance models.Balance
 	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -76,9 +83,7 @@ func getBalanceFromCache(ctx context.Context, db *gorm.DB, address string) (*big
 		return nil, err
 	}
 
-	balanceCache.mu.Lock()
 	balanceCache.balances[address] = &dbBalance.Balance.Int
-	balanceCache.mu.Unlock()
 
 	return &dbBalance.Balance.Int, nil
 }
