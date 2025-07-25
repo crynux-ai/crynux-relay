@@ -5,11 +5,14 @@ import (
 	"crynux_relay/config"
 	"crynux_relay/models"
 	"crynux_relay/service"
+	"crynux_relay/utils"
+	"math/big"
 	"sync"
 	"time"
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func StartSyncNetwork(ctx context.Context) {
@@ -38,22 +41,34 @@ func StartSyncNetwork(ctx context.Context) {
 }
 
 func getNodeData(ctx context.Context, db *gorm.DB, offset, limit int) ([]models.NetworkNodeData, error) {
+	appConfig := config.GetConfig()
+	stakeAmount := utils.EtherToWei(big.NewInt(int64(appConfig.Task.StakeAmount)))
 	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	var nodes []models.Node
-	if err := db.WithContext(dbCtx).Model(&models.Node{}).InnerJoins("Balance").Order("id").Offset(offset).Limit(limit).Find(&nodes).Error; err != nil {
+	if err := db.WithContext(dbCtx).Model(&models.Node{}).Order("id").Offset(offset).Limit(limit).Find(&nodes).Error; err != nil {
 		return nil, err
 	}
 
 	var res []models.NetworkNodeData
 	for _, node := range nodes {
+		balance, err := service.GetBalance(ctx, db, node.Address)
+		if err != nil {
+			log.Errorf("SyncNetwork: error getting balance %v", err)
+			return nil, err
+		}
+		staking := node.StakeAmount
+		if staking.Int.Cmp(stakeAmount) < 0 {
+			staking = models.BigInt{Int: *stakeAmount}
+		}
 		res = append(res, models.NetworkNodeData{
 			Address:   node.Address,
 			CardModel: node.GPUName,
 			VRam:      int(node.GPUVram),
-			Balance:   node.Balance.Balance,
+			Balance:   models.BigInt{Int: *balance},
 			QoS:       service.CalculateQosScore(node.QOSScore, service.GetMaxQosScore()),
+			Staking:   staking,
 		})
 	}
 	return res, nil
@@ -132,6 +147,14 @@ func syncNodeData(ctx context.Context) error {
 	limit := 100
 	offset := 0
 	var totalGFLOPS float64 = 0
+
+	workerCount := 10
+	semaphore := make(chan struct{}, workerCount)
+
+	var allNodeDatas []models.NetworkNodeData
+	var wg sync.WaitGroup
+	errChan := make(chan error, 1)
+
 	for {
 		nodeDatas, err := getNodeData(ctx, config.GetDB(), offset, limit)
 		if err != nil {
@@ -139,25 +162,85 @@ func syncNodeData(ctx context.Context) error {
 			return err
 		}
 
-		for _, data := range nodeDatas {
-			totalGFLOPS += models.GetGPUGFLOPS(data.CardModel)
-			if err := config.GetDB().WithContext(ctx).Model(&data).Where("address = ?", data.Address).Assign(data).FirstOrCreate(&models.NetworkNodeData{}).Error; err != nil {
-				log.Errorf("SyncNetwork: error updating NetworkNodeData %v", err)
-				return err
-			}
-		}
 		if len(nodeDatas) == 0 {
 			break
 		}
+		allNodeDatas = append(allNodeDatas, nodeDatas...)
+
+		wg.Add(1)
+		go func(ctx context.Context, batchData []models.NetworkNodeData) {
+			defer wg.Done()
+
+			ctx1, cancel := context.WithTimeout(ctx, 30*time.Second)
+			defer cancel()
+
+			select {
+			case semaphore <- struct{}{}:
+				defer func() { <-semaphore }()
+			case <-ctx.Done():
+				select {
+				case errChan <- ctx.Err():
+				default:
+				}
+				return
+			}
+
+			if err := batchUpsertNodeData(ctx1, batchData); err != nil {
+				log.Errorf("SyncNetwork: error batch upserting node data: %v", err)
+				select {
+				case errChan <- err:
+				default:
+				}
+				return
+			}
+		}(ctx, nodeDatas)
+
 		offset += limit
 	}
 
-	networkFLOPS := models.NetworkFLOPS{GFLOPS: totalGFLOPS}
-	if err := config.GetDB().WithContext(ctx).Model(&networkFLOPS).Where("id = ?", 1).Assign(networkFLOPS).FirstOrCreate(&models.NetworkFLOPS{}).Error; err != nil {
-		log.Errorf("SyncNetwork: error updating NetworkFLOPS %v", err)
+	wg.Add(1)
+	go func(ctx context.Context) {
+		ctx1, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		defer wg.Done()
+		for _, data := range allNodeDatas {
+			totalGFLOPS += models.GetGPUGFLOPS(data.CardModel)
+		}
+
+		networkFLOPS := models.NetworkFLOPS{GFLOPS: totalGFLOPS}
+		if err := config.GetDB().WithContext(ctx1).Model(&networkFLOPS).Where("id = ?", 1).Assign(networkFLOPS).FirstOrCreate(&models.NetworkFLOPS{}).Error; err != nil {
+			log.Errorf("SyncNetwork: error updating NetworkFLOPS %v", err)
+			select {
+			case errChan <- err:
+			default:
+			}
+			return
+		}
+	}(ctx)
+
+	wg.Wait()
+
+	select {
+	case err := <-errChan:
 		return err
+	default:
 	}
+
 	return nil
+}
+
+func batchUpsertNodeData(ctx context.Context, nodeDatas []models.NetworkNodeData) error {
+	if len(nodeDatas) == 0 {
+		return nil
+	}
+
+	dbCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	return config.GetDB().WithContext(dbCtx).Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "address"}},
+		DoUpdates: clause.AssignmentColumns([]string{"card_model", "v_ram", "balance", "qo_s", "staking", "updated_at"}),
+	}).CreateInBatches(nodeDatas, len(nodeDatas)).Error
 }
 
 func SyncNetwork(ctx context.Context) error {

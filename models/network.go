@@ -25,4 +25,5 @@ type NetworkNodeData struct {
 	VRam      int     `json:"v_ram"`
 	Balance   BigInt  `json:"balance" gorm:"type:string;size:255"`
 	QoS       float64 `json:"qos"`
+	Staking   BigInt  `json:"staking" gorm:"type:string;size:255"`
 }
