@@ -6,10 +6,12 @@ import (
 	"crynux_relay/models"
 	"crynux_relay/utils"
 	"errors"
-	"log"
+	"fmt"
 	"math/big"
 	"sync"
 	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -91,7 +93,7 @@ func StartBalanceSync(ctx context.Context, db *gorm.DB) {
 			return
 		case <-ticker.C:
 			if err := syncBalancesToDB(ctx, db); err != nil {
-				log.Printf("Failed to sync balances: %v", err)
+				log.Errorf("Failed to sync balances: %v", err)
 			}
 		}
 	}
@@ -122,17 +124,47 @@ func processPendingTransferEvents(ctx context.Context, db *gorm.DB, events []mod
 		eventIDs = append(eventIDs, event.ID)
 	}
 
-	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	var addresses []string
+	for address := range mergedEvents {
+		addresses = append(addresses, address)
+	}
+
+	dbCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	return db.WithContext(dbCtx).Transaction(func(tx *gorm.DB) error {
+		var existedBalances []models.Balance
+		if err := tx.Model(&models.Balance{}).Where("address IN (?)", addresses).Find(&existedBalances).Error; err != nil {
+			return err
+		}
+
+		existedBalancesMap := make(map[string]*models.Balance)
+		for _, balance := range existedBalances {
+			existedBalancesMap[balance.Address] = &balance
+		}
+
+		var newBalances []models.Balance
 		for address, amount := range mergedEvents {
-			balance := &models.Balance{Address: address}
-			if err := tx.Model(balance).Where(balance).Attrs(models.Balance{Balance: models.BigInt{Int: *big.NewInt(0)}}).FirstOrInit(balance).Error; err != nil {
+			if balance, exists := existedBalancesMap[address]; !exists {
+				newBalances = append(newBalances, models.Balance{Address: address, Balance: models.BigInt{Int: *amount}})
+			} else {
+				balance.Balance.Add(&balance.Balance.Int, amount)
+			}
+		}
+
+		if len(newBalances) > 0 {
+			if err := tx.CreateInBatches(&newBalances, 100).Error; err != nil {
 				return err
 			}
-			balance.Balance.Add(&balance.Balance.Int, amount)
-			if err := tx.Save(balance).Error; err != nil {
+		}
+
+		if len(existedBalances) > 0 {
+			var cases string
+			for _, balance := range existedBalances {
+				cases += fmt.Sprintf(" WHEN address = '%s' THEN '%s'", balance.Address, balance.Balance.String())
+			}
+			if err := tx.Model(&models.Balance{}).Where("address IN (?)", addresses).
+				Update("balance", gorm.Expr("CASE"+cases+"END")).Error; err != nil {
 				return err
 			}
 		}
@@ -170,7 +202,7 @@ func syncBalancesToDB(ctx context.Context, db *gorm.DB) error {
 			}()
 
 			if err != nil {
-				log.Printf("Failed to sync balances: %v", err)
+				log.Errorf("Failed to sync balances: %v", err)
 			}
 
 			// Wait for 2 seconds before next iteration
