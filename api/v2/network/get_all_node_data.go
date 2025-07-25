@@ -20,7 +20,10 @@ type NetworkNodeData struct {
 	CardModel string   `json:"card_model"`
 	VRam      int      `json:"v_ram"`
 	Balance   *big.Int `json:"balance"`
-	QoS       float64  `json:"qos"`
+	Staking   *big.Int `json:"staking"`
+	QOSScore  float64  `json:"qos_score"`
+	StakingScore float64  `json:"staking_score"`
+	ProbWeight   float64  `json:"prob_weight"`
 }
 
 type GetAllNodesDataResponse struct {
@@ -36,12 +39,16 @@ func GetAllNodeData(_ *gin.Context, in *GetAllNodesDataParams) (*GetAllNodesData
 	}
 	var data []NetworkNodeData
 	for _, node := range allNodeData {
+		stakingProb, qosProb, prob := service.CalculateSelectingProb(&node.Staking.Int, service.GetMaxStaking(), node.QoS, service.GetMaxQosScore())
 		data = append(data, NetworkNodeData{
 			Address:   node.Address,
 			CardModel: node.CardModel,
 			VRam:      node.VRam,
 			Balance:   &node.Balance.Int,
-			QoS:       service.CalculateQosScore(node.QoS, service.GetMaxQosScore()),
+			Staking:   &node.Staking.Int,
+			QOSScore:  qosProb,
+			StakingScore: stakingProb,
+			ProbWeight: prob,
 		})
 	}
 	return &GetAllNodesDataResponse{

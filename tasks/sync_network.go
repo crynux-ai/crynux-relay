@@ -62,12 +62,16 @@ func getNodeData(ctx context.Context, db *gorm.DB, offset, limit int) ([]models.
 		if staking.Int.Cmp(stakeAmount) < 0 {
 			staking = models.BigInt{Int: *stakeAmount}
 		}
+		qos := node.QOSScore
+		if node.Status == models.NodeStatusQuit {
+			qos = 0
+		}
 		res = append(res, models.NetworkNodeData{
 			Address:   node.Address,
 			CardModel: node.GPUName,
 			VRam:      int(node.GPUVram),
 			Balance:   models.BigInt{Int: *balance},
-			QoS:       service.CalculateQosScore(node.QOSScore, service.GetMaxQosScore()),
+			QoS:       qos,
 			Staking:   staking,
 		})
 	}
