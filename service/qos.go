@@ -74,8 +74,10 @@ func shouldKickoutNode(ctx context.Context, node *models.Node) (bool, error) {
 
 	timeoutCount := 0
 	for _, task := range tasks {
-		if task.Status == models.TaskEndAborted && task.AbortReason == models.TaskAbortTimeout && !task.ScoreReadyTime.Valid {
-			timeoutCount++
+		if task.StartTime.Valid && node.JoinTime.Before(task.StartTime.Time) {
+			if task.Status == models.TaskEndAborted && task.AbortReason == models.TaskAbortTimeout && !task.ScoreReadyTime.Valid {
+				timeoutCount++
+			}
 		}
 	}
 	if timeoutCount >= int(KickoutThreshold) {
