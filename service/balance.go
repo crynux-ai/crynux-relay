@@ -153,7 +153,7 @@ func processPendingTransferEvents(ctx context.Context, db *gorm.DB, events []mod
 			if balance, exists := existedBalancesMap[address]; !exists {
 				newBalances = append(newBalances, models.Balance{Address: address, Balance: models.BigInt{Int: *amount}})
 			} else {
-				balance.Balance.Add(&balance.Balance.Int, amount)
+				balance.Balance = models.BigInt{Int: *new(big.Int).Add(&balance.Balance.Int, amount)}
 			}
 		}
 
@@ -233,7 +233,7 @@ func CreateGenesisAccount(ctx context.Context, db *gorm.DB) error {
 		DoNothing: true,
 	}).Create(&models.Balance{
 		Address: address,
-		Balance: models.BigInt{Int: *amount},
+		Balance: models.BigInt{Int: *new(big.Int).Set(amount)},
 	}).Error
 }
 
@@ -253,7 +253,7 @@ func Transfer(ctx context.Context, db *gorm.DB, from, to string, amount *big.Int
 	event := &models.TransferEvent{
 		FromAddress: from,
 		ToAddress:   to,
-		Amount:      models.BigInt{Int: *amount},
+		Amount:      models.BigInt{Int: *new(big.Int).Set(amount)},
 		CreatedAt:   time.Now(),
 		Status:      models.TransferEventStatusPending,
 	}
