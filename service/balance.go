@@ -85,7 +85,7 @@ func getBalanceFromCache(ctx context.Context, db *gorm.DB, address string) (*big
 
 	balanceCache.balances[address] = &dbBalance.Balance.Int
 
-	return &dbBalance.Balance.Int, nil
+	return balanceCache.balances[address], nil
 }
 
 func StartBalanceSync(ctx context.Context, db *gorm.DB) {
@@ -163,13 +163,13 @@ func processPendingTransferEvents(ctx context.Context, db *gorm.DB, events []mod
 			}
 		}
 
-		if len(existedBalances) > 0 {
+		if len(existedBalancesMap) > 0 {
 			var cases string
-			for _, balance := range existedBalances {
+			for _, balance := range existedBalancesMap {
 				cases += fmt.Sprintf(" WHEN address = '%s' THEN '%s'", balance.Address, balance.Balance.String())
 			}
 			if err := tx.Model(&models.Balance{}).Where("address IN (?)", addresses).
-				Update("balance", gorm.Expr("CASE"+cases+"END")).Error; err != nil {
+				Update("balance", gorm.Expr("CASE"+cases+" END")).Error; err != nil {
 				return err
 			}
 		}
@@ -262,11 +262,12 @@ func Transfer(ctx context.Context, db *gorm.DB, from, to string, amount *big.Int
 		return nil, err
 	}
 
+	amountCopy := new(big.Int).Set(amount)
 	commitFunc := func() {
 		balanceCache.mu.Lock()
 		defer balanceCache.mu.Unlock()
-		fromBalance.Sub(fromBalance, amount)
-		toBalance.Add(toBalance, amount)
+		fromBalance.Sub(fromBalance, amountCopy)
+		toBalance.Add(toBalance, amountCopy)
 	}
 
 	return commitFunc, nil
