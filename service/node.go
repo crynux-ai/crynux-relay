@@ -16,7 +16,8 @@ func SetNodeStatusJoin(ctx context.Context, db *gorm.DB, node *models.Node, mode
 	appConfig := config.GetConfig()
 
 	return db.Transaction(func(tx *gorm.DB) error {
-		if err := Transfer(ctx, tx, node.Address, appConfig.Blockchain.Account.Address, &node.StakeAmount.Int); err != nil {
+		commitFunc, err := Transfer(ctx, tx, node.Address, appConfig.Blockchain.Account.Address, &node.StakeAmount.Int)
+		if err != nil {
 			return err
 		}
 		node.Status = models.NodeStatusAvailable
@@ -33,6 +34,7 @@ func SetNodeStatusJoin(ctx context.Context, db *gorm.DB, node *models.Node, mode
 			return err
 		}
 		UpdateMaxStaking(&node.StakeAmount.Int)
+		commitFunc()
 		return nil
 	})
 }
@@ -41,13 +43,16 @@ func SetNodeStatusQuit(ctx context.Context, db *gorm.DB, node *models.Node, slas
 	appConfig := config.GetConfig()
 
 	err := db.Transaction(func(tx *gorm.DB) error {
+		var commitFunc func()
 		// delete all node local models
-		if err := tx.Where("node_address = ?", node.Address).Delete(&models.NodeModel{}).Error; err != nil {
+		err := tx.Where("node_address = ?", node.Address).Delete(&models.NodeModel{}).Error
+		if err != nil {
 			return err
 		}
 
 		if !slashed {
-			if err := Transfer(ctx, tx, appConfig.Blockchain.Account.Address, node.Address, &node.StakeAmount.Int); err != nil {
+			commitFunc, err = Transfer(ctx, tx, appConfig.Blockchain.Account.Address, node.Address, &node.StakeAmount.Int)
+			if err != nil {
 				return err
 			}
 		}
@@ -63,6 +68,9 @@ func SetNodeStatusQuit(ctx context.Context, db *gorm.DB, node *models.Node, slas
 		if err := RefreshMaxStaking(ctx, tx); err != nil {
 			return err
 		}
+		if commitFunc != nil {
+			commitFunc()
+		}	
 		return nil
 	})
 	if err != nil {

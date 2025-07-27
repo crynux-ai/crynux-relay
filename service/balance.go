@@ -237,17 +237,17 @@ func CreateGenesisAccount(ctx context.Context, db *gorm.DB) error {
 	}).Error
 }
 
-func Transfer(ctx context.Context, db *gorm.DB, from, to string, amount *big.Int) error {
+func Transfer(ctx context.Context, db *gorm.DB, from, to string, amount *big.Int) (func (), error) {
 	fromBalance, err := getBalanceFromCache(ctx, db, from)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if fromBalance.Cmp(amount) < 0 {
-		return errors.New("insufficient balance")
+		return nil, errors.New("insufficient balance")
 	}
 	toBalance, err := getBalanceFromCache(ctx, db, to)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	event := &models.TransferEvent{
@@ -259,16 +259,17 @@ func Transfer(ctx context.Context, db *gorm.DB, from, to string, amount *big.Int
 	}
 
 	if err := db.Create(event).Error; err != nil {
-		return err
+		return nil, err
 	}
 
-	balanceCache.mu.Lock()
-	defer balanceCache.mu.Unlock()
+	commitFunc := func() {
+		balanceCache.mu.Lock()
+		defer balanceCache.mu.Unlock()
+		fromBalance.Sub(fromBalance, amount)
+		toBalance.Add(toBalance, amount)
+	}
 
-	fromBalance.Sub(fromBalance, amount)
-	toBalance.Add(toBalance, amount)
-
-	return nil
+	return commitFunc, nil
 }
 
 func GetBalance(ctx context.Context, db *gorm.DB, address string) (*big.Int, error) {

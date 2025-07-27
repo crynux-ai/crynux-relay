@@ -18,11 +18,16 @@ var errWrongTaskStatus = errors.New("illegal previous task status")
 func CreateTask(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
 	appConfig := config.GetConfig()
 
-	return db.Transaction(func(tx *gorm.DB) error {
+	return db.Transaction(func(tx *gorm.DB) (error) {
 		if err := task.Create(ctx, tx); err != nil {
 			return err
 		}
-		return Transfer(ctx, tx, task.Creator, appConfig.Blockchain.Account.Address, &task.TaskFee.Int)
+		commitFunc, err := Transfer(ctx, tx, task.Creator, appConfig.Blockchain.Account.Address, &task.TaskFee.Int)
+		if err != nil {
+			return err
+		}
+		commitFunc()
+		return nil
 	})
 }
 
@@ -247,8 +252,9 @@ func SetTaskStatusEndGroupRefund(ctx context.Context, db *gorm.DB, task *models.
 	}
 
 	appConfig := config.GetConfig()
-	return db.Transaction(func(tx *gorm.DB) error {
-		if err := Transfer(ctx, tx, appConfig.Blockchain.Account.Address, task.Creator, &task.TaskFee.Int); err != nil {
+	return db.Transaction(func(tx *gorm.DB) (error) {
+		commitFunc, err := Transfer(ctx, tx, appConfig.Blockchain.Account.Address, task.Creator, &task.TaskFee.Int)
+		if err != nil {
 			return err
 		}
 		if task.QOSScore.Valid {
@@ -268,7 +274,12 @@ func SetTaskStatusEndGroupRefund(ctx context.Context, db *gorm.DB, task *models.
 		if err != nil {
 			return err
 		}
-		return emitEvent(ctx, tx, &models.TaskEndGroupRefundEvent{TaskIDCommitment: task.TaskIDCommitment, SelectedNode: task.SelectedNode})
+		err = emitEvent(ctx, tx, &models.TaskEndGroupRefundEvent{TaskIDCommitment: task.TaskIDCommitment, SelectedNode: task.SelectedNode})
+		if err != nil {
+			return err
+		}
+		commitFunc()
+		return nil
 	})
 }
 
@@ -289,7 +300,8 @@ func SetTaskStatusEndAborted(ctx context.Context, db *gorm.DB, task *models.Infe
 	}
 	appConfig := config.GetConfig()
 	return db.Transaction(func(tx *gorm.DB) error {
-		if err := Transfer(ctx, tx, appConfig.Blockchain.Account.Address, task.Creator, &task.TaskFee.Int); err != nil {
+		commitFunc, err := Transfer(ctx, tx, appConfig.Blockchain.Account.Address, task.Creator, &task.TaskFee.Int)
+		if err != nil {
 			return err
 		}
 
@@ -309,12 +321,17 @@ func SetTaskStatusEndAborted(ctx context.Context, db *gorm.DB, task *models.Infe
 		if err := task.Update(ctx, tx, newTask); err != nil {
 			return err
 		}
-		return emitEvent(ctx, tx, &models.TaskEndAbortedEvent{
+		err = emitEvent(ctx, tx, &models.TaskEndAbortedEvent{
 			TaskIDCommitment: task.TaskIDCommitment,
 			AbortIssuer:      aboutIssuer,
 			AbortReason:      task.AbortReason,
 			LastStatus:       lastStatus,
 		})
+		if err != nil {
+			return err
+		}
+		commitFunc()
+		return nil
 	})
 }
 
@@ -359,10 +376,13 @@ func SetTaskStatusEndSuccess(ctx context.Context, db *gorm.DB, task *models.Infe
 
 	appConfig := config.GetConfig()
 	return db.Transaction(func(tx *gorm.DB) error {
+		var commitFuncs []func()
 		for address, payment := range payments {
-			if err := Transfer(ctx, tx, appConfig.Blockchain.Account.Address, address, payment); err != nil {
+			commitFunc, err := Transfer(ctx, tx, appConfig.Blockchain.Account.Address, address, payment)
+			if err != nil {
 				return err
 			}
+			commitFuncs = append(commitFuncs, commitFunc)
 		}
 
 		for address, payment := range payments {
@@ -384,9 +404,16 @@ func SetTaskStatusEndSuccess(ctx context.Context, db *gorm.DB, task *models.Infe
 			return err
 		}
 		if status == models.TaskEndSuccess {
-			return emitEvent(ctx, tx, &models.TaskEndSuccessEvent{TaskIDCommitment: task.TaskIDCommitment, SelectedNode: task.SelectedNode})
+			err = emitEvent(ctx, tx, &models.TaskEndSuccessEvent{TaskIDCommitment: task.TaskIDCommitment, SelectedNode: task.SelectedNode})
 		} else {
-			return emitEvent(ctx, tx, &models.TaskEndGroupSuccessEvent{TaskIDCommitment: task.TaskIDCommitment, SelectedNode: task.SelectedNode})
+			err = emitEvent(ctx, tx, &models.TaskEndGroupSuccessEvent{TaskIDCommitment: task.TaskIDCommitment, SelectedNode: task.SelectedNode})
 		}
+		if err != nil {
+			return err
+		}
+		for _, commitFunc := range commitFuncs {
+			commitFunc()
+		}
+		return nil
 	})
 }
