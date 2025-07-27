@@ -41,8 +41,10 @@ func Transfer(c *gin.Context, in *TransferInputWithSignature) (*response.Respons
 		return nil, validationErr
 	}
 
-	if err := service.Transfer(c.Request.Context(), config.GetDB(), in.From, in.To, &in.Value.Int); err != nil {
+	commitFunc, err := service.Transfer(c.Request.Context(), config.GetDB(), in.From, in.To, &in.Value.Int)
+	if err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
+	commitFunc()
 	return &response.Response{}, nil
 }
