@@ -266,9 +266,6 @@ func SetTaskStatusEndGroupRefund(ctx context.Context, db *gorm.DB, task *models.
 				return err
 			}
 		}
-		if err := nodeFinishTask(ctx, tx, node); err != nil {
-			return err
-		}
 
 		err = task.Update(ctx, tx, map[string]interface{}{
 			"status":         models.TaskEndGroupRefund,
@@ -276,6 +273,9 @@ func SetTaskStatusEndGroupRefund(ctx context.Context, db *gorm.DB, task *models.
 			"qos_score":      task.QOSScore,
 		})
 		if err != nil {
+			return err
+		}
+		if err := nodeFinishTask(ctx, tx, node); err != nil {
 			return err
 		}
 		err = emitEvent(ctx, tx, &models.TaskEndGroupRefundEvent{TaskIDCommitment: task.TaskIDCommitment, SelectedNode: task.SelectedNode})
@@ -309,6 +309,10 @@ func SetTaskStatusEndAborted(ctx context.Context, db *gorm.DB, task *models.Infe
 			return err
 		}
 
+		if err := task.Update(ctx, tx, newTask); err != nil {
+			return err
+		}
+
 		if len(task.SelectedNode) > 0 {
 			node, err := checkTaskSelectedNode(ctx, db, task)
 			if errors.Is(err, errWrongNodeCurrentTask) {
@@ -327,9 +331,6 @@ func SetTaskStatusEndAborted(ctx context.Context, db *gorm.DB, task *models.Infe
 			}
 		}
 
-		if err := task.Update(ctx, tx, newTask); err != nil {
-			return err
-		}
 		err = emitEvent(ctx, tx, &models.TaskEndAbortedEvent{
 			TaskIDCommitment: task.TaskIDCommitment,
 			AbortIssuer:      aboutIssuer,
@@ -401,10 +402,6 @@ func SetTaskStatusEndSuccess(ctx context.Context, db *gorm.DB, task *models.Infe
 			}
 		}
 
-		if err := nodeFinishTask(ctx, tx, node); err != nil {
-			return err
-		}
-
 		err = task.Update(ctx, tx, map[string]interface{}{
 			"status":               status,
 			"result_uploaded_time": sql.NullTime{Time: time.Now(), Valid: true},
@@ -412,6 +409,11 @@ func SetTaskStatusEndSuccess(ctx context.Context, db *gorm.DB, task *models.Infe
 		if err != nil {
 			return err
 		}
+
+		if err := nodeFinishTask(ctx, tx, node); err != nil {
+			return err
+		}
+
 		if status == models.TaskEndSuccess {
 			err = emitEvent(ctx, tx, &models.TaskEndSuccessEvent{TaskIDCommitment: task.TaskIDCommitment, SelectedNode: task.SelectedNode})
 		} else {
