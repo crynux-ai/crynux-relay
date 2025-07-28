@@ -15,14 +15,11 @@ type GetNodeIncentiveParams struct {
 }
 
 type NodeIncentive struct {
-	NodeAddress       string  `json:"node_address"`
-	Incentive         float64 `json:"incentive"`
-	TaskCount         int64   `json:"task_count"`
-	CardModel         string  `json:"card_model"`
-	QoS               uint64  `json:"qos"`
-	SDTaskCount       int64   `json:"sd_task_count"`
-	LLMTaskCount      int64   `json:"llm_task_count"`
-	SDFTLoraTaskCount int64   `json:"sd_ft_lora_task_count"`
+	NodeAddress string  `json:"node_address"`
+	Incentive   float64 `json:"incentive"`
+	TaskCount   int64   `json:"task_count"`
+	CardModel   string  `json:"card_model"`
+	QoS         uint64  `json:"qos"`
 }
 
 type GetNodeIncentiveData struct {
@@ -55,7 +52,7 @@ func GetNodeIncentive(_ *gin.Context, input *GetNodeIncentiveParams) (*GetNodeIn
 	}
 
 	rows, err := config.GetDB().Model(&models.NodeIncentive{}).
-		Select("node_address, SUM(incentive) as incentive, SUM(task_count) as task_count, SUM(sd_task_count) as sd_task_count, SUM(llm_task_count) as llm_task_count, SUM(sd_ft_lora_task_count) as sd_ft_lora_task_count").
+		Select("node_address, SUM(incentive) as incentive, SUM(task_count) as task_count").
 		Where("time >= ?", start).
 		Where("time < ?", end).
 		Group("node_address").
@@ -76,20 +73,14 @@ func GetNodeIncentive(_ *gin.Context, input *GetNodeIncentiveParams) (*GetNodeIn
 		var nodeAddress string
 		var incentive float64
 		var task_count int64
-		var sd_task_count int64
-		var llm_task_count int64
-		var sd_ft_lora_task_count int64
 
-		if err := rows.Scan(&nodeAddress, &incentive, &task_count, &sd_task_count, &llm_task_count, &sd_ft_lora_task_count); err != nil {
+		if err := rows.Scan(&nodeAddress, &incentive, &task_count); err != nil {
 			return nil, response.NewExceptionResponse(err)
 		}
 		nodeIncentive := NodeIncentive{
-			NodeAddress:       nodeAddress,
-			Incentive:         incentive,
-			TaskCount:         task_count,
-			SDTaskCount:       sd_task_count,
-			LLMTaskCount:      llm_task_count,
-			SDFTLoraTaskCount: sd_ft_lora_task_count,
+			NodeAddress: nodeAddress,
+			Incentive:   incentive,
+			TaskCount:   task_count,
 		}
 		nodeAddresses = append(nodeAddresses, nodeAddress)
 		nodeIncentiveMap[nodeAddress] = nodeIncentive
