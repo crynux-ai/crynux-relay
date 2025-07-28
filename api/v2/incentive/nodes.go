@@ -5,6 +5,7 @@ import (
 	"crynux_relay/config"
 	"crynux_relay/models"
 	"crynux_relay/service"
+	"database/sql"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -77,9 +78,9 @@ func GetNodeIncentive(_ *gin.Context, input *GetNodeIncentiveParams) (*GetNodeIn
 		var nodeAddress string
 		var incentive float64
 		var task_count int64
-		var sd_task_count int64
-		var llm_task_count int64
-		var sd_ft_lora_task_count int64
+		var sd_task_count sql.NullInt64
+		var llm_task_count sql.NullInt64
+		var sd_ft_lora_task_count sql.NullInt64
 
 		if err := rows.Scan(&nodeAddress, &incentive, &task_count, &sd_task_count, &llm_task_count, &sd_ft_lora_task_count); err != nil {
 			return nil, response.NewExceptionResponse(err)
@@ -88,9 +89,15 @@ func GetNodeIncentive(_ *gin.Context, input *GetNodeIncentiveParams) (*GetNodeIn
 			NodeAddress: nodeAddress,
 			Incentive:   incentive,
 			TaskCount:   task_count,
-			SDTaskCount: sd_task_count,
-			LLMTaskCount: llm_task_count,
-			SDFTLoraTaskCount: sd_ft_lora_task_count,
+		}
+		if sd_task_count.Valid {
+			nodeIncentive.SDTaskCount = sd_task_count.Int64
+		}
+		if llm_task_count.Valid {
+			nodeIncentive.LLMTaskCount = llm_task_count.Int64
+		}
+		if sd_ft_lora_task_count.Valid {
+			nodeIncentive.SDFTLoraTaskCount = sd_ft_lora_task_count.Int64
 		}
 		nodeAddresses = append(nodeAddresses, nodeAddress)
 		nodeIncentiveMap[nodeAddress] = nodeIncentive
