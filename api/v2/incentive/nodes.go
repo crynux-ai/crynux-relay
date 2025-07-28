@@ -21,7 +21,10 @@ type NodeIncentive struct {
 	Incentive         float64 `json:"incentive"`
 	TaskCount         int64   `json:"task_count"`
 	CardModel         string  `json:"card_model"`
-	QoS               float64 `json:"qos"`
+	Staking           string  `json:"staking"`
+	QOSScore          float64 `json:"qos_score"`
+	StakingScore      float64 `json:"staking_score"`
+	ProbWeight        float64 `json:"prob_weight"`
 	SDTaskCount       int64   `json:"sd_task_count"`
 	LLMTaskCount      int64   `json:"llm_task_count"`
 	SDFTLoraTaskCount int64   `json:"sd_ft_lora_task_count"`
@@ -103,15 +106,20 @@ func GetNodeIncentive(_ *gin.Context, input *GetNodeIncentiveParams) (*GetNodeIn
 		nodeIncentiveMap[nodeAddress] = nodeIncentive
 	}
 
-	var nodes []models.Node
-	if err := config.GetDB().Model(&models.Node{}).Where("address IN (?)", nodeAddresses).Find(&nodes).Error; err != nil {
+	var nodes []models.NetworkNodeData
+	if err := config.GetDB().Model(&models.NetworkNodeData{}).Where("address IN (?)", nodeAddresses).Find(&nodes).Error; err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 
 	for _, node := range nodes {
+		
 		if nodeIncentive, ok := nodeIncentiveMap[node.Address]; ok {
-			nodeIncentive.CardModel = node.GPUName
-			nodeIncentive.QoS = service.CalculateQosScore(node.QOSScore, service.GetMaxQosScore())
+			stakingProb, qosProb, prob := service.CalculateSelectingProb(&node.Staking.Int, service.GetMaxStaking(), node.QoS, service.GetMaxQosScore())
+			nodeIncentive.CardModel = node.CardModel
+			nodeIncentive.QOSScore = qosProb
+			nodeIncentive.Staking = node.Staking.String()
+			nodeIncentive.StakingScore = stakingProb
+			nodeIncentive.ProbWeight = prob
 
 			nodeIncentiveMap[node.Address] = nodeIncentive
 		}

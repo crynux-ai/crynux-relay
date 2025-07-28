@@ -5,8 +5,6 @@ import (
 	"crynux_relay/config"
 	"crynux_relay/models"
 	"crynux_relay/service"
-	"crynux_relay/utils"
-	"math/big"
 	"sync"
 	"time"
 
@@ -41,41 +39,40 @@ func StartSyncNetwork(ctx context.Context) {
 }
 
 func getNodeData(ctx context.Context, db *gorm.DB, offset, limit int) ([]models.NetworkNodeData, error) {
-	appConfig := config.GetConfig()
-	stakeAmount := utils.EtherToWei(big.NewInt(int64(appConfig.Task.StakeAmount)))
 	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	var nodes []models.Node
-	if err := db.WithContext(dbCtx).Model(&models.Node{}).Order("id").Offset(offset).Limit(limit).Find(&nodes).Error; err != nil {
+	var nodesData []models.NetworkNodeData
+	if err := db.WithContext(dbCtx).Model(&models.NetworkNodeData{}).Order("id").Offset(offset).Limit(limit).Find(&nodesData).Error; err != nil {
+		return nil, err
+	}
+	var nodeAddresses []string
+	for _, nodeData := range nodesData {
+		nodeAddresses = append(nodeAddresses, nodeData.Address)
+	}
+	if err := db.WithContext(dbCtx).Model(&models.Node{}).Where("address IN (?)", nodeAddresses).Find(&nodes).Error; err != nil {
 		return nil, err
 	}
 
-	var res []models.NetworkNodeData
+	nodesMap := make(map[string]models.Node)
 	for _, node := range nodes {
-		balance, err := service.GetBalance(ctx, db, node.Address)
-		if err != nil {
-			log.Errorf("SyncNetwork: error getting balance %v", err)
-			return nil, err
-		}
-		staking := node.StakeAmount
-		if staking.Int.Cmp(stakeAmount) < 0 {
-			staking = models.BigInt{Int: *stakeAmount}
-		}
-		qos := node.QOSScore
-		if node.Status == models.NodeStatusQuit {
-			qos = 0
-		}
-		res = append(res, models.NetworkNodeData{
-			Address:   node.Address,
-			CardModel: node.GPUName,
-			VRam:      int(node.GPUVram),
-			Balance:   models.BigInt{Int: *balance},
-			QoS:       qos,
-			Staking:   staking,
-		})
+		nodesMap[node.Address] = node
 	}
-	return res, nil
+
+	for i, nodeData := range nodesData {
+		node, ok := nodesMap[nodeData.Address]
+		if ok {
+			balance, err := service.GetBalance(ctx, db, nodeData.Address)
+			if err != nil {
+				log.Errorf("SyncNetwork: error getting balance %v", err)
+				return nil, err
+			}
+			nodesData[i].Balance = models.BigInt{Int: *balance}
+			nodesData[i].QoS = node.QOSScore
+		}
+	}
+	return nodesData, nil
 }
 
 func syncNodeNumber(ctx context.Context) error {
@@ -243,7 +240,7 @@ func batchUpsertNodeData(ctx context.Context, nodeDatas []models.NetworkNodeData
 
 	return config.GetDB().WithContext(dbCtx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "address"}},
-		DoUpdates: clause.AssignmentColumns([]string{"card_model", "v_ram", "balance", "qo_s", "staking", "updated_at"}),
+		DoUpdates: clause.AssignmentColumns([]string{"balance", "qo_s", "updated_at"}),
 	}).CreateInBatches(nodeDatas, len(nodeDatas)).Error
 }
 
