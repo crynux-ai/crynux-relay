@@ -10,15 +10,19 @@ import (
 	"math/big"
 	"time"
 
+	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
 
-var errWrongTaskStatus = errors.New("illegal previous task status")
+var (
+	errWrongTaskStatus      = errors.New("illegal previous task status")
+	errWrongNodeCurrentTask = errors.New("node current task is wrong")
+)
 
 func CreateTask(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
 	appConfig := config.GetConfig()
 
-	return db.Transaction(func(tx *gorm.DB) (error) {
+	return db.Transaction(func(tx *gorm.DB) error {
 		if err := task.Create(ctx, tx); err != nil {
 			return err
 		}
@@ -113,7 +117,7 @@ func checkTaskSelectedNode(ctx context.Context, db *gorm.DB, task *models.Infere
 		return nil, err
 	}
 	if !(node.CurrentTaskIDCommitment.Valid && node.CurrentTaskIDCommitment.String == task.TaskIDCommitment) {
-		return nil, errors.New("node current task is wrong")
+		return nil, errWrongNodeCurrentTask
 	}
 	return node, nil
 }
@@ -252,7 +256,7 @@ func SetTaskStatusEndGroupRefund(ctx context.Context, db *gorm.DB, task *models.
 	}
 
 	appConfig := config.GetConfig()
-	return db.Transaction(func(tx *gorm.DB) (error) {
+	return db.Transaction(func(tx *gorm.DB) error {
 		commitFunc, err := Transfer(ctx, tx, appConfig.Blockchain.Account.Address, task.Creator, &task.TaskFee.Int)
 		if err != nil {
 			return err
@@ -306,7 +310,12 @@ func SetTaskStatusEndAborted(ctx context.Context, db *gorm.DB, task *models.Infe
 		}
 
 		if len(task.SelectedNode) > 0 {
-			if node, err := checkTaskSelectedNode(ctx, db, task); err == nil {
+			node, err := checkTaskSelectedNode(ctx, db, task)
+			if errors.Is(err, errWrongNodeCurrentTask) {
+				log.Errorf("TaskEndAborted: node current task is wrong, task: %s, node: %s", task.TaskIDCommitment, task.SelectedNode)
+			} else if err != nil {
+				return err
+			} else {
 				if task.QOSScore.Valid {
 					if err := updateNodeQosScore(ctx, tx, node, uint64(task.QOSScore.Int64)); err != nil {
 						return err
