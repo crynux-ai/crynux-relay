@@ -5,7 +5,6 @@ import (
 	"crynux_relay/config"
 	"crynux_relay/models"
 	"crynux_relay/service"
-	"math/big"
 
 	"github.com/gin-gonic/gin"
 )
@@ -19,8 +18,8 @@ type NetworkNodeData struct {
 	Address   string   `json:"address"`
 	CardModel string   `json:"card_model"`
 	VRam      int      `json:"v_ram"`
-	Balance   *big.Int `json:"balance"`
-	Staking   *big.Int `json:"staking"`
+	Balance   string `json:"balance"`
+	Staking   string `json:"staking"`
 	QOSScore  float64  `json:"qos_score"`
 	StakingScore float64  `json:"staking_score"`
 	ProbWeight   float64  `json:"prob_weight"`
@@ -44,8 +43,8 @@ func GetAllNodeData(_ *gin.Context, in *GetAllNodesDataParams) (*GetAllNodesData
 			Address:   node.Address,
 			CardModel: node.CardModel,
 			VRam:      node.VRam,
-			Balance:   &node.Balance.Int,
-			Staking:   &node.Staking.Int,
+			Balance:   node.Balance.String(),
+			Staking:   node.Staking.String(),
 			QOSScore:  qosProb,
 			StakingScore: stakingProb,
 			ProbWeight: prob,
