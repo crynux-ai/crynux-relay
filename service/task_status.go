@@ -387,7 +387,7 @@ func SetTaskStatusEndSuccess(ctx context.Context, db *gorm.DB, task *models.Infe
 
 		for address, payment := range payments {
 			incentive, _ := utils.WeiToEther(payment).Float64()
-			if err := addNodeIncentive(ctx, tx, address, incentive); err != nil {
+			if err := addNodeIncentive(ctx, tx, address, incentive, task.TaskType); err != nil {
 				return err
 			}
 		}
