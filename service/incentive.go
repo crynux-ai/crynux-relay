@@ -8,7 +8,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func addNodeIncentive(ctx context.Context, db *gorm.DB, nodeAddress string, incentive float64) error {
+func addNodeIncentive(ctx context.Context, db *gorm.DB, nodeAddress string, incentive float64, taskType models.TaskType) error {
 	dbCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
@@ -22,12 +22,26 @@ func addNodeIncentive(ctx context.Context, db *gorm.DB, nodeAddress string, ince
 	if nodeIncentive.ID > 0 {
 		nodeIncentive.Incentive += incentive
 		nodeIncentive.TaskCount += 1
+		if taskType == models.TaskTypeSD {
+			nodeIncentive.SDTaskCount += 1
+		} else if taskType == models.TaskTypeLLM {
+			nodeIncentive.LLMTaskCount += 1
+		} else if taskType == models.TaskTypeSDFTLora {
+			nodeIncentive.SDFTLoraTaskCount += 1
+		}
 		if err := db.WithContext(dbCtx).Save(&nodeIncentive).Error; err != nil {
 			return err
 		}
 	} else {
 		nodeIncentive.Incentive = incentive
 		nodeIncentive.TaskCount = 1
+		if taskType == models.TaskTypeSD {
+			nodeIncentive.SDTaskCount = 1
+		} else if taskType == models.TaskTypeLLM {
+			nodeIncentive.LLMTaskCount = 1
+		} else if taskType == models.TaskTypeSDFTLora {
+			nodeIncentive.SDFTLoraTaskCount = 1
+		}
 		if err := db.WithContext(dbCtx).Create(&nodeIncentive).Error; err != nil {
 			return err
 		}
