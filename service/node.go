@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 func SetNodeStatusJoin(ctx context.Context, db *gorm.DB, node *models.Node, modelIDs []string) error {
@@ -31,6 +32,19 @@ func SetNodeStatusJoin(ctx context.Context, db *gorm.DB, node *models.Node, mode
 			nodeModels = append(nodeModels, model)
 		}
 		if err := models.CreateNodeModels(ctx, tx, nodeModels); err != nil {
+			return err
+		}
+		networkNodeData := models.NetworkNodeData{
+			Address:   node.Address,
+			CardModel: node.GPUName,
+			VRam:      int(node.GPUVram),
+			QoS:       node.QOSScore,
+			Staking:   node.StakeAmount,
+		}
+		if err := tx.Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "address"}},
+			DoUpdates: clause.AssignmentColumns([]string{"card_model", "v_ram", "qo_s", "staking", "updated_at"}),
+		}).Create(&networkNodeData).Error; err != nil {
 			return err
 		}
 		UpdateMaxStaking(&node.StakeAmount.Int)
