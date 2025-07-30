@@ -146,7 +146,7 @@ func GetNodeIncentive(c *gin.Context, input *GetNodeIncentiveParams) (*GetNodeIn
 type GetAllNodeIncentiveParams struct {
 	Period   TimeUnit `query:"period" validate:"required" enum:"Day,Week,Month"`
 	Page     int      `query:"page" default:"1"`
-	PageSize int      `query:"size" default:"30"`
+	PageSize int      `query:"page_size" default:"30"`
 }
 
 type GetAllNodeIncentiveData struct {
@@ -193,7 +193,7 @@ func GetAllNodeIncentive(c *gin.Context, input *GetAllNodeIncentiveParams) (*Get
 		Where("time >= ?", start).
 		Where("time < ?", end).
 		Group("node_address").
-		Order("id DESC").
+		Order("incentive DESC").
 		Offset(offset).
 		Limit(limit).
 		Rows()
