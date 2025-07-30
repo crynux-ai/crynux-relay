@@ -1,6 +1,7 @@
 package incentive
 
 import (
+	"context"
 	"crynux_relay/api/v2/response"
 	"crynux_relay/config"
 	"crynux_relay/models"
@@ -38,7 +39,9 @@ type GetNodeIncentiveOutput struct {
 	Data *GetNodeIncentiveData `json:"data"`
 }
 
-func GetNodeIncentive(_ *gin.Context, input *GetNodeIncentiveParams) (*GetNodeIncentiveOutput, error) {
+func GetNodeIncentive(c *gin.Context, input *GetNodeIncentiveParams) (*GetNodeIncentiveOutput, error) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
+	defer cancel()
 	size := input.Size
 	if size == 0 {
 		size = 30
@@ -60,7 +63,7 @@ func GetNodeIncentive(_ *gin.Context, input *GetNodeIncentiveParams) (*GetNodeIn
 		end = time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 	}
 
-	rows, err := config.GetDB().Model(&models.NodeIncentive{}).
+	rows, err := config.GetDB().WithContext(ctx).Model(&models.NodeIncentive{}).
 		Select("node_address, SUM(incentive) as incentive, SUM(task_count) as task_count, SUM(sd_task_count) as sd_task_count, SUM(llm_task_count) as llm_task_count, SUM(sd_ft_lora_task_count) as sd_ft_lora_task_count").
 		Where("time >= ?", start).
 		Where("time < ?", end).
@@ -108,7 +111,7 @@ func GetNodeIncentive(_ *gin.Context, input *GetNodeIncentiveParams) (*GetNodeIn
 	}
 
 	var nodes []models.NetworkNodeData
-	if err := config.GetDB().Model(&models.NetworkNodeData{}).Where("address IN (?)", nodeAddresses).Find(&nodes).Error; err != nil {
+	if err := config.GetDB().WithContext(ctx).Model(&models.NetworkNodeData{}).Where("address IN (?)", nodeAddresses).Find(&nodes).Error; err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 
@@ -146,7 +149,18 @@ type GetAllNodeIncentiveParams struct {
 	PageSize int      `query:"size" default:"30"`
 }
 
-func GetAllNodeIncentive(_ *gin.Context, input *GetAllNodeIncentiveParams) (*GetNodeIncentiveOutput, error) {
+type GetAllNodeIncentiveData struct {
+	Nodes []NodeIncentive `json:"nodes"`
+	Total int64           `json:"total"`
+}
+
+type GetAllNodeIncentiveOutput struct {
+	Data *GetAllNodeIncentiveData `json:"data"`
+}
+
+func GetAllNodeIncentive(c *gin.Context, input *GetAllNodeIncentiveParams) (*GetAllNodeIncentiveOutput, error) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
+	defer cancel()
 	limit := input.PageSize
 	offset := (input.Page - 1) * limit
 	var start, end time.Time
@@ -166,7 +180,15 @@ func GetAllNodeIncentive(_ *gin.Context, input *GetAllNodeIncentiveParams) (*Get
 		end = time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 	}
 
-	rows, err := config.GetDB().Model(&models.NodeIncentive{}).
+	var total int64
+	if err := config.GetDB().WithContext(ctx).Model(&models.NodeIncentive{}).
+		Where("time >= ?", start).
+		Where("time < ?", end).
+		Count(&total).Error; err != nil {
+		return nil, response.NewExceptionResponse(err)
+	}
+
+	rows, err := config.GetDB().WithContext(ctx).Model(&models.NodeIncentive{}).
 		Select("node_address, SUM(incentive) as incentive, SUM(task_count) as task_count, SUM(sd_task_count) as sd_task_count, SUM(llm_task_count) as llm_task_count, SUM(sd_ft_lora_task_count) as sd_ft_lora_task_count").
 		Where("time >= ?", start).
 		Where("time < ?", end).
@@ -214,7 +236,7 @@ func GetAllNodeIncentive(_ *gin.Context, input *GetAllNodeIncentiveParams) (*Get
 	}
 
 	var nodes []models.NetworkNodeData
-	if err := config.GetDB().Model(&models.NetworkNodeData{}).Where("address IN (?)", nodeAddresses).Find(&nodes).Error; err != nil {
+	if err := config.GetDB().WithContext(ctx).Model(&models.NetworkNodeData{}).Where("address IN (?)", nodeAddresses).Find(&nodes).Error; err != nil {
 		return nil, response.NewExceptionResponse(err)
 	}
 
@@ -239,9 +261,10 @@ func GetAllNodeIncentive(_ *gin.Context, input *GetAllNodeIncentiveParams) (*Get
 		}
 	}
 
-	return &GetNodeIncentiveOutput{
-		Data: &GetNodeIncentiveData{
+	return &GetAllNodeIncentiveOutput{
+		Data: &GetAllNodeIncentiveData{
 			Nodes: nodeIncentives,
+			Total: total,
 		},
 	}, nil
 }
