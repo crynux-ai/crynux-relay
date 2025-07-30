@@ -45,15 +45,16 @@ func GetNodeIncentive(_ *gin.Context, input *GetNodeIncentiveParams) (*GetNodeIn
 	}
 	var start, end time.Time
 	now := time.Now().UTC()
-	if input.Period == UnitDay {
+	switch input.Period {
+	case UnitDay:
 		duration := 24 * time.Hour
-		end = now.Truncate(duration)
+		end = now
 		start = end.Add(-duration)
-	} else if input.Period == UnitWeek {
+	case UnitWeek:
 		duration := 7 * 24 * time.Hour
-		end = now.Truncate(duration)
+		end = now
 		start = end.Add(-duration)
-	} else {
+	default:
 		year, month, _ := time.Now().UTC().Date()
 		start = time.Date(year, month-1, 1, 0, 0, 0, 0, time.UTC)
 		end = time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
@@ -112,7 +113,113 @@ func GetNodeIncentive(_ *gin.Context, input *GetNodeIncentiveParams) (*GetNodeIn
 	}
 
 	for _, node := range nodes {
-		
+
+		if nodeIncentive, ok := nodeIncentiveMap[node.Address]; ok {
+			stakingProb, qosProb, prob := service.CalculateSelectingProb(&node.Staking.Int, service.GetMaxStaking(), node.QoS, service.GetMaxQosScore())
+			nodeIncentive.CardModel = node.CardModel
+			nodeIncentive.QOSScore = qosProb
+			nodeIncentive.Staking = node.Staking.String()
+			nodeIncentive.StakingScore = stakingProb
+			nodeIncentive.ProbWeight = prob
+
+			nodeIncentiveMap[node.Address] = nodeIncentive
+		}
+	}
+
+	var nodeIncentives []NodeIncentive
+	for _, address := range nodeAddresses {
+		if nodeIncentive, ok := nodeIncentiveMap[address]; ok {
+			nodeIncentives = append(nodeIncentives, nodeIncentive)
+		}
+	}
+
+	return &GetNodeIncentiveOutput{
+		Data: &GetNodeIncentiveData{
+			Nodes: nodeIncentives,
+		},
+	}, nil
+}
+
+type GetAllNodeIncentiveParams struct {
+	Period   TimeUnit `query:"period" validate:"required" enum:"Day,Week,Month"`
+	Page     int      `query:"page" default:"1"`
+	PageSize int      `query:"size" default:"30"`
+}
+
+func GetAllNodeIncentive(_ *gin.Context, input *GetAllNodeIncentiveParams) (*GetNodeIncentiveOutput, error) {
+	limit := input.PageSize
+	offset := (input.Page - 1) * limit
+	var start, end time.Time
+	now := time.Now().UTC()
+	switch input.Period {
+	case UnitDay:
+		duration := 24 * time.Hour
+		end = now.Truncate(duration)
+		start = end.Add(-duration)
+	case UnitWeek:
+		duration := 7 * 24 * time.Hour
+		end = now.Truncate(duration)
+		start = end.Add(-duration)
+	default:
+		year, month, _ := time.Now().UTC().Date()
+		start = time.Date(year, month-1, 1, 0, 0, 0, 0, time.UTC)
+		end = time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
+	}
+
+	rows, err := config.GetDB().Model(&models.NodeIncentive{}).
+		Select("node_address, SUM(incentive) as incentive, SUM(task_count) as task_count, SUM(sd_task_count) as sd_task_count, SUM(llm_task_count) as llm_task_count, SUM(sd_ft_lora_task_count) as sd_ft_lora_task_count").
+		Where("time >= ?", start).
+		Where("time < ?", end).
+		Group("node_address").
+		Order("id DESC").
+		Offset(offset).
+		Limit(limit).
+		Rows()
+
+	if err != nil {
+		return nil, response.NewExceptionResponse(err)
+	}
+
+	defer rows.Close()
+
+	nodeIncentiveMap := make(map[string]NodeIncentive)
+	var nodeAddresses []string
+	for rows.Next() {
+		var nodeAddress string
+		var incentive float64
+		var task_count int64
+		var sd_task_count sql.NullInt64
+		var llm_task_count sql.NullInt64
+		var sd_ft_lora_task_count sql.NullInt64
+
+		if err := rows.Scan(&nodeAddress, &incentive, &task_count, &sd_task_count, &llm_task_count, &sd_ft_lora_task_count); err != nil {
+			return nil, response.NewExceptionResponse(err)
+		}
+		nodeIncentive := NodeIncentive{
+			NodeAddress: nodeAddress,
+			Incentive:   incentive,
+			TaskCount:   task_count,
+		}
+		if sd_task_count.Valid {
+			nodeIncentive.SDTaskCount = sd_task_count.Int64
+		}
+		if llm_task_count.Valid {
+			nodeIncentive.LLMTaskCount = llm_task_count.Int64
+		}
+		if sd_ft_lora_task_count.Valid {
+			nodeIncentive.SDFTLoraTaskCount = sd_ft_lora_task_count.Int64
+		}
+		nodeAddresses = append(nodeAddresses, nodeAddress)
+		nodeIncentiveMap[nodeAddress] = nodeIncentive
+	}
+
+	var nodes []models.NetworkNodeData
+	if err := config.GetDB().Model(&models.NetworkNodeData{}).Where("address IN (?)", nodeAddresses).Find(&nodes).Error; err != nil {
+		return nil, response.NewExceptionResponse(err)
+	}
+
+	for _, node := range nodes {
+
 		if nodeIncentive, ok := nodeIncentiveMap[node.Address]; ok {
 			stakingProb, qosProb, prob := service.CalculateSelectingProb(&node.Staking.Int, service.GetMaxStaking(), node.QoS, service.GetMaxQosScore())
 			nodeIncentive.CardModel = node.CardModel

@@ -21,6 +21,11 @@ func InitRoutes(r *fizz.Fizz) {
 		fizz.Summary("Get nodes with top K incentive"),
 		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
 	}, tonic.Handler(incentive.GetNodeIncentive, 200))
+	incentiveGroup.GET("/nodes/all", []fizz.OperationOption{
+		fizz.ID("incentive_nodes_all_v2"),
+		fizz.Summary("Get all nodes with incentive"),
+		fizz.Response("400", "validation errors", response.ValidationErrorResponse{}, nil, nil),
+	}, tonic.Handler(incentive.GetAllNodeIncentive, 200))
 
 	networkGroup := v2g.Group("network", "network", "Network stats related APIs")
 
