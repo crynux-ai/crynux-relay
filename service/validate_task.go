@@ -79,7 +79,8 @@ func validateVRFProof(samplingSeed, vrfProof, publicKey string, creator string, 
 	return nil
 }
 
-func ValidateSingleTask(ctx context.Context, task *models.InferenceTask, taskID, vrfProof, publicKey string) error {
+func ValidateSingleTask(ctx context.Context, originTask *models.InferenceTask, taskID, vrfProof, publicKey string) error {
+	task := *originTask
 	if !(task.Status == models.TaskScoreReady || task.Status == models.TaskErrorReported) {
 		return errors.New("illegal task state")
 	}
@@ -95,13 +96,19 @@ func ValidateSingleTask(ctx context.Context, task *models.InferenceTask, taskID,
 		return err
 	}
 
+	var err error
 	if task.Status == models.TaskScoreReady {
-		return SetTaskStatusValidated(ctx, config.GetDB(), task)
+		err = SetTaskStatusValidated(ctx, config.GetDB(), &task)
 	} else {
 		task.AbortReason = models.TaskAbortIncorrectResult
 		task.ValidatedTime = sql.NullTime{Time: time.Now(), Valid: true}
-		return SetTaskStatusEndAborted(ctx, config.GetDB(), task, task.Creator)
+		err = SetTaskStatusEndAborted(ctx, config.GetDB(), &task, task.Creator)
 	}
+	if err != nil {
+		return err
+	}
+	*originTask = task
+	return nil
 }
 
 func checkHammingDistance(h1, h2 []byte, threshold uint64) bool {
@@ -141,7 +148,13 @@ func compareTaskScore(task1, task2 *models.InferenceTask, threshold uint64) bool
 	}
 }
 
-func ValidateTaskGroup(ctx context.Context, tasks []*models.InferenceTask, taskID, vrfProof, publicKey string) error {
+func ValidateTaskGroup(ctx context.Context, originTasks []*models.InferenceTask, taskID, vrfProof, publicKey string) error {
+	tasks := make([]*models.InferenceTask, len(originTasks))
+	for i, task := range originTasks {
+		newTask := *task
+		tasks[i] = &newTask
+	}
+
 	if len(tasks) != 3 {
 		return errors.New("task group size is not 3")
 	}
@@ -252,7 +265,7 @@ func ValidateTaskGroup(ctx context.Context, tasks []*models.InferenceTask, taskI
 		}
 	}
 
-	return config.GetDB().Transaction(func(tx *gorm.DB) error {
+	if err := config.GetDB().Transaction(func(tx *gorm.DB) error {
 		for _, task := range tasks {
 			nextStatus := nextStatusMap[task.TaskIDCommitment]
 
@@ -286,5 +299,11 @@ func ValidateTaskGroup(ctx context.Context, tasks []*models.InferenceTask, taskI
 			}
 		}
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	for i, task := range tasks {
+		*originTasks[i] = *task
+	}
+	return nil
 }

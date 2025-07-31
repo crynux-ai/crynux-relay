@@ -35,7 +35,10 @@ func CreateTask(ctx context.Context, db *gorm.DB, task *models.InferenceTask) er
 	})
 }
 
-func SetTaskStatusStarted(ctx context.Context, db *gorm.DB, task *models.InferenceTask, node *models.Node) error {
+func SetTaskStatusStarted(ctx context.Context, db *gorm.DB, originTask *models.InferenceTask, originNode *models.Node) error {
+	task := *originTask
+	node := *originNode
+
 	if task.Status != models.TaskQueued {
 		return errWrongTaskStatus
 	}
@@ -57,7 +60,7 @@ func SetTaskStatusStarted(ctx context.Context, db *gorm.DB, task *models.Inferen
 			return err
 		}
 
-		if err := nodeStartTask(ctx, tx, node, task.TaskIDCommitment, task.ModelIDs); err != nil {
+		if err := nodeStartTask(ctx, tx, &node, task.TaskIDCommitment, task.ModelIDs); err != nil {
 			return err
 		}
 		return emitEvent(ctx, tx, &models.TaskStartedEvent{
@@ -68,6 +71,9 @@ func SetTaskStatusStarted(ctx context.Context, db *gorm.DB, task *models.Inferen
 	if err != nil {
 		return err
 	}
+
+	*originTask = task
+	*originNode = node
 
 	// start download tasks
 	localModelSet := make(map[string]models.NodeModel)
@@ -91,7 +97,7 @@ func SetTaskStatusStarted(ctx context.Context, db *gorm.DB, task *models.Inferen
 			return err
 		}
 		if count < 3 {
-			downloadNodes, err := selectNodesForDownloadTask(ctx, task, modelID, 10-int(count))
+			downloadNodes, err := selectNodesForDownloadTask(ctx, &task, modelID, 10-int(count))
 			if err != nil {
 				return err
 			}
@@ -122,16 +128,17 @@ func checkTaskSelectedNode(ctx context.Context, db *gorm.DB, task *models.Infere
 	return node, nil
 }
 
-func SetTaskStatusScoreReady(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
+func SetTaskStatusScoreReady(ctx context.Context, db *gorm.DB, originTask *models.InferenceTask) error {
+	task := *originTask
 	if task.Status != models.TaskStarted {
 		return errWrongTaskStatus
 	}
-	_, err := checkTaskSelectedNode(ctx, db, task)
+	_, err := checkTaskSelectedNode(ctx, db, &task)
 	if err != nil {
 		return err
 	}
 
-	return db.Transaction(func(tx *gorm.DB) error {
+	if err := db.Transaction(func(tx *gorm.DB) error {
 		err = task.Update(ctx, tx, map[string]interface{}{
 			"status":           models.TaskScoreReady,
 			"score":            task.Score,
@@ -145,18 +152,23 @@ func SetTaskStatusScoreReady(ctx context.Context, db *gorm.DB, task *models.Infe
 			SelectedNode:     task.SelectedNode,
 			Score:            task.Score,
 		})
-	})
+	}); err != nil {
+		return err
+	}
+	*originTask = task
+	return nil
 }
 
-func SetTaskStatusErrorReported(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
+func SetTaskStatusErrorReported(ctx context.Context, db *gorm.DB, originTask *models.InferenceTask) error {
+	task := *originTask
 	if task.Status != models.TaskStarted {
 		return errWrongTaskStatus
 	}
-	_, err := checkTaskSelectedNode(ctx, db, task)
+	_, err := checkTaskSelectedNode(ctx, db, &task)
 	if err != nil {
 		return err
 	}
-	return db.Transaction(func(tx *gorm.DB) error {
+	if err := db.Transaction(func(tx *gorm.DB) error {
 		err = task.Update(ctx, tx, map[string]interface{}{
 			"status":           models.TaskErrorReported,
 			"task_error":       task.TaskError,
@@ -170,19 +182,24 @@ func SetTaskStatusErrorReported(ctx context.Context, db *gorm.DB, task *models.I
 			SelectedNode:     task.SelectedNode,
 			TaskError:        task.TaskError,
 		})
-	})
+	}); err != nil {
+		return err
+	}
+	*originTask = task
+	return nil
 }
 
-func SetTaskStatusValidated(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
+func SetTaskStatusValidated(ctx context.Context, db *gorm.DB, originTask *models.InferenceTask) error {
+	task := *originTask
 	if task.Status != models.TaskScoreReady {
 		return errWrongTaskStatus
 	}
-	_, err := checkTaskSelectedNode(ctx, db, task)
+	_, err := checkTaskSelectedNode(ctx, db, &task)
 	if err != nil {
 		return err
 	}
 
-	return db.Transaction(func(tx *gorm.DB) error {
+	if err := db.Transaction(func(tx *gorm.DB) error {
 		err = task.Update(ctx, tx, map[string]interface{}{
 			"status":         models.TaskValidated,
 			"validated_time": sql.NullTime{Time: time.Now(), Valid: true},
@@ -191,19 +208,24 @@ func SetTaskStatusValidated(ctx context.Context, db *gorm.DB, task *models.Infer
 			return err
 		}
 		return emitEvent(ctx, tx, &models.TaskValidatedEvent{TaskIDCommitment: task.TaskIDCommitment, SelectedNode: task.SelectedNode})
-	})
+	}); err != nil {
+		return err
+	}
+	*originTask = task
+	return nil
 }
 
-func SetTaskStatusGroupValidated(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
+func SetTaskStatusGroupValidated(ctx context.Context, db *gorm.DB, originTask *models.InferenceTask) error {
+	task := *originTask
 	if task.Status != models.TaskScoreReady {
 		return errWrongTaskStatus
 	}
-	node, err := checkTaskSelectedNode(ctx, db, task)
+	node, err := checkTaskSelectedNode(ctx, db, &task)
 	if err != nil {
 		return err
 	}
 
-	return db.Transaction(func(tx *gorm.DB) error {
+	if err := db.Transaction(func(tx *gorm.DB) error {
 		if err = task.Update(ctx, tx, map[string]interface{}{
 			"status":         models.TaskGroupValidated,
 			"validated_time": sql.NullTime{Time: time.Now(), Valid: true},
@@ -218,20 +240,25 @@ func SetTaskStatusGroupValidated(ctx context.Context, db *gorm.DB, task *models.
 		}
 
 		return emitEvent(ctx, tx, &models.TaskValidatedEvent{TaskIDCommitment: task.TaskIDCommitment, SelectedNode: task.SelectedNode})
-	})
+	}); err != nil {
+		return err
+	}
+	*originTask = task
+	return nil
 }
 
-func SetTaskStatusEndInvalidated(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
+func SetTaskStatusEndInvalidated(ctx context.Context, db *gorm.DB, originTask *models.InferenceTask) error {
+	task := *originTask
 	if task.Status != models.TaskScoreReady && task.Status != models.TaskEndAborted && task.Status != models.TaskErrorReported {
 		return errWrongTaskStatus
 	}
 
-	node, err := checkTaskSelectedNode(ctx, db, task)
+	node, err := checkTaskSelectedNode(ctx, db, &task)
 	if err != nil {
 		return err
 	}
 
-	return db.Transaction(func(tx *gorm.DB) error {
+	if err := db.Transaction(func(tx *gorm.DB) error {
 		err = task.Update(ctx, tx, map[string]interface{}{
 			"status":         models.TaskEndInvalidated,
 			"validated_time": sql.NullTime{Time: time.Now(), Valid: true},
@@ -242,21 +269,26 @@ func SetTaskStatusEndInvalidated(ctx context.Context, db *gorm.DB, task *models.
 		}
 		nodeSlash(ctx, tx, node)
 		return emitEvent(ctx, tx, &models.TaskEndInvalidatedEvent{TaskIDCommitment: task.TaskIDCommitment, SelectedNode: task.SelectedNode})
-	})
+	}); err != nil {
+		return err
+	}
+	*originTask = task
+	return nil
 }
 
-func SetTaskStatusEndGroupRefund(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
+func SetTaskStatusEndGroupRefund(ctx context.Context, db *gorm.DB, originTask *models.InferenceTask) error {
+	task := *originTask
 	if task.Status != models.TaskScoreReady {
 		return errWrongTaskStatus
 	}
 
-	node, err := checkTaskSelectedNode(ctx, db, task)
+	node, err := checkTaskSelectedNode(ctx, db, &task)
 	if err != nil {
 		return err
 	}
 
 	appConfig := config.GetConfig()
-	return db.Transaction(func(tx *gorm.DB) error {
+	if err := db.Transaction(func(tx *gorm.DB) error {
 		commitFunc, err := Transfer(ctx, tx, appConfig.Blockchain.Account.Address, task.Creator, &task.TaskFee.Int)
 		if err != nil {
 			return err
@@ -284,10 +316,15 @@ func SetTaskStatusEndGroupRefund(ctx context.Context, db *gorm.DB, task *models.
 		}
 		commitFunc()
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	*originTask = task
+	return nil
 }
 
-func SetTaskStatusEndAborted(ctx context.Context, db *gorm.DB, task *models.InferenceTask, aboutIssuer string) error {
+func SetTaskStatusEndAborted(ctx context.Context, db *gorm.DB, originTask *models.InferenceTask, aboutIssuer string) error {
+	task := *originTask
 	if task.Status == models.TaskEndAborted {
 		return nil
 	}
@@ -303,7 +340,7 @@ func SetTaskStatusEndAborted(ctx context.Context, db *gorm.DB, task *models.Infe
 		"qos_score":      task.QOSScore,
 	}
 	appConfig := config.GetConfig()
-	return db.Transaction(func(tx *gorm.DB) error {
+	if err := db.Transaction(func(tx *gorm.DB) error {
 		commitFunc, err := Transfer(ctx, tx, appConfig.Blockchain.Account.Address, task.Creator, &task.TaskFee.Int)
 		if err != nil {
 			return err
@@ -314,7 +351,7 @@ func SetTaskStatusEndAborted(ctx context.Context, db *gorm.DB, task *models.Infe
 		}
 
 		if len(task.SelectedNode) > 0 {
-			node, err := checkTaskSelectedNode(ctx, db, task)
+			node, err := checkTaskSelectedNode(ctx, db, &task)
 			if errors.Is(err, errWrongNodeCurrentTask) {
 				log.Errorf("TaskEndAborted: node current task is wrong, task: %s, node: %s", task.TaskIDCommitment, task.SelectedNode)
 			} else if err != nil {
@@ -342,11 +379,16 @@ func SetTaskStatusEndAborted(ctx context.Context, db *gorm.DB, task *models.Infe
 		}
 		commitFunc()
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	*originTask = task
+	return nil
 }
 
-func SetTaskStatusEndSuccess(ctx context.Context, db *gorm.DB, task *models.InferenceTask) error {
-	node, err := checkTaskSelectedNode(ctx, db, task)
+func SetTaskStatusEndSuccess(ctx context.Context, db *gorm.DB, originTask *models.InferenceTask) error {
+	task := *originTask
+	node, err := checkTaskSelectedNode(ctx, db, &task)
 	if err != nil {
 		return err
 	}
@@ -385,7 +427,7 @@ func SetTaskStatusEndSuccess(ctx context.Context, db *gorm.DB, task *models.Infe
 	}
 
 	appConfig := config.GetConfig()
-	return db.Transaction(func(tx *gorm.DB) error {
+	if err := db.Transaction(func(tx *gorm.DB) error {
 		var commitFuncs []func()
 		for address, payment := range payments {
 			commitFunc, err := Transfer(ctx, tx, appConfig.Blockchain.Account.Address, address, payment)
@@ -426,5 +468,9 @@ func SetTaskStatusEndSuccess(ctx context.Context, db *gorm.DB, task *models.Infe
 			commitFunc()
 		}
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
+	*originTask = task
+	return nil
 }
