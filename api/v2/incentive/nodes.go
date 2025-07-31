@@ -3,6 +3,7 @@ package incentive
 import (
 	"context"
 	"crynux_relay/api/v2/response"
+	"crynux_relay/api/v2/validate"
 	"crynux_relay/config"
 	"crynux_relay/models"
 	"crynux_relay/service"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 )
 
 type GetNodeIncentiveParams struct {
@@ -149,6 +151,12 @@ type GetAllNodeIncentiveParams struct {
 	PageSize int      `query:"page_size" default:"30"`
 }
 
+type GetAllNodeIncentiveParamsWithSignature struct {
+	GetAllNodeIncentiveParams
+	Timestamp int64  `query:"timestamp" description:"Signature timestamp" validate:"required"`
+	Signature string `query:"signature" description:"Signature" validate:"required"`
+}
+
 type GetAllNodeIncentiveData struct {
 	Nodes []NodeIncentive `json:"nodes"`
 	Total int64           `json:"total"`
@@ -158,9 +166,27 @@ type GetAllNodeIncentiveOutput struct {
 	Data *GetAllNodeIncentiveData `json:"data"`
 }
 
-func GetAllNodeIncentive(c *gin.Context, input *GetAllNodeIncentiveParams) (*GetAllNodeIncentiveOutput, error) {
+func GetAllNodeIncentive(c *gin.Context, input *GetAllNodeIncentiveParamsWithSignature) (*GetAllNodeIncentiveOutput, error) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
 	defer cancel()
+
+	match, address, err := validate.ValidateSignature(input.GetAllNodeIncentiveParams, input.Timestamp, input.Signature)
+	if err != nil || !match {
+
+		if err != nil {
+			log.Debugln("error in sig validate: " + err.Error())
+		}
+
+		validationErr := response.NewValidationErrorResponse("signature", "Invalid signature")
+		return nil, validationErr
+	}
+
+	appConfig := config.GetConfig()
+	if address != appConfig.Blockchain.Account.Address {
+		validationErr := response.NewValidationErrorResponse("address", "Signer not allowed")
+		return nil, validationErr
+	}
+
 	limit := input.PageSize
 	offset := (input.Page - 1) * limit
 	var start, end time.Time
