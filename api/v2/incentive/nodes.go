@@ -146,15 +146,15 @@ func GetNodeIncentive(c *gin.Context, input *GetNodeIncentiveParams) (*GetNodeIn
 }
 
 type GetAllNodeIncentiveParams struct {
-	Period   TimeUnit `query:"period" validate:"required" enum:"Day,Week,Month"`
-	Page     int      `query:"page" default:"1"`
-	PageSize int      `query:"page_size" default:"30"`
+	Period   TimeUnit `query:"period" json:"period" validate:"required" enum:"Day,Week,Month"`
+	Page     int      `query:"page" json:"page" default:"1"`
+	PageSize int      `query:"page_size" json:"page_size" default:"30"`
 }
 
 type GetAllNodeIncentiveParamsWithSignature struct {
 	GetAllNodeIncentiveParams
-	Timestamp int64  `query:"timestamp" description:"Signature timestamp" validate:"required"`
-	Signature string `query:"signature" description:"Signature" validate:"required"`
+	Timestamp int64  `query:"timestamp" json:"timestamp" description:"Signature timestamp" validate:"required"`
+	Signature string `query:"signature" json:"signature" description:"Signature" validate:"required"`
 }
 
 type GetAllNodeIncentiveData struct {
