@@ -143,9 +143,11 @@ func processPendingTransferEvents(ctx context.Context, db *gorm.DB, events []mod
 			return err
 		}
 
+		existedAddresses := make([]string, len(existedBalances))
 		existedBalancesMap := make(map[string]*models.Balance)
-		for _, balance := range existedBalances {
-			existedBalancesMap[balance.Address] = &balance
+		for i, balance := range existedBalances {
+			existedBalancesMap[balance.Address] = &existedBalances[i]
+			existedAddresses[i] = balance.Address
 		}
 
 		var newBalances []models.Balance
@@ -168,7 +170,7 @@ func processPendingTransferEvents(ctx context.Context, db *gorm.DB, events []mod
 			for _, balance := range existedBalancesMap {
 				cases += fmt.Sprintf(" WHEN address = '%s' THEN '%s'", balance.Address, balance.Balance.String())
 			}
-			if err := tx.Model(&models.Balance{}).Where("address IN (?)", addresses).
+			if err := tx.Model(&models.Balance{}).Where("address IN (?)", existedAddresses).
 				Update("balance", gorm.Expr("CASE"+cases+" END")).Error; err != nil {
 				return err
 			}
