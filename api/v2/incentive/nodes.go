@@ -24,6 +24,7 @@ type NodeIncentive struct {
 	Incentive         float64 `json:"incentive"`
 	TaskCount         int64   `json:"task_count"`
 	CardModel         string  `json:"card_model"`
+	VRam              int     `json:"vram"`
 	Staking           string  `json:"staking"`
 	QOSScore          float64 `json:"qos_score"`
 	StakingScore      float64 `json:"staking_score"`
@@ -122,11 +123,11 @@ func GetNodeIncentive(c *gin.Context, input *GetNodeIncentiveParams) (*GetNodeIn
 		if nodeIncentive, ok := nodeIncentiveMap[node.Address]; ok {
 			stakingProb, qosProb, prob := service.CalculateSelectingProb(&node.Staking.Int, service.GetMaxStaking(), node.QoS, service.GetMaxQosScore())
 			nodeIncentive.CardModel = node.CardModel
+			nodeIncentive.VRam = node.VRam
 			nodeIncentive.QOSScore = qosProb
 			nodeIncentive.Staking = node.Staking.String()
 			nodeIncentive.StakingScore = stakingProb
 			nodeIncentive.ProbWeight = prob
-
 			nodeIncentiveMap[node.Address] = nodeIncentive
 		}
 	}
@@ -271,6 +272,7 @@ func GetAllNodeIncentive(c *gin.Context, input *GetAllNodeIncentiveParamsWithSig
 		if nodeIncentive, ok := nodeIncentiveMap[node.Address]; ok {
 			stakingProb, qosProb, prob := service.CalculateSelectingProb(&node.Staking.Int, service.GetMaxStaking(), node.QoS, service.GetMaxQosScore())
 			nodeIncentive.CardModel = node.CardModel
+			nodeIncentive.VRam = node.VRam
 			nodeIncentive.QOSScore = qosProb
 			nodeIncentive.Staking = node.Staking.String()
 			nodeIncentive.StakingScore = stakingProb
